@@ -55,6 +55,335 @@ function makePreview(seed, background, accent = "#26752C") {
   return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
 }
 
+const createPublicTemplateSchema = (template) => {
+  const canvas = template.canvas || {
+    width: template.width || 1080,
+    height: template.height || 1350,
+    backgroundImage: template.backgroundImage || template.previewImage || "",
+  };
+
+  const elements = template.elements || [
+    {
+      id: "resultNumber",
+      type: "text",
+      field: "resultNumber",
+      prefix: "Result No: ",
+      x: 110,
+      y: 130,
+      width: 260,
+      height: 42,
+      fontFamily: "Arial",
+      fontSize: 28,
+      fontWeight: "500",
+      color: "#111111",
+      textAlign: "left",
+      lineHeight: 1.2,
+      opacity: 1,
+      zIndex: 2,
+    },
+    {
+      id: "category",
+      type: "text",
+      field: "category",
+      x: 110,
+      y: 190,
+      width: 430,
+      height: 54,
+      fontFamily: "Arial",
+      fontSize: 36,
+      fontWeight: "700",
+      color: "#111111",
+      textAlign: "left",
+      lineHeight: 1.2,
+      opacity: 1,
+      zIndex: 2,
+    },
+    {
+      id: "programName",
+      type: "text",
+      field: "programName",
+      x: 110,
+      y: 250,
+      width: 620,
+      height: 74,
+      fontFamily: "Arial",
+      fontSize: 48,
+      fontWeight: "800",
+      color: "#111111",
+      textAlign: "left",
+      lineHeight: 1.15,
+      opacity: 1,
+      zIndex: 2,
+    },
+    {
+      id: "winnerContainer",
+      type: "winnerContainer",
+      x: 110,
+      y: 520,
+      width: 640,
+      height: 280,
+      direction: "vertical",
+      spacing: 82,
+      zIndex: 2,
+    },
+    {
+      id: "winnerPosition",
+      type: "winnerText",
+      field: "winner.position",
+      x: 0,
+      y: 0,
+      width: 70,
+      height: 38,
+      fontFamily: "Arial",
+      fontSize: 30,
+      fontWeight: "700",
+      color: "#111111",
+      textAlign: "left",
+      lineHeight: 1.2,
+      opacity: 1,
+      zIndex: 3,
+    },
+    {
+      id: "winnerName",
+      type: "winnerText",
+      field: "winner.name",
+      x: 78,
+      y: 0,
+      width: 360,
+      height: 38,
+      fontFamily: "Arial",
+      fontSize: 30,
+      fontWeight: "700",
+      color: "#111111",
+      textAlign: "left",
+      lineHeight: 1.2,
+      opacity: 1,
+      zIndex: 3,
+    },
+    {
+      id: "winnerTeam",
+      type: "winnerText",
+      field: "winner.team",
+      x: 78,
+      y: 38,
+      width: 240,
+      height: 30,
+      fontFamily: "Arial",
+      fontSize: 22,
+      fontWeight: "500",
+      color: "#333333",
+      textAlign: "left",
+      lineHeight: 1.2,
+      opacity: 1,
+      zIndex: 3,
+    },
+  ];
+
+  return {
+    canvas,
+    elements,
+    previewData: template.previewData || { canvas, elements },
+    previewImage:
+      template.previewImage ||
+      schemaToPreviewImage({ ...template, canvas, elements, previewData: template.previewData || defaultTemplatePreviewData }) ||
+      template.backgroundImage ||
+      "",
+  };
+};
+
+const defaultTemplatePreviewData = {
+  programName: "Elocution English Kids",
+  category: "General",
+  resultNumber: "22",
+  winners: [
+    { position: "1", name: "Muhammed Saeed", team: "Alpha" },
+    { position: "2", name: "Jabbar Ibraheem", team: "Beta" },
+    { position: "3", name: "Ali bin Muhammed", team: "Gamma" },
+  ],
+};
+
+const escapeSvgText = (value) =>
+  String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+
+const templatePreviewValue = (element, previewData, winner = null) => {
+  const key = String(
+    element?.field || element?.dataKey || element?.key || element?.name || element?.id || element?.label || element?.content || ""
+  ).toLowerCase();
+
+  if (winner) {
+    if (key.includes("position")) return winner.position || "";
+    if (key.includes("team")) return winner.team || "";
+    if (key.includes("name")) return winner.name || "";
+    return element?.content || element?.label || "";
+  }
+
+  if (key.includes("programname") || key.includes("program name") || key === "program") {
+    return previewData.programName || "";
+  }
+  if (key.includes("category")) return previewData.category || "";
+  if (key.includes("resultnumber") || key.includes("result number") || key.includes("result")) {
+    return `${element?.prefix || ""}${previewData.resultNumber || ""}`;
+  }
+  return element?.content || element?.label || "";
+};
+
+const elementSvgStyle = (element, offset = { x: 0, y: 0 }) => ({
+  x: Number(element.x || 0) + offset.x,
+  y: Number(element.y || 0) + offset.y,
+  width: Number(element.width || 0),
+  height: Number(element.height || 0),
+  fontFamily: element.fontFamily || "Arial",
+  fontSize: Number(element.fontSize || 24),
+  fontWeight: element.fontWeight || "400",
+  color: element.color || "#111111",
+  opacity: element.opacity ?? 1,
+  textAlign: element.textAlign || "left",
+  radius: Number(element.borderRadius || 0),
+});
+
+const schemaToPreviewImage = (template) => {
+  if (!template?.canvas || !Array.isArray(template?.elements)) return template?.previewImage || "";
+
+  const canvas = template.canvas;
+  const width = Number(canvas.width || 1080);
+  const height = Number(canvas.height || 1350);
+  const previewData = { ...defaultTemplatePreviewData, ...(template.previewData || {}) };
+  const backgroundImage = canvas.backgroundImage;
+  const backgroundColor = canvas.backgroundColor || template.backgroundColor || "#ffffff";
+  const winnerContainer =
+    template.elements.find((element) => element.id === "winnerContainer") ||
+    template.elements.find((element) => element.type === "winnerContainer");
+  const winnerChildren = template.elements.filter(
+    (element) => element.type === "winnerText" || element.type === "winnerPhoto"
+  );
+  const baseElements = template.elements.filter(
+    (element) => !["winnerContainer", "winnerText", "winnerPhoto"].includes(element.type)
+  );
+
+  const renderText = (element, winner = null, offset = { x: 0, y: 0 }) => {
+    const style = elementSvgStyle(element, offset);
+    const anchor = style.textAlign === "center" ? "middle" : style.textAlign === "right" ? "end" : "start";
+    const x = anchor === "middle" ? style.x + style.width / 2 : anchor === "end" ? style.x + style.width : style.x;
+    const y = style.y + style.fontSize;
+    return `<text x="${x}" y="${y}" font-family="${escapeSvgText(style.fontFamily)}" font-size="${style.fontSize}" font-weight="${escapeSvgText(style.fontWeight)}" fill="${escapeSvgText(style.color)}" opacity="${style.opacity}" text-anchor="${anchor}">${escapeSvgText(templatePreviewValue(element, previewData, winner))}</text>`;
+  };
+
+  const renderImage = (element, winner = null, offset = { x: 0, y: 0 }) => {
+    const style = elementSvgStyle(element, offset);
+    const src =
+      element.type === "winnerPhoto"
+        ? winner?.image || winner?.imageUrl || winner?.photo || winner?.photoUrl || element.src || element.imageUrl
+        : element.src || element.url || element.image || element.imageUrl;
+    return src
+      ? `<image href="${escapeSvgText(src)}" x="${style.x}" y="${style.y}" width="${style.width}" height="${style.height}" opacity="${style.opacity}" preserveAspectRatio="${element.objectFit === "contain" ? "xMidYMid meet" : "xMidYMid slice"}" />`
+      : "";
+  };
+
+  const renderElement = (element, winner = null, offset = { x: 0, y: 0 }) => {
+    if (element.type === "image" || element.type === "winnerPhoto") return renderImage(element, winner, offset);
+    if (element.type === "text" || element.type === "winnerText") return renderText(element, winner, offset);
+    return "";
+  };
+
+  const baseMarkup = baseElements.map((element) => renderElement(element)).join("");
+  const winnerMarkup =
+    winnerContainer && winnerChildren.length
+      ? (previewData.winners || [])
+          .flatMap((winner, index) => {
+            const spacing = Number(winnerContainer.spacing || 0);
+            const direction = winnerContainer.direction || "vertical";
+            const offset =
+              direction === "horizontal"
+                ? { x: Number(winnerContainer.x || 0) + index * spacing, y: Number(winnerContainer.y || 0) }
+                : { x: Number(winnerContainer.x || 0), y: Number(winnerContainer.y || 0) + index * spacing };
+            return winnerChildren.map((child) => renderElement(child, winner, offset));
+          })
+          .join("")
+      : "";
+
+  const bgMarkup = backgroundImage
+    ? `<image href="${escapeSvgText(backgroundImage)}" x="0" y="0" width="${width}" height="${height}" preserveAspectRatio="xMidYMid slice" />`
+    : "";
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}"><rect width="100%" height="100%" fill="${escapeSvgText(backgroundColor)}" />${bgMarkup}${baseMarkup}${winnerMarkup}</svg>`;
+  return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
+};
+
+const normalizePublicProgramTemplate = (template) => {
+  if (!template || typeof template !== "object") return template;
+  const isPublicProgram =
+    template.source === "public" || template.type === "program" || template.previewImage;
+  if (!isPublicProgram) return template;
+  if (template.canvas && Array.isArray(template.elements)) {
+    return {
+      ...template,
+      previewImage: schemaToPreviewImage(template) || template.previewImage,
+      previewData: template.previewData || defaultTemplatePreviewData,
+    };
+  }
+
+  const editableSchema = createPublicTemplateSchema(template);
+  return {
+    ...template,
+    type: "program",
+    canvas: editableSchema.canvas,
+    elements: editableSchema.elements,
+    previewData: editableSchema.previewData,
+    previewImage: schemaToPreviewImage({ ...template, ...editableSchema }),
+    source: template.source || "public",
+  };
+};
+
+const normalizeTemplateStorageValue = (value) => {
+  const parsed = JSON.parse(value);
+  if (Array.isArray(parsed)) {
+    return JSON.stringify(parsed.map(normalizePublicProgramTemplate));
+  }
+  if (parsed && typeof parsed === "object") {
+    const next = {};
+    Object.entries(parsed).forEach(([key, item]) => {
+      next[key] = Array.isArray(item)
+        ? item.map(normalizePublicProgramTemplate)
+        : normalizePublicProgramTemplate(item);
+    });
+    return JSON.stringify(next);
+  }
+  return value;
+};
+
+if (typeof window !== "undefined" && !window.__rankifyPublicTemplateSchemaPatch) {
+  window.__rankifyPublicTemplateSchemaPatch = true;
+  const originalSetItem = window.localStorage.setItem.bind(window.localStorage);
+  window.localStorage.setItem = (key, value) => {
+    const shouldNormalize = String(key || "").toLowerCase().includes("template");
+    if (shouldNormalize && typeof value === "string") {
+      try {
+        originalSetItem(key, normalizeTemplateStorageValue(value));
+        return;
+      } catch {
+        originalSetItem(key, value);
+        return;
+      }
+    }
+    originalSetItem(key, value);
+  };
+  for (let index = 0; index < window.localStorage.length; index += 1) {
+    const key = window.localStorage.key(index);
+    if (!String(key || "").toLowerCase().includes("template")) continue;
+    const value = window.localStorage.getItem(key);
+    if (typeof value !== "string") continue;
+    try {
+      const normalized = normalizeTemplateStorageValue(value);
+      if (normalized !== value) originalSetItem(key, normalized);
+    } catch {
+      // Ignore unrelated template-like storage keys.
+    }
+  }
+}
+
 const PUBLIC_TEMPLATES = [
   {
     id: "public_template_1",

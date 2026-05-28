@@ -1,0 +1,1153 @@
+import React, { useEffect, useMemo, useState } from "react";
+import { createRoot } from "react-dom/client";
+
+const STORAGE_KEY = "rankify_program_results";
+const FALLBACK_CATEGORIES = ["General", "Lower primary", "Upper primary", "High school", "Higher secondary", "Junior", "Senior"];
+const FALLBACK_TEAMS = ["Alpha"];
+const uid = () => `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 9)}`;
+const safeParse = (value, fallback = null) => {
+  try {
+    return value ? JSON.parse(value) : fallback;
+  } catch {
+    return fallback;
+  }
+};
+const asArray = (value) => Array.isArray(value) ? value : value && typeof value === "object" ? Object.values(value) : [];
+const readStorageArray = (keys) => {
+  for (const key of keys) {
+    const list = asArray(safeParse(localStorage.getItem(key), null));
+    if (list.length) return list;
+  }
+  return [];
+};
+const isResultWinnerLike = (value) =>
+  value &&
+  typeof value === "object" &&
+  value.name !== undefined &&
+  (value.position !== undefined || value.team !== undefined) &&
+  !value.canvas &&
+  !value.previewImage &&
+  !value.elements;
+const isValidProgramTemplate = (value) => {
+  if (!value || typeof value !== "object") return false;
+  if (isResultWinnerLike(value)) return false;
+  return Boolean(
+    value.type === "program" ||
+      (value.canvas && Array.isArray(value.elements)) ||
+      (value.previewImage && value.source === "public")
+  );
+};
+const flattenTemplateStorage = (value) => {
+  if (!value) return [];
+  if (Array.isArray(value)) return value.filter(isValidProgramTemplate);
+  if (typeof value !== "object") return [];
+  if (isValidProgramTemplate(value)) return [value];
+  return Object.values(value)
+    .filter(Array.isArray)
+    .flatMap((items) => items.filter(isValidProgramTemplate));
+};
+const readSavedProgramTemplates = (eventId) => {
+  const collected = flattenTemplateStorage(
+    safeParse(localStorage.getItem("rankify_program_templates"), [])
+  );
+
+  const seen = new Set();
+  const normalized = collected
+    .map((item, index) => {
+      const id = String(item.id ?? item.templateId ?? `${item.name || "template"}-${index}`);
+      const preview = textOf(item, [
+        "preview",
+        "previewImage",
+        "previewUrl",
+        "thumbnail",
+        "thumbnailUrl",
+        "image",
+        "imageUrl",
+        "dataUrl",
+        "canvasDataUrl",
+      ]);
+      return {
+        ...item,
+        id,
+        name: textOf(item, ["name", "templateName", "title"], `Template ${index + 1}`),
+        preview,
+      };
+    })
+    .filter((item) => {
+      if (seen.has(item.id)) return false;
+      seen.add(item.id);
+      return true;
+    });
+
+  const activeOrLegacy = normalized.filter(
+    (item) => !item?.eventId || String(item.eventId) === String(eventId)
+  );
+  return activeOrLegacy.length ? activeOrLegacy : normalized;
+};
+const textOf = (item, keys, fallback = "") => {
+  for (const key of keys) if (item?.[key]) return String(item[key]);
+  return fallback;
+};
+const defaultWinners = () => [1, 2, 3].map((position) => ({
+  id: uid(),
+  position: String(position),
+  name: `Winner ${position}`,
+  team: "Alpha",
+  grade: "",
+  isGroupProgram: false,
+  imageName: "",
+}));
+const emptyForm = () => ({
+  programName: "New Program",
+  category: "General",
+  resultNumber: "1",
+  winners: defaultWinners(),
+});
+const getTemplateAccent = (template) =>
+  template?.accentColor ||
+  template?.primaryColor ||
+  template?.color ||
+  template?.backgroundColor ||
+  template?.bgColor ||
+  "#f7f7f7";
+const getTemplateElements = (template) => {
+  const candidates = [
+    template?.elements,
+    template?.objects,
+    template?.layers,
+    template?.items,
+    template?.components,
+    template?.fields,
+    template?.textElements,
+    template?.imageElements,
+    template?.shapeElements,
+    template?.canvasObjects,
+    template?.fabricObjects,
+    template?.konvaObjects,
+    template?.layout?.elements,
+    template?.layout?.objects,
+    template?.layout?.items,
+    template?.layout?.components,
+    template?.canvas?.elements,
+    template?.canvas?.objects,
+    template?.canvas?.items,
+    template?.design?.elements,
+    template?.design?.objects,
+    template?.design?.items,
+    template?.template?.elements,
+    template?.template?.objects,
+    template?.template?.items,
+  ];
+  const direct = candidates.filter(Array.isArray).flat();
+  if (direct.length) return direct;
+
+  const found = [];
+  const visit = (value, depth = 0) => {
+    if (!value || typeof value !== "object" || depth > 5) return;
+    if (Array.isArray(value)) {
+      const elementLike = value.filter(
+        (item) =>
+          item &&
+          typeof item === "object" &&
+          (item.type ||
+            item.kind ||
+            item.x !== undefined ||
+            item.y !== undefined ||
+            item.left !== undefined ||
+            item.top !== undefined ||
+            item.text !== undefined ||
+            item.content !== undefined ||
+            item.src ||
+            item.imageUrl)
+      );
+      if (elementLike.length) found.push(...elementLike);
+      value.forEach((item) => visit(item, depth + 1));
+      return;
+    }
+    Object.values(value).forEach((item) => visit(item, depth + 1));
+  };
+  visit(template);
+  return found;
+};
+const getCanvasSize = (template) => ({
+  width: Number(template?.width || template?.canvasWidth || template?.stageWidth || template?.size?.width || template?.canvas?.width || template?.layout?.width || template?.design?.width || template?.template?.width || 1080),
+  height: Number(template?.height || template?.canvasHeight || template?.stageHeight || template?.size?.height || template?.canvas?.height || template?.layout?.height || template?.design?.height || template?.template?.height || 1350),
+});
+const getTemplateBackground = (template) => {
+  const image =
+    template?.backgroundImage ||
+    template?.backgroundUrl ||
+    template?.background ||
+    template?.bgImage ||
+    template?.bgUrl ||
+    template?.canvas?.backgroundImage ||
+    template?.canvas?.background ||
+    template?.layout?.backgroundImage ||
+    template?.layout?.background ||
+    template?.design?.backgroundImage ||
+    template?.previewImage ||
+    template?.previewUrl ||
+    template?.preview ||
+    template?.thumbnail ||
+    template?.thumbnailUrl ||
+    template?.imageUrl;
+  const color =
+    template?.backgroundColor ||
+    template?.bgColor ||
+    template?.canvas?.backgroundColor ||
+    template?.layout?.backgroundColor ||
+    template?.design?.backgroundColor ||
+    getTemplateAccent(template);
+  return { image, color };
+};
+const replaceResultTokens = (markup, result) => {
+  let output = String(markup || "");
+  const winners = result.winners || [];
+  const replacements = {
+    "{{programName}}": result.programName,
+    "{{program_name}}": result.programName,
+    "{{category}}": result.category,
+    "{{programCategory}}": result.category,
+    "{{resultNumber}}": result.resultNumber,
+    "{{result_number}}": result.resultNumber,
+  };
+  Object.entries(replacements).forEach(([token, value]) => {
+    output = output.split(token).join(value || "");
+  });
+  winners.forEach((winner, index) => {
+    const number = index + 1;
+    output = output.split(`{{winner${number}Position}}`).join(winner.position || "");
+    output = output.split(`{{winner${number}Name}}`).join(winner.name || "");
+    output = output.split(`{{winner${number}Team}}`).join(winner.team || "");
+  });
+  const oldSamplePatterns = [
+    /Elocution English Kids/gi,
+    /Elocation Arabic/gi,
+    /Elocution Arabic/gi,
+    /Story writing/gi,
+    /Result No:\s*\d+/gi,
+    /Result #\s*\d+/gi,
+    /Muhammed Saeed/gi,
+    /Jabbar Ibraheem/gi,
+    /Ali bin Muhammed/gi,
+  ];
+  const oldSampleValues = [
+    result.programName,
+    result.programName,
+    result.programName,
+    result.programName,
+    `Result No: ${result.resultNumber}`,
+    `Result #${result.resultNumber}`,
+    winners[0]?.name || "",
+    winners[1]?.name || "",
+    winners[2]?.name || "",
+  ];
+  oldSamplePatterns.forEach((pattern, index) => {
+    output = output.replace(pattern, oldSampleValues[index] || "");
+  });
+  return output;
+};
+const getRenderedTemplateMarkup = (template) =>
+  pick(
+    template?.renderedHtml,
+    template?.previewHtml,
+    template?.html,
+    template?.markup,
+    template?.svg,
+    template?.renderedSvg,
+    template?.design?.html,
+    template?.design?.markup,
+    template?.design?.svg,
+    template?.preview?.html,
+    template?.preview?.svg,
+    template?.template?.html,
+    template?.template?.markup
+  );
+const normalizeText = (value) => String(value || "").toLowerCase();
+const pick = (...values) => values.find((value) => value !== undefined && value !== null && value !== "");
+const pxToPreview = (value, base, previewBase = 256) => {
+  if (value === undefined || value === null || value === "") return undefined;
+  if (typeof value === "string" && value.includes("%")) return value;
+  const numeric = Number(String(value).replace("px", ""));
+  if (Number.isNaN(numeric)) return value;
+  return `${((numeric / base) * previewBase).toFixed(2)}px`;
+};
+const getElementText = (element) =>
+  pick(
+    element?.text,
+    element?.content,
+    element?.value,
+    element?.label,
+    element?.props?.text,
+    element?.props?.content,
+    element?.attrs?.text,
+    element?.data?.text
+  );
+const resultValueForElement = (element, result) => {
+  const key = normalizeText(
+    pick(
+      element?.key,
+      element?.field,
+      element?.dataKey,
+      element?.bindTo,
+      element?.binding,
+      element?.name,
+      element?.id,
+      element?.label,
+      element?.type,
+      element?.props?.field,
+      element?.props?.dataKey
+    )
+  );
+  const originalText = getElementText(element);
+  const text = normalizeText(originalText || element?.placeholder);
+  const source = `${key} ${text}`;
+
+  const winnerIndex =
+    Number(element?.winnerIndex ?? element?.winnerNumber ?? element?.index ?? 0) ||
+    Number((source.match(/(?:winner|rank|position|name|team|photo|image)[^0-9]*(\d+)/) || [])[1] || 1);
+  const winner = result.winners?.[Math.max(0, winnerIndex - 1)] || result.winners?.[0];
+
+  if (source.includes("program") && !source.includes("group")) return result.programName;
+  if (source.includes("category")) return result.category;
+  if (source.includes("result")) return `Result No: ${result.resultNumber}`;
+  if (source.includes("winner") || source.includes("name") || source.includes("position") || source.includes("team")) {
+    if (!winner) return "";
+    if (source.includes("position")) return winner.position;
+    if (source.includes("team")) return winner.team;
+    if (source.includes("winner") && !source.includes("name")) return `${winner.position || ""} ${winner.name || ""}`.trim();
+    return winner.name;
+  }
+
+  if (text.includes("elocution") || text.includes("story") || text.includes("writing")) return result.programName;
+  if (text.includes("general") || text.includes("lower") || text.includes("primary") || text.includes("school")) return result.category;
+  return originalText ?? "";
+};
+const elementStyle = (element, canvas) => {
+  const style = element?.style || element?.styles || element?.css || {};
+  const position = element?.position || element?.pos || {};
+  const size = element?.size || element?.dimensions || {};
+  const attrs = element?.attrs || {};
+  const scaleX = Number(element?.scaleX ?? style.scaleX ?? 1);
+  const scaleY = Number(element?.scaleY ?? style.scaleY ?? 1);
+  const left = Number(pick(element?.x, element?.left, position?.x, position?.left, attrs?.x, style.left, 0));
+  const top = Number(pick(element?.y, element?.top, position?.y, position?.top, attrs?.y, style.top, 0));
+  const width = pick(element?.width, element?.w, size?.width, attrs?.width, style.width);
+  const height = pick(element?.height, element?.h, size?.height, attrs?.height, style.height);
+  const fontSize = Number(String(pick(element?.fontSize, attrs?.fontSize, style.fontSize, 36)).replace("px", ""));
+  const rotation = Number(pick(element?.rotation, element?.angle, attrs?.rotation, style.rotate, 0));
+  const radius = element?.borderRadius ?? element?.radius ?? element?.rx ?? style.borderRadius;
+  return {
+    position: "absolute",
+    left: `${(left / canvas.width) * 100}%`,
+    top: `${(top / canvas.height) * 100}%`,
+    width: width ? `${((Number(width) * scaleX) / canvas.width) * 100}%` : "auto",
+    height: height ? `${((Number(height) * scaleY) / canvas.height) * 100}%` : "auto",
+    color: pick(element?.color, element?.textColor, element?.fill, attrs?.fill, style.color),
+    background: pick(element?.background, element?.backgroundColor, element?.fillColor, style.background, style.backgroundColor),
+    border: element?.border || style.border,
+    borderRadius: radius,
+    fontFamily: pick(element?.fontFamily, attrs?.fontFamily, style.fontFamily),
+    fontSize: pxToPreview(fontSize, canvas.width),
+    fontWeight: pick(element?.fontWeight, attrs?.fontStyle, style.fontWeight),
+    fontStyle: pick(element?.fontStyle, attrs?.fontStyle, style.fontStyle),
+    lineHeight: pxToPreview(pick(element?.lineHeight, style.lineHeight), canvas.width) || element?.lineHeight || style.lineHeight,
+    letterSpacing: element?.letterSpacing || style.letterSpacing,
+    textAlign: pick(element?.textAlign, element?.align, attrs?.align, style.textAlign),
+    transform: rotation ? `rotate(${rotation}deg)` : style.transform,
+    transformOrigin: element?.transformOrigin || "top left",
+    opacity: pick(element?.opacity, attrs?.opacity, style.opacity),
+    objectFit: pick(element?.objectFit, style.objectFit, "cover"),
+    zIndex: pick(element?.zIndex, element?.order, style.zIndex),
+    whiteSpace: "pre-wrap",
+    overflow: "hidden",
+  };
+};
+const renderWinnerContainer = (element, result, canvas) => {
+  const style = elementStyle(element, canvas);
+  const rowStyle = element?.rowStyle || element?.winnerRowStyle || element?.styles?.row || {};
+  const nameStyle = element?.nameStyle || element?.styles?.name || {};
+  const teamStyle = element?.teamStyle || element?.styles?.team || {};
+  const positionStyle = element?.positionStyle || element?.styles?.position || {};
+
+  return (
+    <div style={style}>
+      {(result.winners || []).map((winner) => (
+        <div key={winner.id} style={{ display: "grid", gridTemplateColumns: "auto 1fr auto", gap: 6, alignItems: "center", marginBottom: 4, ...rowStyle }}>
+          <span style={positionStyle}>{winner.position}</span>
+          <span style={nameStyle}>{winner.name}</span>
+          <span style={teamStyle}>{winner.team}</span>
+        </div>
+      ))}
+    </div>
+  );
+};
+const hasEditorSchema = (template) =>
+  template?.canvas &&
+  Array.isArray(template?.elements) &&
+  (template.elements.some((element) => element?.type === "winnerContainer") ||
+    template.elements.some((element) => ["text", "image", "winnerText", "winnerPhoto"].includes(element?.type)));
+const schemaTextValue = (element, result, winner = null) => {
+  const key = normalizeText(
+    pick(element?.field, element?.dataKey, element?.key, element?.name, element?.id, element?.label, element?.content)
+  );
+
+  if (winner) {
+    if (key.includes("position")) return winner.position || "";
+    if (key.includes("team")) return winner.team || "";
+    if (key.includes("name")) return winner.name || "";
+    return element?.content || element?.label || "";
+  }
+
+  if (key.includes("programname") || key.includes("program name") || key === "program") return result.programName || "";
+  if (key.includes("category")) return result.category || result.programCategory || "";
+  if (key.includes("resultnumber") || key.includes("result number") || key.includes("result")) {
+    return `${element?.prefix || ""}${result.resultNumber || ""}`;
+  }
+
+  return element?.content || element?.label || "";
+};
+const schemaElementStyle = (element, offset = { x: 0, y: 0 }) => ({
+  position: "absolute",
+  left: `${(Number(element.x || 0) + offset.x).toFixed(2)}px`,
+  top: `${(Number(element.y || 0) + offset.y).toFixed(2)}px`,
+  width: element.width !== undefined ? `${Number(element.width)}px` : "auto",
+  height: element.height !== undefined ? `${Number(element.height)}px` : "auto",
+  fontFamily: element.fontFamily,
+  fontSize: element.fontSize !== undefined ? `${Number(element.fontSize)}px` : undefined,
+  fontWeight: element.fontWeight,
+  color: element.color,
+  lineHeight: element.lineHeight,
+  textAlign: element.textAlign,
+  opacity: element.opacity,
+  borderRadius: element.borderRadius !== undefined ? `${Number(element.borderRadius)}px` : undefined,
+  objectFit: element.objectFit || "cover",
+  transform: element.rotation ? `rotate(${element.rotation}deg)` : undefined,
+  zIndex: element.zIndex,
+  whiteSpace: "pre-wrap",
+  overflow: "hidden",
+});
+const renderEditorSchemaElement = (element, result, winner = null, offset = { x: 0, y: 0 }) => {
+  const style = schemaElementStyle(element, offset);
+  if (element.type === "image") {
+    const src = element.src || element.url || element.image || element.imageUrl;
+    return src ? <img key={element.id || `${element.type}-${element.x}-${element.y}`} src={src} alt="" style={style} /> : null;
+  }
+  if (element.type === "winnerPhoto") {
+    const src = winner?.image || winner?.imageUrl || winner?.photo || winner?.photoUrl || element.src || element.url || element.imageUrl;
+    return src ? <img key={`${winner?.id || "winner"}-${element.id}`} src={src} alt="" style={style} /> : null;
+  }
+  if (element.type === "text" || element.type === "winnerText") {
+    return (
+      <div
+        key={`${winner?.id || "base"}-${element.id || element.field || element.x}`}
+        style={{
+          ...style,
+          height: undefined,
+          minHeight: style.height,
+          whiteSpace: "pre-line",
+          overflow: "visible",
+          boxSizing: "border-box",
+        }}
+      >
+        {schemaTextValue(element, result, winner)}
+      </div>
+    );
+  }
+  return null;
+};
+const PosterCanvas = ({ template, result, scale = 1, posterId }) => {
+  const canvas = template.canvas || {};
+  const width = Number(canvas.width || 1080);
+  const height = Number(canvas.height || 1350);
+  const backgroundImage = canvas.backgroundImage;
+  const backgroundColor = canvas.backgroundColor || template.backgroundColor || "#ffffff";
+  const winnerContainer =
+    template.elements.find((element) => element.id === "winnerContainer") ||
+    template.elements.find((element) => element.type === "winnerContainer");
+  const winnerChildren = template.elements.filter((element) => element.type === "winnerText" || element.type === "winnerPhoto");
+  const baseElements = template.elements.filter(
+    (element) => !["winnerContainer", "winnerText", "winnerPhoto"].includes(element.type)
+  );
+
+  return (
+    <div
+      className="schema-template-preview poster-capture-wrapper"
+      data-poster-id={posterId}
+      style={{ width: width * scale, height: height * scale, position: "relative", overflow: "hidden" }}
+    >
+      <div
+        className="schema-template-canvas"
+        data-poster-canvas="true"
+        style={{
+          width,
+          height,
+          backgroundColor,
+          transform: scale === 1 ? "none" : `scale(${scale})`,
+          transformOrigin: "top left",
+          margin: 0,
+          padding: 0,
+          border: 0,
+          boxSizing: "border-box",
+          maxWidth: "none",
+          maxHeight: "none",
+        }}
+      >
+        {backgroundImage ? <img className="schema-template-bg" src={backgroundImage} alt="" /> : null}
+        {baseElements.map((element) => renderEditorSchemaElement(element, result))}
+        {winnerContainer && winnerChildren.length
+          ? (result.winners || []).flatMap((winner, index) => {
+              const spacing = Number(winnerContainer.spacing || 0);
+              const direction = winnerContainer.direction || "vertical";
+              const offset =
+                direction === "horizontal"
+                  ? { x: Number(winnerContainer.x || 0) + index * spacing, y: Number(winnerContainer.y || 0) }
+                  : { x: Number(winnerContainer.x || 0), y: Number(winnerContainer.y || 0) + index * spacing };
+              return winnerChildren.map((child) => renderEditorSchemaElement(child, result, winner, offset));
+            })
+          : null}
+      </div>
+    </div>
+  );
+};
+const renderEditorSchemaTemplate = (template, result) => {
+  const width = Number(template.canvas?.width || 1080);
+  return <PosterCanvas template={template} result={result} scale={256 / width} posterId={`${result.id}-${template.id}`} />;
+};
+const waitForImages = async (root) => {
+  const images = Array.from(root.querySelectorAll("img"));
+  await Promise.all(
+    images.map(
+      (image) =>
+        image.complete
+          ? Promise.resolve()
+          : new Promise((resolve) => {
+              image.onload = resolve;
+              image.onerror = resolve;
+            })
+    )
+  );
+};
+const applyDomStyles = (node, styles) => {
+  Object.entries(styles).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && value !== "") node.style[key] = value;
+  });
+};
+const createExportElementNode = (element, result, winner = null, offset = { x: 0, y: 0 }) => {
+  const style = schemaElementStyle(element, offset);
+  const isImage = element.type === "image" || element.type === "winnerPhoto";
+  const node = document.createElement(isImage ? "img" : "div");
+
+  if (isImage) {
+    applyDomStyles(node, style);
+    const src =
+      element.type === "winnerPhoto"
+        ? winner?.image || winner?.imageUrl || winner?.photo || winner?.photoUrl || element.src || element.url || element.imageUrl
+        : element.src || element.url || element.image || element.imageUrl;
+    if (src) node.src = src;
+    node.alt = "";
+    node.crossOrigin = "anonymous";
+  } else {
+    applyDomStyles(node, {
+      position: "absolute",
+      left: style.left,
+      top: style.top,
+      width: style.width,
+      minHeight: style.height,
+      fontFamily: element.fontFamily,
+      fontSize: element.fontSize !== undefined ? `${Number(element.fontSize)}px` : undefined,
+      fontWeight: element.fontWeight,
+      color: element.color,
+      lineHeight: element.lineHeight,
+      textAlign: element.textAlign,
+      opacity: element.opacity,
+      transform: element.rotation ? `rotate(${element.rotation}deg)` : undefined,
+      transformOrigin: "top left",
+      zIndex: element.zIndex,
+      whiteSpace: "pre-line",
+      overflow: "visible",
+      boxSizing: "border-box",
+    });
+    node.textContent = schemaTextValue(element, result, winner);
+  }
+
+  return node;
+};
+const createExportPosterElement = (template, result) => {
+  const canvas = template.canvas || {};
+  const width = Number(canvas.width || 1080);
+  const height = Number(canvas.height || 1350);
+  const wrapper = document.createElement("div");
+  applyDomStyles(wrapper, {
+    position: "fixed",
+    left: "-100000px",
+    top: "0",
+    width: `${width}px`,
+    height: `${height}px`,
+    overflow: "hidden",
+    pointerEvents: "none",
+    opacity: "1",
+  });
+
+  const poster = document.createElement("div");
+  applyDomStyles(poster, {
+    position: "relative",
+    width: `${width}px`,
+    height: `${height}px`,
+    overflow: "hidden",
+    backgroundColor: canvas.backgroundColor || template.backgroundColor || "#ffffff",
+  });
+
+  if (canvas.backgroundImage) {
+    const bg = document.createElement("img");
+    bg.src = canvas.backgroundImage;
+    bg.alt = "";
+    bg.crossOrigin = "anonymous";
+    applyDomStyles(bg, {
+      position: "absolute",
+      inset: "0",
+      width: "100%",
+      height: "100%",
+      objectFit: "cover",
+    });
+    poster.appendChild(bg);
+  }
+
+  if (hasEditorSchema(template)) {
+    const winnerContainer =
+      template.elements.find((element) => element.id === "winnerContainer") ||
+      template.elements.find((element) => element.type === "winnerContainer");
+    const winnerChildren = template.elements.filter(
+      (element) => element.type === "winnerText" || element.type === "winnerPhoto"
+    );
+    const baseElements = template.elements.filter(
+      (element) => !["winnerContainer", "winnerText", "winnerPhoto"].includes(element.type)
+    );
+
+    baseElements.forEach((element) => {
+      const node = createExportElementNode(element, result);
+      if (node) poster.appendChild(node);
+    });
+
+    if (winnerContainer && winnerChildren.length) {
+      (result.winners || []).forEach((winner, index) => {
+        const spacing = Number(winnerContainer.spacing || 0);
+        const direction = winnerContainer.direction || "vertical";
+        const offset =
+          direction === "horizontal"
+            ? { x: Number(winnerContainer.x || 0) + index * spacing, y: Number(winnerContainer.y || 0) }
+            : { x: Number(winnerContainer.x || 0), y: Number(winnerContainer.y || 0) + index * spacing };
+        winnerChildren.forEach((child) => {
+          const node = createExportElementNode(child, result, winner, offset);
+          if (node) poster.appendChild(node);
+        });
+      });
+    }
+  }
+
+  wrapper.appendChild(poster);
+  return { wrapper, poster };
+};
+const renderTemplateWithResult = (template, result) => {
+  const elements = getTemplateElements(template);
+  const canvas = getCanvasSize(template);
+  const background = getTemplateBackground(template);
+  const savedMarkup = getRenderedTemplateMarkup(template);
+
+  if (hasEditorSchema(template)) {
+    return renderEditorSchemaTemplate(template, result);
+  }
+
+  if (savedMarkup && !elements.length) {
+    return (
+      <div
+        className="poster-preview saved-template-preview"
+        style={{ backgroundColor: background.color }}
+        dangerouslySetInnerHTML={{ __html: replaceResultTokens(savedMarkup, result) }}
+      />
+    );
+  }
+
+  return (
+    <div className="poster-preview saved-template-preview" style={{ backgroundColor: background.color }}>
+      {background.image ? <img className="saved-template-bg" src={background.image} alt="" /> : null}
+      {elements.length ? (
+        elements.map((element, index) => {
+          const type = normalizeText(element.type || element.kind);
+          const source = normalizeText(element?.key || element?.field || element?.dataKey || element?.name || element?.id || element?.label || element?.text);
+          const winnerIndex = Number((source.match(/(?:winner|photo|image)[^0-9]*(\d+)/) || [])[1] || 1);
+          const winner = result.winners?.[Math.max(0, winnerIndex - 1)] || result.winners?.[0];
+          const winnerImage = winner?.image || winner?.imageUrl || winner?.photo || winner?.photoUrl;
+          const src = source.includes("winner") && source.includes("image") && winnerImage ? winnerImage : element.src || element.url || element.image || element.imageUrl || element.attrs?.src;
+          if (type.includes("image") && src) {
+            return <img key={element.id || index} src={src} alt="" style={elementStyle(element, canvas)} />;
+          }
+          if (source.includes("winner") && (source.includes("container") || source.includes("list") || type.includes("list"))) {
+            return <React.Fragment key={element.id || index}>{renderWinnerContainer(element, result, canvas)}</React.Fragment>;
+          }
+          if (type.includes("shape") || type.includes("rect") || type.includes("circle")) {
+            return <div key={element.id || index} style={{ ...elementStyle(element, canvas), background: element.fill || element.backgroundColor || element.color, borderRadius: type.includes("circle") ? "50%" : element.borderRadius }} />;
+          }
+          return (
+            <div key={element.id || index} style={elementStyle(element, canvas)}>
+              {resultValueForElement(element, result)}
+            </div>
+          );
+        })
+      ) : (
+        <>
+          <small>Result No: {result.resultNumber}</small>
+          <strong>{result.category}</strong>
+          <strong>{result.programName}</strong>
+          <ol>{(result.winners || []).slice(0, 5).map((winner) => <li key={winner.id}>{winner.position} {winner.name}</li>)}</ol>
+        </>
+      )}
+    </div>
+  );
+};
+
+function Icon({ name, size = 18 }) {
+  const common = { width: size, height: size, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2", strokeLinecap: "round", strokeLinejoin: "round", "aria-hidden": "true" };
+  const paths = {
+    plus: <><path d="M12 5v14" /><path d="M5 12h14" /></>,
+    eye: <><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z" /><circle cx="12" cy="12" r="3" /></>,
+    edit: <><path d="m18 2 4 4-13 13-5 1 1-5L18 2Z" /><path d="m14 6 4 4" /></>,
+    trash: <><path d="M3 6h18" /><path d="M8 6V4h8v2" /><path d="M19 6l-1 14H6L5 6" /><path d="M10 11v6" /><path d="M14 11v6" /></>,
+    chart: <><path d="M4 19V5" /><path d="M4 19h16" /><path d="M8 17v-6" /><path d="M12 17V8" /><path d="M16 17v-3" /></>,
+    close: <><path d="M18 6 6 18" /><path d="m6 6 12 12" /></>,
+  };
+  return <svg {...common}>{paths[name]}</svg>;
+}
+
+function ProgramResultsPage() {
+  const [results, setResults] = useState([]);
+  const [activeEvent, setActiveEvent] = useState({ id: "default", name: "Active Event" });
+  const [categories, setCategories] = useState(FALLBACK_CATEGORIES);
+  const [teams, setTeams] = useState(FALLBACK_TEAMS);
+  const [templates, setTemplates] = useState([]);
+  const [search, setSearch] = useState("");
+  const [status, setStatus] = useState("All Status");
+  const [sort, setSort] = useState("Sort by Date");
+  const [modalMode, setModalMode] = useState(null);
+  const [form, setForm] = useState(emptyForm());
+  const [editingId, setEditingId] = useState(null);
+  const [deleting, setDeleting] = useState(null);
+  const [viewing, setViewing] = useState(null);
+
+  useEffect(() => {
+    const load = () => {
+      const events = readStorageArray(["rankify_events", "events"]);
+      const activeRaw = safeParse(localStorage.getItem("rankify_active_event"), null) || safeParse(localStorage.getItem("activeEvent"), null);
+      const activeId = localStorage.getItem("rankify_active_event_id") || localStorage.getItem("activeEventId") || localStorage.getItem("active_event_id") || (typeof activeRaw === "string" ? activeRaw : activeRaw?.id);
+      const event = events.find((item) => String(item?.id) === String(activeId)) || (activeRaw && typeof activeRaw === "object" ? activeRaw : null) || events[0] || { id: "default", name: "Active Event" };
+      const normalizedEvent = { id: String(event.id ?? event.eventId ?? "default"), name: textOf(event, ["name", "eventName", "title"], "Active Event") };
+
+      const eventCategories = readStorageArray(["rankify_categories", "categories", "rankify_event_categories"])
+        .filter((item) => !item?.eventId || String(item.eventId) === normalizedEvent.id)
+        .map((item) => textOf(item, ["name", "category", "title"])).filter(Boolean);
+      const eventTeams = readStorageArray(["rankify_teams", "teams", "rankify_event_teams"])
+        .filter((item) => !item?.eventId || String(item.eventId) === normalizedEvent.id)
+        .map((item) => textOf(item, ["name", "teamName", "title"])).filter(Boolean);
+      const eventTemplates = readSavedProgramTemplates(normalizedEvent.id);
+
+      setActiveEvent(normalizedEvent);
+      setCategories(eventCategories.length ? eventCategories : FALLBACK_CATEGORIES);
+      setTeams(eventTeams.length ? eventTeams : FALLBACK_TEAMS);
+      setTemplates(eventTemplates);
+      setResults(asArray(safeParse(localStorage.getItem(STORAGE_KEY), [])));
+    };
+    load();
+    window.addEventListener("storage", load);
+    return () => window.removeEventListener("storage", load);
+  }, []);
+
+  const saveResults = (next) => {
+    setResults(next);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+    window.dispatchEvent(new Event("storage"));
+  };
+  const openView = (result) => {
+    setTemplates(readSavedProgramTemplates(activeEvent.id));
+    setViewing(result);
+  };
+
+  const eventResults = useMemo(() => results.filter((item) => String(item.eventId) === String(activeEvent.id)), [results, activeEvent.id]);
+  const filteredResults = useMemo(() => {
+    const query = search.trim().toLowerCase();
+    let list = [...eventResults];
+    if (query) {
+      list = list.filter((item) => [item.programName, item.category, item.resultNumber, ...(item.winners || []).flatMap((winner) => [winner.name, winner.team])].join(" ").toLowerCase().includes(query));
+    }
+    if (status === "Published") list = list.filter((item) => item.published);
+    if (status === "Draft") list = list.filter((item) => !item.published);
+    if (sort === "Oldest First") list.sort((a, b) => new Date(a.created) - new Date(b.created));
+    else if (sort === "Program Name") list.sort((a, b) => String(a.programName).localeCompare(String(b.programName)));
+    else list.sort((a, b) => new Date(b.created) - new Date(a.created));
+    return list;
+  }, [eventResults, search, status, sort]);
+
+  const openCreate = () => {
+    const next = emptyForm();
+    next.category = categories[0] || "General";
+    next.winners = next.winners.map((winner) => ({ ...winner, team: teams[0] || "Alpha" }));
+    setForm(next);
+    setEditingId(null);
+    setModalMode("create");
+  };
+  const openEdit = (result) => {
+    setForm({
+      programName: result.programName || "",
+      category: result.category || categories[0] || "General",
+      resultNumber: result.resultNumber || "",
+      winners: (result.winners?.length ? result.winners : defaultWinners()).map((winner) => ({
+        id: winner.id || uid(),
+        position: winner.position || "",
+        name: winner.name || "",
+        team: winner.team || teams[0] || "Alpha",
+        grade: winner.grade || "",
+        isGroupProgram: Boolean(winner.isGroupProgram),
+        imageName: winner.imageName || "",
+      })),
+    });
+    setEditingId(result.id);
+    setModalMode("edit");
+  };
+  const closeEditor = () => {
+    setModalMode(null);
+    setEditingId(null);
+  };
+  const updateWinner = (id, patch) => setForm((current) => ({ ...current, winners: current.winners.map((winner) => winner.id === id ? { ...winner, ...patch } : winner) }));
+  const removeWinner = (id) => setForm((current) => ({ ...current, winners: current.winners.length > 1 ? current.winners.filter((winner) => winner.id !== id) : current.winners }));
+  const addWinner = () => setForm((current) => ({ ...current, winners: [...current.winners, { id: uid(), position: String(current.winners.length + 1), name: "", team: teams[0] || "Alpha", grade: "", isGroupProgram: false, imageName: "" }] }));
+
+  const submitResult = (event) => {
+    event.preventDefault();
+    const cleaned = {
+      programName: form.programName.trim() || "Untitled Program",
+      category: form.category || categories[0] || "General",
+      resultNumber: String(form.resultNumber || "").trim() || "1",
+      winners: form.winners.map((winner) => ({
+        id: winner.id || uid(),
+        position: String(winner.position || "").trim(),
+        name: String(winner.name || "").trim(),
+        team: winner.team || teams[0] || "Alpha",
+        grade: String(winner.grade || "").trim(),
+        isGroupProgram: Boolean(winner.isGroupProgram),
+        imageName: winner.imageName || "",
+      })),
+    };
+    if (modalMode === "edit") saveResults(results.map((item) => item.id === editingId ? { ...item, ...cleaned } : item));
+    else saveResults([...results, { id: uid(), eventId: activeEvent.id, ...cleaned, published: false, created: new Date().toISOString() }]);
+    closeEditor();
+  };
+  const togglePublished = (id) => saveResults(results.map((item) => item.id === id ? { ...item, published: !item.published } : item));
+  const confirmDelete = () => {
+    if (!deleting) return;
+    saveResults(results.filter((item) => item.id !== deleting.id));
+    setDeleting(null);
+  };
+  const downloadPoster = async (template, result) => {
+    let offscreen = null;
+    let root = null;
+
+    try {
+      const canvasWidth = Number(template.canvas?.width || 1080);
+      const canvasHeight = Number(template.canvas?.height || 1350);
+
+      offscreen = document.createElement("div");
+      offscreen.style.position = "fixed";
+      offscreen.style.left = "-100000px";
+      offscreen.style.top = "0";
+      offscreen.style.width = `${canvasWidth}px`;
+      offscreen.style.height = `${canvasHeight}px`;
+      offscreen.style.opacity = "1";
+      offscreen.style.pointerEvents = "none";
+      offscreen.style.zIndex = "-1";
+      document.body.appendChild(offscreen);
+
+      root = createRoot(offscreen);
+      root.render(
+        <PosterCanvas
+          template={template}
+          result={result}
+          scale={1}
+          posterId="export-poster"
+        />
+      );
+
+      await new Promise((resolve) => requestAnimationFrame(resolve));
+      await new Promise((resolve) => requestAnimationFrame(resolve));
+
+      const poster = offscreen.querySelector('[data-poster-id="export-poster"]');
+      if (!poster) throw new Error("Export poster was not rendered.");
+
+      poster.style.border = "0";
+      poster.style.borderRadius = "0";
+      poster.style.width = `${canvasWidth}px`;
+      poster.style.height = `${canvasHeight}px`;
+
+      const { default: html2canvas } = await import("html2canvas");
+
+      if (document.fonts?.ready) {
+        await document.fonts.ready;
+      }
+
+      await waitForImages(poster);
+      await new Promise((resolve) => setTimeout(resolve, 300));
+
+      const capturedCanvas = await html2canvas(poster, {
+        backgroundColor: "#ffffff",
+        scale: 2,
+        width: canvasWidth,
+        height: canvasHeight,
+        windowWidth: canvasWidth,
+        windowHeight: canvasHeight,
+        scrollX: 0,
+        scrollY: 0,
+        useCORS: true,
+        allowTaint: true,
+      });
+
+      const image = capturedCanvas.toDataURL("image/jpeg", 0.95);
+
+      const link = document.createElement("a");
+      link.href = image;
+      link.download = `${result.programName || "poster"}-${template.name || "template"}.jpg`
+        .replace(/[\\/:*?"<>|]+/g, "-")
+        .replace(/\s+/g, " ")
+        .trim();
+
+      link.click();
+    } catch (error) {
+      console.error("Unable to export poster as JPG.", error);
+      alert("Unable to export JPG. Please check console.");
+    } finally {
+      if (root) root.unmount();
+      if (offscreen) offscreen.remove();
+    }
+    return;
+    const templateJson = JSON.stringify(template, null, 2).replace(/</g, "\\u003c");
+    if (hasEditorSchema(template)) {
+      const escape = (value) =>
+        String(value ?? "")
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;");
+      const canvas = template.canvas || {};
+      const width = Number(canvas.width || 1080);
+      const height = Number(canvas.height || 1350);
+      const winnerContainer =
+        template.elements.find((element) => element.id === "winnerContainer") ||
+        template.elements.find((element) => element.type === "winnerContainer");
+      const winnerChildren = template.elements.filter((element) => element.type === "winnerText" || element.type === "winnerPhoto");
+      const baseElements = template.elements.filter(
+        (element) => !["winnerContainer", "winnerText", "winnerPhoto"].includes(element.type)
+      );
+      const cssFromStyle = (style) =>
+        Object.entries(style)
+          .filter(([, value]) => value !== undefined && value !== null && value !== "")
+          .map(([key, value]) => `${key.replace(/[A-Z]/g, (letter) => `-${letter.toLowerCase()}`)}:${value}`)
+          .join(";");
+      const elementHtml = (element, winner = null, offset = { x: 0, y: 0 }) => {
+        const style = cssFromStyle(schemaElementStyle(element, offset));
+        if (element.type === "image") {
+          const src = element.src || element.url || element.image || element.imageUrl;
+          return src ? `<img src="${escape(src)}" alt="" style="${style}">` : "";
+        }
+        if (element.type === "winnerPhoto") {
+          const src = winner?.image || winner?.imageUrl || winner?.photo || winner?.photoUrl || element.src || element.url || element.imageUrl;
+          return src ? `<img src="${escape(src)}" alt="" style="${style}">` : "";
+        }
+        return `<div style="${style}">${escape(schemaTextValue(element, result, winner))}</div>`;
+      };
+      const winnerHtml =
+        winnerContainer && winnerChildren.length
+          ? (result.winners || [])
+              .flatMap((winner, index) => {
+                const spacing = Number(winnerContainer.spacing || 0);
+                const direction = winnerContainer.direction || "vertical";
+                const offset =
+                  direction === "horizontal"
+                    ? { x: Number(winnerContainer.x || 0) + index * spacing, y: Number(winnerContainer.y || 0) }
+                    : { x: Number(winnerContainer.x || 0), y: Number(winnerContainer.y || 0) + index * spacing };
+                return winnerChildren.map((child) => elementHtml(child, winner, offset));
+              })
+              .join("")
+          : "";
+      const html = `<!doctype html><html><head><meta charset="utf-8"><title>${escape(result.programName)}</title><style>body{margin:0;background:#eef2f6;display:grid;place-items:center;min-height:100vh;padding:32px}.poster{position:relative;width:${width}px;height:${height}px;background-color:${canvas.backgroundColor || template.backgroundColor || "#fff"};background-image:${canvas.backgroundImage ? `url(${canvas.backgroundImage})` : "none"};background-size:cover;background-position:center;overflow:hidden}</style></head><body><section class="poster">${baseElements.map((element) => elementHtml(element)).join("")}${winnerHtml}</section><details style="margin-top:24px;font:12px Arial;color:#555"><summary>Template data used</summary><pre>${templateJson}</pre></details></body></html>`;
+      const url = URL.createObjectURL(new Blob([html], { type: "text/html" }));
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `${result.programName || "poster"}-${template.name || "template"}.html`;
+      link.click();
+      URL.revokeObjectURL(url);
+      return;
+    }
+    const savedMarkup = getRenderedTemplateMarkup(template);
+    if (savedMarkup) {
+      const html = `<!doctype html><html><head><meta charset="utf-8"><title>${result.programName}</title><style>body{margin:0;background:#eef2f6;display:grid;place-items:center;min-height:100vh;padding:32px}</style></head><body>${replaceResultTokens(savedMarkup, result)}<details style="margin-top:24px;font:12px Arial;color:#555"><summary>Template data used</summary><pre>${templateJson}</pre></details></body></html>`;
+      const url = URL.createObjectURL(new Blob([html], { type: "text/html" }));
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `${result.programName || "poster"}-${template.name || "template"}.html`;
+      link.click();
+      URL.revokeObjectURL(url);
+      return;
+    }
+    const canvas = getCanvasSize(template);
+    const background = getTemplateBackground(template);
+    const elements = getTemplateElements(template);
+    const elementHtml = elements.length
+      ? elements.map((element, index) => {
+          const type = normalizeText(element.type || element.kind);
+          const source = normalizeText(element?.key || element?.field || element?.dataKey || element?.name || element?.id || element?.label || element?.text);
+          const winnerIndex = Number((source.match(/(?:winner|photo|image)[^0-9]*(\d+)/) || [])[1] || 1);
+          const winner = result.winners?.[Math.max(0, winnerIndex - 1)] || result.winners?.[0];
+          const winnerImage = winner?.image || winner?.imageUrl || winner?.photo || winner?.photoUrl;
+          const src = source.includes("winner") && source.includes("image") && winnerImage ? winnerImage : element.src || element.url || element.image || element.imageUrl || element.attrs?.src;
+          const style = elementStyle(element, canvas);
+          const css = Object.entries(style).filter(([, value]) => value !== undefined && value !== null && value !== "").map(([key, value]) => `${key.replace(/[A-Z]/g, (letter) => `-${letter.toLowerCase()}`)}:${value}`).join(";");
+          if (type.includes("image") && src) return `<img src="${src}" style="${css}" alt="">`;
+          if (source.includes("winner") && (source.includes("container") || source.includes("list") || type.includes("list"))) {
+            return `<div style="${css}">${(result.winners || []).map((winner) => `<div style="display:grid;grid-template-columns:auto 1fr auto;gap:6px;align-items:center;margin-bottom:4px"><span>${winner.position || ""}</span><span>${winner.name || ""}</span><span>${winner.team || ""}</span></div>`).join("")}</div>`;
+          }
+          if (type.includes("shape") || type.includes("rect") || type.includes("circle")) return `<div style="${css};background:${element.fill || element.backgroundColor || element.color || "transparent"}"></div>`;
+          return `<div style="${css}">${resultValueForElement(element, result)}</div>`;
+        }).join("")
+      : `<div class="fallback"><p>Result No: ${result.resultNumber}</p><h2>${result.category}</h2><h1>${result.programName}</h1><ol>${(result.winners || []).map((winner) => `<li>${winner.position ? `${winner.position}. ` : ""}${winner.name || "Winner"}${winner.team ? ` <small>(${winner.team})</small>` : ""}</li>`).join("")}</ol></div>`;
+    const bgImage = background.image ? `<img class="bg" src="${background.image}" alt="">` : "";
+    const html = `<!doctype html><html><head><meta charset="utf-8"><title>${result.programName}</title><style>body{margin:0;background:#eef2f6;font-family:Arial,sans-serif;display:grid;place-items:center;min-height:100vh;padding:32px}.poster{position:relative;width:${canvas.width}px;height:${canvas.height}px;max-width:95vw;max-height:95vh;background:${background.color};border:1px solid #d7dce5;box-shadow:0 18px 45px rgba(15,23,42,.18);overflow:hidden}.bg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}.fallback{padding:72px;color:#111}.fallback h1{font-size:42px}.fallback h2{font-size:26px}.fallback li{font-size:22px;margin:8px 0}details{margin-top:24px;font-size:12px;color:#555}</style></head><body><main><section class="poster">${bgImage}${elementHtml}</section><details><summary>Template data used</summary><pre>${templateJson}</pre></details></main></body></html>`;
+    const url = URL.createObjectURL(new Blob([html], { type: "text/html" }));
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `${result.programName || "poster"}-${template.name || "template"}.html`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
+  return (
+    <div className="program-results-page">
+      <style>{styles}</style>
+      <div className="results-header">
+        <div>
+          <h1>Manage Results</h1>
+          <p>View, create, edit, and generate posters for event: {activeEvent.name}</p>
+        </div>
+        <button className="primary-btn header-btn" onClick={openCreate}><Icon name="plus" />Create New Result Poster</button>
+      </div>
+
+      <section className="filter-card">
+        <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search your results..." />
+        <select value={status} onChange={(event) => setStatus(event.target.value)}><option>All Status</option><option>Published</option><option>Draft</option></select>
+        <select value={sort} onChange={(event) => setSort(event.target.value)}><option>Sort by Date</option><option>Newest First</option><option>Oldest First</option><option>Program Name</option></select>
+      </section>
+
+      {filteredResults.length ? (
+        <section className="results-grid">
+          {filteredResults.map((result) => (
+            <article className="result-card" key={result.id}>
+              <div className="card-top">
+                <div><h2>{result.programName}</h2><p>{result.category} <span>·</span> Result #{result.resultNumber}</p></div>
+                <span className={`status-badge ${result.published ? "published" : "draft"}`}>{result.published ? "Published" : "Draft"}</span>
+              </div>
+              <div className="result-meta"><span>{result.winners?.length || 0} winners</span><span>{new Date(result.created).toLocaleDateString()}</span></div>
+              <button type="button" className="publish-toggle" onClick={() => togglePublished(result.id)} aria-pressed={result.published}><span className={`switch ${result.published ? "on" : ""}`} />{result.published ? "Published" : "Unpublished"}</button>
+              <div className="card-actions">
+                <div className="left-actions">
+                  <button className="secondary-btn view-btn" onClick={() => openView(result)}><Icon name="eye" />View</button>
+                  <button className="secondary-btn" onClick={() => openEdit(result)}><Icon name="edit" />Edit</button>
+                </div>
+                <button className="delete-icon" onClick={() => setDeleting(result)} aria-label="Delete result poster"><Icon name="trash" /></button>
+              </div>
+            </article>
+          ))}
+        </section>
+      ) : (
+        <section className="empty-state">
+          <div className="empty-icon"><Icon name="chart" size={34} /></div>
+          <h2>No Results Yet</h2>
+          <p>You haven't created any result posters yet. Get started by creating your first one!</p>
+          <button className="primary-btn" onClick={openCreate}>Create Your First Result Poster</button>
+        </section>
+      )}
+
+      {modalMode && (
+        <div className="modal-overlay">
+          <form className="editor-modal" onSubmit={submitResult}>
+            <button type="button" className="close-btn" onClick={closeEditor} aria-label="Close"><Icon name="close" /></button>
+            <h2>{modalMode === "edit" ? "Edit Result Poster" : "Create New Result Poster"}</h2>
+            <p className="modal-subtitle">{modalMode === "edit" ? "Make changes to your result poster here." : "Create a new result poster by filling in the details below."}</p>
+            <div className="form-grid">
+              <label>Program Name<input value={form.programName} onChange={(event) => setForm((current) => ({ ...current, programName: event.target.value }))} autoFocus /></label>
+              <label>Program Category<select value={form.category} onChange={(event) => setForm((current) => ({ ...current, category: event.target.value }))}>{categories.map((category) => <option key={category}>{category}</option>)}</select></label>
+              <label>Result Number<input value={form.resultNumber} onChange={(event) => setForm((current) => ({ ...current, resultNumber: event.target.value }))} /></label>
+            </div>
+            <h3>Winners</h3>
+            <div className="winner-list">
+              {form.winners.map((winner) => (
+                <div className="winner-row" key={winner.id}>
+                  <label>Position<input value={winner.position} onChange={(event) => updateWinner(winner.id, { position: event.target.value })} /></label>
+                  <label>Name<input value={winner.name} onChange={(event) => updateWinner(winner.id, { name: event.target.value })} /></label>
+                  <label>Team<select value={winner.team} onChange={(event) => updateWinner(winner.id, { team: event.target.value })}>{teams.map((team) => <option key={team}>{team}</option>)}</select></label>
+                  <label>Grade (Optional)<input value={winner.grade} onChange={(event) => updateWinner(winner.id, { grade: event.target.value })} /></label>
+                  <label className="checkbox-label"><input type="checkbox" checked={winner.isGroupProgram} onChange={(event) => updateWinner(winner.id, { isGroupProgram: event.target.checked })} />Is Group Program?</label>
+                  <label>Winner Image (Optional)<input type="file" onChange={(event) => updateWinner(winner.id, { imageName: event.target.files?.[0]?.name || "" })} /></label>
+                  <button type="button" className="secondary-btn" onClick={() => removeWinner(winner.id)}>Remove</button>
+                </div>
+              ))}
+            </div>
+            <button type="button" className="secondary-btn add-winner" onClick={addWinner}>Add Winner</button>
+            <div className="modal-actions"><button type="submit" className="primary-btn">{modalMode === "edit" ? "Update Result" : "Create Result"}</button><button type="button" className="secondary-btn" onClick={closeEditor}>Cancel</button></div>
+          </form>
+        </div>
+      )}
+
+      {deleting && (
+        <div className="modal-overlay">
+          <div className="confirm-modal">
+            <h2>Delete result poster?</h2>
+            <p>This action cannot be undone.</p>
+            <div className="modal-actions"><button className="secondary-btn" onClick={() => setDeleting(null)}>Cancel</button><button className="danger-btn" onClick={confirmDelete}>Delete</button></div>
+          </div>
+        </div>
+      )}
+
+      {viewing && (
+        <div className="modal-overlay">
+          <div className="view-modal">
+            <button type="button" className="close-btn" onClick={() => setViewing(null)} aria-label="Close"><Icon name="close" /></button>
+            <h2>Posters for: {viewing.programName}</h2>
+            <p className="modal-subtitle">View and download generated posters for this result using available templates.</p>
+            {templates.length ? (
+              <div className="template-grid">
+                {templates.map((template) => (
+                  <article className="template-card" key={template.id}>
+                    <h3>{template.name}</h3>
+                    <div className="template-preview" id={`poster-preview-${template.id}`}>{renderTemplateWithResult(template, viewing)}</div>
+                    <button className="primary-btn" onClick={() => downloadPoster(template, viewing)}>Download Poster</button>
+                  </article>
+                ))}
+              </div>
+            ) : (
+              <div className="template-empty-state" style={{ margin: "56px 0 20px", minHeight: 220, border: "1px dashed #cfd6e2", borderRadius: 14, background: "#fff", color: "#5b6475", display: "flex", alignItems: "center", justifyContent: "center", textAlign: "center", fontSize: 20, fontWeight: 600 }}>
+                No templates available. Create a template first.
+              </div>
+            )}
+            <div className="modal-actions"><button className="primary-btn" onClick={() => setViewing(null)}>Close</button></div>
+          </div>
+        </div>
+      )}
+
+    </div>
+  );
+}
+
+const styles = `
+.schema-template-preview{position:relative;overflow:hidden;background:#fff;border:1px solid #d9dee6;border-radius:6px;flex:0 0 auto}.schema-template-canvas{position:relative;left:0;top:0;overflow:hidden}.schema-template-bg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}.saved-template-preview{position:relative;overflow:hidden;padding:0!important;box-sizing:border-box}.saved-template-bg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.program-results-page{min-height:100vh;background:#f4f5f7;color:#07111f;padding:32px;font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}.results-header{display:flex;justify-content:space-between;gap:24px;align-items:flex-start;max-width:1532px;margin:0 auto 46px}.results-header h1{margin:0 0 8px;font-size:32px;line-height:1.15;font-weight:800}.results-header p{margin:0;color:#566174;font-size:24px;line-height:1.45;font-weight:500}.primary-btn,.secondary-btn,.danger-btn{border:0;border-radius:7px;min-height:40px;padding:0 16px;display:inline-flex;align-items:center;justify-content:center;gap:10px;font-weight:700;font-size:15px;cursor:pointer;white-space:nowrap;box-shadow:0 1px 2px rgba(15,23,42,.1)}.primary-btn{background:#287d2e;color:#fff}.primary-btn:hover{background:#216b27}.secondary-btn{background:#f8fafc;color:#101828;border:1px solid #d9dee7}.secondary-btn:hover{background:#eef2f6}.danger-btn{background:#dc2626;color:#fff}.header-btn{min-height:51px;padding:0 24px;font-size:18px}.filter-card{max-width:1532px;margin:0 auto 40px;background:#fff;border:1px solid #d9dee6;border-radius:14px;box-shadow:0 2px 6px rgba(15,23,42,.1);padding:62px 32px 30px;display:grid;grid-template-columns:1fr 232px 232px;gap:20px}input,select{width:100%;height:46px;border:1px solid #d8dde6;border-radius:7px;background:#fff;color:#253044;padding:0 14px;font-size:16px;outline:none;box-shadow:0 1px 3px rgba(15,23,42,.06)}input:focus,select:focus{border-color:#2f8a3a;box-shadow:0 0 0 3px rgba(40,125,46,.25)}.results-grid{max-width:1532px;margin:0 auto;display:grid;grid-template-columns:repeat(auto-fill,minmax(410px,490px));gap:24px}.result-card{min-height:286px;background:#fff;border:1px solid #d9dee6;border-radius:14px;padding:32px;box-shadow:0 2px 6px rgba(15,23,42,.1);display:flex;flex-direction:column}.card-top{display:flex;justify-content:space-between;gap:18px;align-items:flex-start}.card-top h2{margin:0 0 4px;font-size:22px;line-height:1.2;font-weight:800}.card-top p,.result-meta,.publish-toggle{color:#526079;font-size:16px}.card-top p{margin:0}.status-badge{border-radius:8px;padding:6px 12px;font-size:15px;line-height:1;font-weight:800}.status-badge.published{background:#287d2e;color:#fff}.status-badge.draft{background:#e8f1e5;color:#087131}.result-meta{display:flex;justify-content:space-between;gap:18px;margin-top:auto;padding-top:58px}.publish-toggle{margin-top:16px;padding:0;border:0;background:transparent;display:inline-flex;align-items:center;gap:12px;align-self:flex-start;cursor:pointer;font-weight:500}.switch{width:42px;height:24px;border-radius:999px;background:#e1e6ee;position:relative;transition:background .18s ease}.switch:after{content:"";position:absolute;width:22px;height:22px;left:1px;top:1px;border-radius:50%;background:#fff;border:1px solid #d3dae4;transition:transform .18s ease}.switch.on{background:#287d2e}.switch.on:after{transform:translateX(18px)}.card-actions{display:flex;justify-content:space-between;align-items:center;gap:16px;margin-top:58px}.left-actions{display:flex;gap:8px}.card-actions .secondary-btn{min-height:42px;font-size:18px;padding:0 15px}.view-btn{background:#d7efd8;border-color:#c6e5c8;color:#0f6e25}.delete-icon{border:0;background:transparent;color:#ef2222;width:42px;height:42px;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;border-radius:8px}.delete-icon:hover{background:#fee2e2}.empty-state{max-width:1532px;min-height:430px;margin:0 auto;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;color:#111827}.empty-icon{width:72px;height:72px;border-radius:50%;background:#e9edf2;color:#6b7280;display:flex;align-items:center;justify-content:center;margin-bottom:22px}.empty-state h2{margin:0 0 12px;font-size:28px;font-weight:800}.empty-state p{margin:0 0 34px;color:#596278;font-size:21px}.empty-state .primary-btn{min-height:46px;font-size:18px}.modal-overlay{position:fixed;inset:0;z-index:50;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;padding:28px}.editor-modal,.view-modal,.confirm-modal{position:relative;background:#f8fafc;border:1px solid #d9dee6;border-radius:8px;box-shadow:0 18px 40px rgba(15,23,42,.24);width:min(100%,904px);max-height:calc(100vh - 56px);overflow:auto;padding:22px 26px 38px}.view-modal{width:min(100%,1314px)}.confirm-modal{width:min(100%,420px);padding:28px}.close-btn{position:absolute;top:18px;right:18px;border:0;background:transparent;color:#4b5563;cursor:pointer;width:32px;height:32px;display:inline-flex;align-items:center;justify-content:center}.editor-modal h2,.view-modal h2,.confirm-modal h2{margin:0 42px 6px 0;font-size:21px;font-weight:800}.modal-subtitle,.confirm-modal p{margin:0 0 28px;color:#5b6475;font-size:16px}.form-grid{display:grid;grid-template-columns:1fr 132px;gap:14px 16px;max-width:594px}.form-grid label:nth-child(3){grid-column:1/2}label{display:grid;gap:7px;color:#111827;font-size:15px;font-weight:500}.editor-modal h3{margin:38px 0 22px;font-size:21px}.winner-list{display:grid;gap:22px}.winner-row{border:1px solid #d9dee6;border-radius:7px;padding:10px;display:grid;grid-template-columns:110px 1fr 88px 120px 116px 110px 90px;gap:8px;align-items:end}.winner-row input,.winner-row select{height:34px;font-size:14px;padding:0 10px}.winner-row input[type=file]{padding:5px 8px;overflow:hidden}.checkbox-label{grid-template-columns:16px 1fr;align-items:center;gap:8px;line-height:1.15;padding-bottom:5px}.checkbox-label input{width:14px;height:14px;box-shadow:none}.add-winner{margin-top:22px}.modal-actions{margin-top:18px;display:flex;justify-content:flex-end;gap:8px}.template-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:32px;margin-top:48px}.template-card{background:#fff;border:1px solid #d9dee6;border-radius:14px;min-height:560px;padding:54px 22px;display:flex;flex-direction:column;align-items:center;box-shadow:0 2px 6px rgba(15,23,42,.1)}.template-card h3{align-self:stretch;margin:0 0 54px;font-size:25px;line-height:1.25}.template-preview{width:256px;height:320px;display:flex;align-items:center;justify-content:center;margin-bottom:62px}.template-preview img{max-width:100%;max-height:100%;object-fit:contain;border-radius:6px}.poster-preview{width:256px;height:320px;background:linear-gradient(135deg,#fff,#f2f2f2);border:1px solid #d9dee6;border-radius:6px;padding:48px 44px;font-size:11px;color:#111;box-shadow:inset 0 18px 34px rgba(0,0,0,.05)}.poster-preview strong{display:block;margin-top:8px}.poster-preview ol{margin-top:36px;padding-left:14px}@media(max-width:1100px){.results-header{flex-direction:column;margin-bottom:28px}.filter-card{grid-template-columns:1fr;padding:24px}.results-grid{grid-template-columns:1fr}.winner-row{grid-template-columns:repeat(2,minmax(0,1fr))}.template-grid{grid-template-columns:1fr}}@media(max-width:640px){.program-results-page{padding:20px}.results-header h1{font-size:28px}.results-header p{font-size:18px}.header-btn{width:100%}.result-card{padding:22px;min-height:auto}.result-meta,.card-actions{margin-top:32px;padding-top:0}.left-actions{flex-wrap:wrap}.winner-row{grid-template-columns:1fr}.form-grid{grid-template-columns:1fr}.form-grid label:nth-child(3){grid-column:auto}}
+.view-btn{background:#f8fafc!important;border-color:#d9dee7!important;color:#26752c!important}
+.view-btn:hover{background:#26752c!important;border-color:#26752c!important;color:#fff!important}
+`;
+
+export default ProgramResultsPage;

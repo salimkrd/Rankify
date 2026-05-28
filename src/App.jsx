@@ -9,6 +9,7 @@ import EventsPage from "./pages/EventsPage.jsx";
 import TeamsPage from "./pages/TeamsPage.jsx";
 import CategoriesPage from "./pages/CategoriesPage.jsx";
 import ProgramTemplatesPage from "./pages/ProgramTemplatesPage.jsx";
+import ProgramResultsPage from "./pages/ProgramResultsPage.jsx";
 import TemplateEditorPage from "./pages/TemplateEditorPage.jsx";
 
 function ProtectedRoute({ children }) {
@@ -47,7 +48,7 @@ export default function App() {
         <Route path="program-templates" element={<ProgramTemplatesPage />} />
         <Route path="program-templates/new" element={<TemplateEditorPage />} />
         <Route path="program-templates/:templateId/edit" element={<TemplateEditorPage />} />
-        <Route path="program-results" element={<PlaceholderPage title="Program Results" />} />
+            <Route path="program-results" element={<ProgramResultsPage />} />
         <Route path="team-status-templates" element={<PlaceholderPage title="Team Status Templates" />} />
         <Route path="team-status-results" element={<PlaceholderPage title="Team Status Results" />} />
         <Route path="framed-templates" element={<PlaceholderPage title="Framed Templates" />} />
