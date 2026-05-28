@@ -1,0 +1,39 @@
+name: Deploy Rankify to Hostinger
+
+"on":
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build project
+        run: npm run build
+
+      - name: Install lftp
+        run: sudo apt-get update && sudo apt-get install -y lftp
+
+      - name: Deploy dist to Hostinger
+        run: |
+          lftp -u "${{ secrets.HOSTINGER_FTP_USER }}","${{ secrets.HOSTINGER_FTP_PASSWORD }}" -p "${{ secrets.HOSTINGER_FTP_PORT }}" "${{ secrets.HOSTINGER_FTP_HOST }}" <<EOF
+          set ftp:ssl-allow no
+          set net:timeout 20
+          set net:max-retries 2
+          mirror -R --delete --verbose ./dist/ ${{ secrets.HOSTINGER_FTP_DIR }}/
+          bye
+          EOF
