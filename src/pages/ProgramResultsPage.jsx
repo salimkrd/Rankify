@@ -20,6 +20,24 @@ const readStorageArray = (keys) => {
   }
   return [];
 };
+const readTeamsForActiveEvent = (activeEventId) => {
+  const storedTeams = safeParse(localStorage.getItem("rankify_teams"), null);
+  let eventTeams = [];
+
+  if (Array.isArray(storedTeams)) {
+    eventTeams = storedTeams.filter(
+      (team) => String(team?.eventId) === String(activeEventId)
+    );
+  } else if (storedTeams && typeof storedTeams === "object") {
+    eventTeams = Array.isArray(storedTeams[activeEventId])
+      ? storedTeams[activeEventId]
+      : [];
+  }
+
+  return eventTeams
+    .map((team) => textOf(team, ["name", "teamName", "title"]))
+    .filter(Boolean);
+};
 const isResultWinnerLike = (value) =>
   value &&
   typeof value === "object" &&
@@ -745,9 +763,9 @@ function ProgramResultsPage() {
       const eventCategories = readStorageArray(["rankify_categories", "categories", "rankify_event_categories"])
         .filter((item) => !item?.eventId || String(item.eventId) === normalizedEvent.id)
         .map((item) => textOf(item, ["name", "category", "title"])).filter(Boolean);
-      const eventTeams = readStorageArray(["rankify_teams", "teams", "rankify_event_teams"])
-        .filter((item) => !item?.eventId || String(item.eventId) === normalizedEvent.id)
-        .map((item) => textOf(item, ["name", "teamName", "title"])).filter(Boolean);
+      const eventTeams = readTeamsForActiveEvent(
+        localStorage.getItem("rankify_active_event_id") || normalizedEvent.id
+      );
       const eventTemplates = readSavedProgramTemplates(normalizedEvent.id);
 
       setActiveEvent(normalizedEvent);

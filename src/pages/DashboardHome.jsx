@@ -1,11 +1,18 @@
-import React from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { BarChart3, FileText, Image, Key, Tags, Trophy, Users } from "lucide-react";
 
-const cards = [
+const EVENTS_KEY = "rankify_events";
+const ACTIVE_EVENT_KEY = "rankify_active_event_id";
+const TEAMS_KEY = "rankify_teams";
+const CATEGORIES_KEY = "rankify_categories";
+const PROGRAM_TEMPLATES_KEY = "rankify_program_templates";
+const PROGRAM_RESULTS_KEY = "rankify_program_results";
+
+const baseCards = [
   {
     title: "Program Templates",
-    count: "5",
+    countKey: "programTemplates",
     description: "Total program poster templates",
     linkText: "View Templates",
     linkTo: "/dashboard/program-templates",
@@ -13,7 +20,7 @@ const cards = [
   },
   {
     title: "Program Results",
-    count: "1",
+    countKey: "programResults",
     description: "Total program poster results",
     linkText: "View Results",
     linkTo: "/dashboard/program-results",
@@ -54,7 +61,7 @@ const cards = [
   },
   {
     title: "Teams",
-    count: "2",
+    countKey: "teams",
     description: "Total teams for the event",
     linkText: "View Teams",
     linkTo: "/dashboard/teams",
@@ -62,13 +69,60 @@ const cards = [
   },
   {
     title: "Categories",
-    count: "7",
+    countKey: "categories",
     description: "Total categories for the event",
     linkText: "View Categories",
     linkTo: "/dashboard/categories",
     icon: Tags,
   },
 ];
+
+function safeJsonParse(value, fallback) {
+  try {
+    const parsed = JSON.parse(value || "");
+    return parsed || fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function getStoredArray(key) {
+  const storedValue = safeJsonParse(localStorage.getItem(key), []);
+  return Array.isArray(storedValue) ? storedValue : [];
+}
+
+function countItemsForEvent(key, activeEventId) {
+  if (!activeEventId) return 0;
+
+  const storedValue = safeJsonParse(localStorage.getItem(key), []);
+
+  if (Array.isArray(storedValue)) {
+    return storedValue.filter((item) => item?.eventId === activeEventId).length;
+  }
+
+  if (storedValue && typeof storedValue === "object") {
+    const eventItems = storedValue[activeEventId];
+    return Array.isArray(eventItems) ? eventItems.length : 0;
+  }
+
+  return 0;
+}
+
+function loadDashboardData() {
+  const events = getStoredArray(EVENTS_KEY);
+  const activeEventId = localStorage.getItem(ACTIVE_EVENT_KEY) || "";
+  const activeEvent = events.find((event) => event.id === activeEventId) || null;
+
+  return {
+    activeEventName: activeEvent?.name || "No active event",
+    counts: {
+      programTemplates: countItemsForEvent(PROGRAM_TEMPLATES_KEY, activeEventId),
+      programResults: countItemsForEvent(PROGRAM_RESULTS_KEY, activeEventId),
+      teams: countItemsForEvent(TEAMS_KEY, activeEventId),
+      categories: countItemsForEvent(CATEGORIES_KEY, activeEventId),
+    },
+  };
+}
 
 function StatCard({ card }) {
   const Icon = card.icon;
@@ -92,13 +146,42 @@ function StatCard({ card }) {
 }
 
 export default function DashboardHome() {
+  const [dashboardData, setDashboardData] = useState(() => loadDashboardData());
+
+  useEffect(() => {
+    function syncDashboardData() {
+      setDashboardData(loadDashboardData());
+    }
+
+    window.addEventListener("storage", syncDashboardData);
+    window.addEventListener("rankify-active-event-changed", syncDashboardData);
+    window.addEventListener("rankify-data-changed", syncDashboardData);
+    window.addEventListener("rankify-events-changed", syncDashboardData);
+
+    return () => {
+      window.removeEventListener("storage", syncDashboardData);
+      window.removeEventListener("rankify-active-event-changed", syncDashboardData);
+      window.removeEventListener("rankify-data-changed", syncDashboardData);
+      window.removeEventListener("rankify-events-changed", syncDashboardData);
+    };
+  }, []);
+
+  const cards = useMemo(
+    () =>
+      baseCards.map((card) => ({
+        ...card,
+        count: card.countKey ? String(dashboardData.counts[card.countKey] || 0) : card.count,
+      })),
+    [dashboardData.counts]
+  );
+
   return (
     <section className="min-h-screen bg-[#F8FAFC] p-6">
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-[#0D1B2A]">Welcome, Salim karakkad!</h1>
         <h2 className="mt-4 text-2xl font-bold text-[#0D1B2A]">
           Current Event:{" "}
-          <span className="text-[#2563EB]">SSF PANANGARA UNIT SAHITYOLSAV</span>
+          <span className="text-[#2563EB]">{dashboardData.activeEventName}</span>
         </h2>
         <p className="mt-2 text-base text-slate-600">Overview for the selected event.</p>
       </div>
