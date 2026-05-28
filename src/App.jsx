@@ -11,6 +11,17 @@ import CategoriesPage from "./pages/CategoriesPage.jsx";
 import ProgramTemplatesPage from "./pages/ProgramTemplatesPage.jsx";
 import ProgramResultsPage from "./pages/ProgramResultsPage.jsx";
 import TemplateEditorPage from "./pages/TemplateEditorPage.jsx";
+import TeamStatusTemplatesPage from "./pages/TeamStatusTemplatesPage.jsx";
+import TeamStatusTemplateEditorPage from "./pages/TeamStatusTemplateEditorPage.jsx";
+import { COMMON_GOOGLE_FONTS_URL } from "./constants/fontFamilies.js";
+
+if (typeof document !== "undefined" && !document.querySelector('link[data-rankify-fonts="true"]')) {
+  const fontLink = document.createElement("link");
+  fontLink.rel = "stylesheet";
+  fontLink.href = COMMON_GOOGLE_FONTS_URL;
+  fontLink.dataset.rankifyFonts = "true";
+  document.head.appendChild(fontLink);
+}
 
 function ProtectedRoute({ children }) {
   return children;
@@ -48,8 +59,11 @@ export default function App() {
         <Route path="program-templates" element={<ProgramTemplatesPage />} />
         <Route path="program-templates/new" element={<TemplateEditorPage />} />
         <Route path="program-templates/:templateId/edit" element={<TemplateEditorPage />} />
-            <Route path="program-results" element={<ProgramResultsPage />} />
-        <Route path="team-status-templates" element={<PlaceholderPage title="Team Status Templates" />} />
+        <Route path="program-results" element={<ProgramResultsPage />} />
+        <Route path="team-status-templates" element={<TeamStatusTemplatesPage />} />
+        <Route path="team-status-templates/new" element={<TeamStatusTemplateEditorPage />} />
+        <Route path="team-status-templates/:templateId/edit" element={<TeamStatusTemplateEditorPage />} />
+        <Route path="team-status/templates" element={<Navigate to="/dashboard/team-status-templates" replace />} />
         <Route path="team-status-results" element={<PlaceholderPage title="Team Status Results" />} />
         <Route path="framed-templates" element={<PlaceholderPage title="Framed Templates" />} />
         <Route path="framed-posts" element={<PlaceholderPage title="Framed Posts" />} />

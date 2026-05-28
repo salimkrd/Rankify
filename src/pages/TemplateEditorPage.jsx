@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import FontFamilySelect from "../components/FontFamilySelect";
 
 const GREEN = "#26752C";
 const TEMPLATE_KEY = "rankify_program_templates";
@@ -999,13 +1000,11 @@ function ElementToolbar({
               </ToolbarField>
             )}
             <ToolbarField label="Font Family">
-              <select value={selectedElement.fontFamily || "Roboto"} onChange={(event) => updateSelected({ fontFamily: event.target.value })} className={inputClass("w-48")}>
-                <option>Roboto</option>
-                <option>Open Sans</option>
-                <option>Bebas Neue</option>
-                <option>Fjalla One</option>
-                <option>Arial</option>
-              </select>
+              <FontFamilySelect
+                value={selectedElement.fontFamily || "Roboto"}
+                onChange={(fontFamily) => updateSelected({ fontFamily })}
+                className={inputClass("w-48")}
+              />
             </ToolbarField>
             <ToolbarField label="Font Size"><NumberInput value={selectedElement.fontSize} onChange={(fontSize) => updateSelected({ fontSize })} /></ToolbarField>
             <ToolbarField label="Font Weight">
