@@ -38,21 +38,26 @@ jobs:
 
       - name: Deploy dist to Hostinger
         run: |
-         lftp -u "${{ secrets.HOSTINGER_FTP_USER }}","${{ secrets.HOSTINGER_FTP_PASSWORD }}" -p 21 "${{ secrets.HOSTINGER_FTP_HOST }}" <<EOF
-         set ftp:ssl-allow no
-         set net:timeout 20
-         set net:max-retries 2
-         mirror -R --delete --verbose --include-glob .htaccess --include-glob assets/** --include-glob index.html --include-glob favicon.ico --include-glob '*' ./dist/ ./public_html/
-         bye
-         EOF
+          lftp -u "${{ secrets.FTP_USERNAME }}","${{ secrets.FTP_PASSWORD }}" -p "${{ secrets.FTP_PORT }}" "${{ secrets.FTP_HOST }}" <<EOF
+          set ftp:ssl-allow no
+          set ftp:passive-mode on
+          set net:max-retries 5
+          set net:timeout 30
+          set net:reconnect-interval-base 5
+          set net:reconnect-interval-max 20
+          set cmd:fail-exit yes
 
-      - name: Verify Hostinger upload
-        run: |
-         lftp -u "${{ secrets.HOSTINGER_FTP_USER }}","${{ secrets.HOSTINGER_FTP_PASSWORD }}" -p 21 "${{ secrets.HOSTINGER_FTP_HOST }}" <<EOF
-         set ftp:ssl-allow no
-         set net:timeout 20
-         set net:max-retries 2
-         cd public_html
-         ls -la
-         bye
-         EOF
+          mkdir -p public_html
+          cd public_html
+
+          mirror -R --delete --verbose \
+            --include-glob .htaccess \
+            --include-glob assets/** \
+            --include-glob index.html \
+            --include-glob favicon.ico \
+            --include-glob '*' \
+            ./dist/ ./
+
+          ls -la
+          bye
+          EOF
