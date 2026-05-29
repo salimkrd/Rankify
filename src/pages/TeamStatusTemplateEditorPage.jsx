@@ -146,6 +146,39 @@ function publicTemplateDefaults(template = {}) {
   };
 }
 
+function normalizePreviewData(template = {}, activeEvent = {}) {
+  const existing = template.previewData || {};
+  const previewData = {
+    eventName: existing.eventName ?? activeEvent.name ?? "",
+    organizerName: existing.organizerName ?? activeEvent.organizer ?? "",
+    eventDate: existing.eventDate ?? activeEvent.date ?? "",
+    eventLocation: existing.eventLocation ?? activeEvent.location ?? "",
+    titleValues: { ...(existing.titleValues || {}) },
+    teams: Array.isArray(existing.teams) ? [...existing.teams] : [],
+  };
+
+  const titleElements = Array.isArray(template.elements) ? template.elements.filter((element) => element.kind === "title") : [];
+  const titleParts = Array.isArray(existing.titleParts) ? [...existing.titleParts] : [];
+  titleElements.forEach((title) => {
+    if (previewData.titleValues[title.id] == null) {
+      previewData.titleValues[title.id] = titleParts.length
+        ? titleParts.shift()
+        : title.text || title.label || "";
+    }
+  });
+
+  const slotElements = Array.isArray(template.elements) ? template.elements.filter((element) => element.kind === "teamSlot") : [];
+  const defaultTeam = (index) => defaultTeams[index] || { name: `Team ${index + 1}`, score: "0" };
+  slotElements.forEach((slot, index) => {
+    const teamIndex = Number(slot.teamIndex ?? index);
+    if (previewData.teams[teamIndex] == null) {
+      previewData.teams[teamIndex] = defaultTeam(teamIndex);
+    }
+  });
+
+  return previewData;
+}
+
 function defaultTemplate(activeEvent, existing = {}) {
   const publicDefaults =
     existing.source === "public" && !Array.isArray(existing.elements)
@@ -161,6 +194,7 @@ function defaultTemplate(activeEvent, existing = {}) {
     defaultSlot(2),
     defaultSlot(3),
   ];
+  const elements = Array.isArray(existing.elements) && existing.elements.length ? existing.elements : fallbackElements;
 
   return {
     id: existing.id || uid("team_status_template"),
@@ -173,15 +207,8 @@ function defaultTemplate(activeEvent, existing = {}) {
       backgroundImage: publicDefaults?.canvas.backgroundImage || existing.canvas?.backgroundImage || "",
       backgroundColor: publicDefaults?.canvas.backgroundColor || existing.canvas?.backgroundColor || "#eeeeee",
     },
-    elements: Array.isArray(existing.elements) && existing.elements.length ? existing.elements : fallbackElements,
-    previewData: existing.previewData || {
-      eventName: activeEvent.name || "",
-      organizerName: activeEvent.organizer || "",
-      eventDate: activeEvent.date || "",
-      eventLocation: activeEvent.location || "",
-      titleParts: ["Final", "Point", "Status"],
-      teams: defaultTeams,
-    },
+    elements,
+    previewData: normalizePreviewData({ ...existing, elements }, activeEvent),
     previewImage: existing.previewImage || "",
     createdAt: existing.createdAt || today(),
     updatedAt: existing.updatedAt || today(),
@@ -214,10 +241,12 @@ function svgAlignedX(x, width, align) {
 }
 
 function titleValue(element, previewData) {
+  const titleValues = previewData.titleValues || {};
   if (element.dataSource === "eventName") return previewData.eventName;
   if (element.dataSource === "organizerName") return previewData.organizerName;
   if (element.dataSource === "eventDate") return previewData.eventDate;
   if (element.dataSource === "eventLocation") return previewData.eventLocation;
+  if (titleValues[element.id] != null) return titleValues[element.id];
   return element.text;
 }
 
@@ -337,12 +366,32 @@ export default function TeamStatusTemplateEditorPage() {
   }
 
   function updateElement(elementId, patch) {
-    setTemplate((current) => ({
-      ...current,
-      elements: current.elements.map((element) =>
+    setTemplate((current) => {
+      const target = current.elements.find((element) => element.id === elementId);
+      const nextElements = current.elements.map((element) =>
         element.id === elementId ? { ...element, ...patch } : element
-      ),
-    }));
+      );
+      let nextPreviewData = current.previewData;
+
+      if (target?.kind === "title" && patch.text != null) {
+        const currentTitleValue = current.previewData?.titleValues?.[elementId];
+        if (currentTitleValue === undefined || currentTitleValue === target.text) {
+          nextPreviewData = {
+            ...current.previewData,
+            titleValues: {
+              ...(current.previewData?.titleValues || {}),
+              [elementId]: patch.text,
+            },
+          };
+        }
+      }
+
+      return {
+        ...current,
+        elements: nextElements,
+        previewData: nextPreviewData,
+      };
+    });
   }
 
   function updateSlotChild(elementId, child, patch) {
@@ -363,15 +412,42 @@ export default function TeamStatusTemplateEditorPage() {
     }));
   }
 
+  function nextTeamIndex(elements = []) {
+    const slotIndices = elements
+      .filter((element) => element.kind === "teamSlot")
+      .map((slot) => Number(slot.teamIndex ?? 0));
+    return slotIndices.length ? Math.max(...slotIndices) + 1 : 0;
+  }
+
   function addTitle() {
     const title = defaultTitle(uid("title"), "Title", 120, 120);
-    setTemplate((current) => ({ ...current, elements: [...current.elements, title] }));
+    setTemplate((current) => {
+      const titleValues = { ...(current.previewData?.titleValues || {}), [title.id]: title.text };
+      return {
+        ...current,
+        elements: [...current.elements, title],
+        previewData: { ...current.previewData, titleValues },
+      };
+    });
     setSelectedId(title.id);
   }
 
   function addSlot() {
-    const slot = defaultSlot(slots.length + 1);
-    setTemplate((current) => ({ ...current, elements: [...current.elements, slot] }));
+    const index = nextTeamIndex(template.elements);
+    const slot = defaultSlot(index + 1);
+    slot.teamIndex = index;
+
+    setTemplate((current) => {
+      const teams = Array.isArray(current.previewData?.teams) ? [...current.previewData.teams] : [];
+      if (teams[slot.teamIndex] == null) {
+        teams[slot.teamIndex] = { name: `Team ${slot.teamIndex + 1}`, score: "0" };
+      }
+      return {
+        ...current,
+        elements: [...current.elements, slot],
+        previewData: { ...current.previewData, teams },
+      };
+    });
     setSelectedId(slot.id);
   }
 
@@ -385,7 +461,14 @@ export default function TeamStatusTemplateEditorPage() {
       y: Number(title.y || 0) + 20,
     };
 
-    setTemplate((current) => ({ ...current, elements: [...current.elements, copy] }));
+    setTemplate((current) => {
+      const titleValues = { ...(current.previewData?.titleValues || {}), [copy.id]: copy.text };
+      return {
+        ...current,
+        elements: [...current.elements, copy],
+        previewData: { ...current.previewData, titleValues },
+      };
+    });
     setSelectedId(copy.id);
   }
 
@@ -395,15 +478,39 @@ export default function TeamStatusTemplateEditorPage() {
 
     setTemplate((current) => {
       const nextElements = current.elements.filter((element) => element.id !== titleId);
+      const nextPreviewData = { ...current.previewData };
+      if (nextPreviewData?.titleValues) {
+        const titleValues = { ...nextPreviewData.titleValues };
+        delete titleValues[titleId];
+        nextPreviewData.titleValues = titleValues;
+      }
       const nextSelection = nextElements[0]?.id || "";
       setSelectedId(nextSelection);
-      return { ...current, elements: nextElements };
+      return { ...current, elements: nextElements, previewData: nextPreviewData };
     });
   }
 
   function duplicateSlot(slot) {
-    const copy = { ...slot, id: uid("slot"), label: `Slot ${slots.length + 1}`, y: Number(slot.y || 0) + 40 };
-    setTemplate((current) => ({ ...current, elements: [...current.elements, copy] }));
+    const nextIndex = nextTeamIndex(template.elements);
+    const copy = {
+      ...slot,
+      id: uid("slot"),
+      label: `Slot ${nextIndex + 1}`,
+      y: Number(slot.y || 0) + 40,
+      teamIndex: nextIndex,
+    };
+
+    setTemplate((current) => {
+      const teams = Array.isArray(current.previewData?.teams) ? [...current.previewData.teams] : [];
+      if (teams[copy.teamIndex] == null) {
+        teams[copy.teamIndex] = { name: `Team ${copy.teamIndex + 1}`, score: "0" };
+      }
+      return {
+        ...current,
+        elements: [...current.elements, copy],
+        previewData: { ...current.previewData, teams },
+      };
+    });
     setSelectedId(copy.id);
   }
 
@@ -644,24 +751,41 @@ export default function TeamStatusTemplateEditorPage() {
                   {textInput("Event Location", template.previewData.eventLocation, (value) => updatePreviewData({ eventLocation: value }))}
                 </div>
                 <h3>Manual Title Parts</h3>
-                {titles.map((title) => textInput("", title.text, (value) => updateElement(title.id, { text: value, label: value })))}
+                {titles
+                  .filter((title) => title.dataSource === "manual")
+                  .map((title) =>
+                    textInput(
+                      title.label || title.text || "Title",
+                      template.previewData.titleValues?.[title.id] ?? title.text ?? "",
+                      (value) => updatePreviewData({
+                        titleValues: {
+                          ...(template.previewData.titleValues || {}),
+                          [title.id]: value,
+                        },
+                      })
+                    )
+                  )}
                 <h3>Example Teams & Scores</h3>
-                {template.previewData.teams.map((team, index) => (
-                  <div className="team-row" key={index}>
-                    <input value={team.name} onChange={(event) => {
-                      const teams = [...template.previewData.teams];
-                      teams[index] = { ...teams[index], name: event.target.value };
-                      updatePreviewData({ teams });
-                    }} />
-                    <input value={team.score} onChange={(event) => {
-                      const teams = [...template.previewData.teams];
-                      teams[index] = { ...teams[index], score: event.target.value };
-                      updatePreviewData({ teams });
-                    }} />
-                  </div>
-                ))}
-                <button type="button" className="add-example" onClick={() => updatePreviewData({ teams: [...template.previewData.teams, { name: "New Team", score: "0" }] })}>
-                  + Add Example Team
+                {slots.map((slot, index) => {
+                  const teamIndex = Number(slot.teamIndex ?? index);
+                  const team = template.previewData.teams?.[teamIndex] || { name: `Team ${teamIndex + 1}`, score: "0" };
+                  return (
+                    <div className="team-row" key={slot.id}>
+                      <input value={team.name} onChange={(event) => {
+                        const teams = [...(template.previewData.teams || [])];
+                        teams[teamIndex] = { ...teams[teamIndex], name: event.target.value };
+                        updatePreviewData({ teams });
+                      }} />
+                      <input value={team.score} onChange={(event) => {
+                        const teams = [...(template.previewData.teams || [])];
+                        teams[teamIndex] = { ...teams[teamIndex], score: event.target.value };
+                        updatePreviewData({ teams });
+                      }} />
+                    </div>
+                  );
+                })}
+                <button type="button" className="add-example" onClick={() => addSlot()}>
+                  + Add Team Score Slot
                 </button>
               </div>
             )}
