@@ -13,6 +13,7 @@ import ProgramResultsPage from "./pages/ProgramResultsPage.jsx";
 import TemplateEditorPage from "./pages/TemplateEditorPage.jsx";
 import TeamStatusTemplatesPage from "./pages/TeamStatusTemplatesPage.jsx";
 import TeamStatusTemplateEditorPage from "./pages/TeamStatusTemplateEditorPage.jsx";
+import TeamStatusResultsPage from "./pages/TeamStatusResultsPage.jsx";
 import { COMMON_GOOGLE_FONTS_URL } from "./constants/fontFamilies.js";
 
 if (typeof document !== "undefined" && !document.querySelector('link[data-rankify-fonts="true"]')) {
@@ -64,7 +65,7 @@ export default function App() {
         <Route path="team-status-templates/new" element={<TeamStatusTemplateEditorPage />} />
         <Route path="team-status-templates/:templateId/edit" element={<TeamStatusTemplateEditorPage />} />
         <Route path="team-status/templates" element={<Navigate to="/dashboard/team-status-templates" replace />} />
-        <Route path="team-status-results" element={<PlaceholderPage title="Team Status Results" />} />
+        <Route path="team-status-results" element={<TeamStatusResultsPage />} />
         <Route path="framed-templates" element={<PlaceholderPage title="Framed Templates" />} />
         <Route path="framed-posts" element={<PlaceholderPage title="Framed Posts" />} />
         <Route path="certificate-templates" element={<PlaceholderPage title="Certificate Templates" />} />

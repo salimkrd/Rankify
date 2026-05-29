@@ -52,8 +52,8 @@ const sections = [
   {
     label: "TEAM STATUS",
     links: [
-      { label: "Templates", to: "/dashboard/team-status/templates", icon: "♕" },
-      { label: "Results", to: "/dashboard/team-status/results", icon: "↗" },
+      { label: "Templates", to: "/dashboard/team-status-templates", icon: "♕", countKey: "teamStatusTemplates" },
+      { label: "Results", to: "/dashboard/team-status-results", icon: "↗", countKey: "teamStatusResults" },
     ],
   },
   {
@@ -181,6 +181,8 @@ export default function Sidebar() {
     teams: 0,
     categories: 0,
     programTemplates: 0,
+    teamStatusTemplates: 0,
+    teamStatusResults: 0,
   });
 
   useEffect(() => {
@@ -198,6 +200,8 @@ export default function Sidebar() {
           PROGRAM_TEMPLATES_KEY,
           validActiveEventId
         ),
+        teamStatusTemplates: getGroupedCount("rankify_team_status_templates", validActiveEventId),
+        teamStatusResults: getGroupedCount("rankify_team_status_results", validActiveEventId),
       });
     }
 
