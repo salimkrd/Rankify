@@ -72,6 +72,42 @@ export default function FramedPostTemplatesPage() {
 
   const hasTemplates = templates.length > 0;
 
+  function persistTemplatesRaw(value) {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(value));
+    window.dispatchEvent(new Event("rankify-data-changed"));
+  }
+
+  function handleDeleteTemplate(templateId) {
+    const confirmed = window.confirm("Are you sure you want to delete this framed post template?");
+    if (!confirmed) return;
+
+    const raw = safeJsonParse(localStorage.getItem(STORAGE_KEY), []);
+    // array shape
+    if (Array.isArray(raw)) {
+      const filtered = raw.filter(
+        (t) => !(String(t.id) === String(templateId) && String(t.eventId) === String(activeEventId))
+      );
+      persistTemplatesRaw(filtered);
+      setTemplates(getEventTemplates(activeEventId));
+      return;
+    }
+
+    // object/grouped shape
+    if (raw && typeof raw === "object") {
+      const copy = { ...raw };
+      const key = activeEventId || "default";
+      const list = Array.isArray(copy[key]) ? copy[key].filter((t) => String(t.id) !== String(templateId)) : [];
+      if (list.length) copy[key] = list;
+      else delete copy[key];
+      persistTemplatesRaw(copy);
+      setTemplates(getEventTemplates(activeEventId));
+      return;
+    }
+
+    // fallback: nothing to do
+    setTemplates(getEventTemplates(activeEventId));
+  }
+
   return (
     <div className="min-h-screen bg-[#F8FAFC] px-6 py-6 text-[#0D1B2A]">
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -103,10 +139,17 @@ export default function FramedPostTemplatesPage() {
                   <div className="flex flex-wrap gap-2 pt-3 sm:pt-0">
                     <button
                       type="button"
-                      onClick={() => navigate(`/dashboard/framed-posts/${template.id}/edit`)}
+                      onClick={() => navigate(`/dashboard/framed-posts/${template.id}/edit`) }
                       className="rounded-md border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-[#0D1B2A] hover:bg-gray-50"
                     >
                       Edit
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteTemplate(template.id)}
+                      className="inline-flex h-9 items-center gap-2 rounded-md bg-red-600 px-3 text-sm font-semibold text-white hover:bg-red-700"
+                    >
+                      ▥ Delete
                     </button>
                   </div>
                 </div>
