@@ -1,6 +1,9 @@
 import React from "react";
 
 function titleValue(element, previewData) {
+  if (previewData?.titleValues && element?.id && Object.prototype.hasOwnProperty.call(previewData.titleValues, element.id)) {
+    return previewData.titleValues[element.id];
+  }
   if (element.dataSource === "eventName") return previewData.eventName;
   if (element.dataSource === "organizerName") return previewData.organizerName;
   if (element.dataSource === "eventDate") return previewData.eventDate;
@@ -98,8 +101,11 @@ export default function TeamStatusTemplatePreview({
         </div>
       ))}
 
-      {slots.map((slot) => {
-        const team = previewData.teams?.[slot.teamIndex] || { name: "Team Name", score: "0" };
+      {slots.map((slot, slotIdx) => {
+        const teamIndex = Number(slot.teamIndex ?? slotIdx);
+        const team = previewData.teams?.[teamIndex];
+        if (!team && !editable) return null;
+        const displayTeam = team || { name: "Team Name", score: "0" };
 
         return (
           <div
@@ -150,7 +156,7 @@ export default function TeamStatusTemplatePreview({
                     ...selectable(childId),
                   }}
                 >
-                  {team[childKey]}
+                  {displayTeam[childKey]}
                 </span>
               );
             })}

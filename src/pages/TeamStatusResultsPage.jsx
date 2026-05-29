@@ -42,20 +42,29 @@ function injectResultIntoTemplate(template, result) {
   const preview = { ...(tpl.previewData || {}) };
   // map title parts to titleValues by element id order
   const titleElements = Array.isArray(tpl.elements) ? tpl.elements.filter((e) => e.kind === "title") : [];
-  const titleValues = { ...(preview.titleValues || {}) };
-  (result.titleParts || []).forEach((part, i) => {
-    const el = titleElements[i];
-    if (el) titleValues[el.id] = part;
-  });
+  const titleValues = {};
+  if (Array.isArray(result?.titleParts)) {
+    (result.titleParts || []).forEach((part, i) => {
+      const el = titleElements[i];
+      if (el) titleValues[el.id] = part;
+    });
+  } else {
+    Object.assign(titleValues, preview.titleValues || {});
+  }
   // map teams by slot.teamIndex
   const slots = Array.isArray(tpl.elements) ? tpl.elements.filter((e) => e.kind === "teamSlot") : [];
-  const teams = Array.isArray(preview.teams) ? [...preview.teams] : [];
-  (result.teams || []).forEach((team, i) => {
-    // try to find matching slot index
-    const slot = slots.find((s) => Number(s.teamIndex || 0) === i) || slots[i];
-    const idx = slot ? Number(slot.teamIndex ?? i) : i;
-    teams[idx] = { name: team.teamName || team.name || team.team || "Alpha", score: String(team.score ?? "0") };
-  });
+  const teams = [];
+  if (Array.isArray(result?.teams)) {
+    (result.teams || []).forEach((team, i) => {
+      const slot = slots.find((s) => Number(s.teamIndex || 0) === i) || slots[i];
+      const idx = slot ? Number(slot.teamIndex ?? i) : i;
+      teams[idx] = { name: team.teamName || team.name || team.team || "Alpha", score: String(team.score ?? "0") };
+    });
+  } else if (Array.isArray(preview.teams)) {
+    preview.teams.forEach((t, i) => {
+      teams[i] = { name: t.name || t.teamName || "Alpha", score: String(t.score ?? "0") };
+    });
+  }
   tpl.previewData = { ...preview, titleValues, teams };
   return tpl;
 }
@@ -399,7 +408,13 @@ export default function TeamStatusResultsPage() {
                     <div style={{ width: 280, maxWidth: '100%', margin: '0 auto', border: '1px solid #eee', padding: 12, background: '#fff', borderRadius: 8 }}>
                       {(() => {
                         const tpl = templates.find((t) => String(t.id) === String(form.templateId)) || templates[0] || {};
-                        const injected = injectResultIntoTemplate(tpl, { titleParts: form.titleParts, teams: form.teams });
+                        const resultPreviewData = {
+                          titleParts: Array.isArray(form.titleParts) ? form.titleParts : [],
+                          teams: Array.isArray(form.teams)
+                            ? form.teams.map((team) => ({ teamName: team.teamName || team.name || "Alpha", score: String(team.score ?? "0") }))
+                            : [],
+                        };
+                        const injected = injectResultIntoTemplate(tpl, resultPreviewData);
                         return <TeamStatusTemplatePreview template={injected} scale={256 / (injected.canvas?.width || 1080)} editable={false} />;
                       })()}
                     </div>
