@@ -28,6 +28,11 @@ jobs:
       - name: Build project
         run: npm run build
 
+      - name: Verify dist output
+        run: |
+          ls -la dist
+          ls -la dist/assets
+
       - name: Install lftp
         run: sudo apt-get update && sudo apt-get install -y lftp
 
@@ -37,6 +42,17 @@ jobs:
          set ftp:ssl-allow no
          set net:timeout 20
          set net:max-retries 2
-         mirror -R --delete --verbose ./dist/ ./public_html/
+         mirror -R --delete --verbose --include-glob .htaccess --include-glob assets/** --include-glob index.html --include-glob favicon.ico --include-glob '*' ./dist/ ./public_html/
+         bye
+         EOF
+
+      - name: Verify Hostinger upload
+        run: |
+         lftp -u "${{ secrets.HOSTINGER_FTP_USER }}","${{ secrets.HOSTINGER_FTP_PASSWORD }}" -p 21 "${{ secrets.HOSTINGER_FTP_HOST }}" <<EOF
+         set ftp:ssl-allow no
+         set net:timeout 20
+         set net:max-retries 2
+         cd public_html
+         ls -la
          bye
          EOF
