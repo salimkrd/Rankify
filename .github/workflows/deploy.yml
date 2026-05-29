@@ -47,9 +47,6 @@ jobs:
           set net:reconnect-interval-max 20
           set cmd:fail-exit yes
 
-          mkdir -p public_html
-          cd public_html
-
           mirror -R --delete --verbose \
             --include-glob .htaccess \
             --include-glob assets/** \
