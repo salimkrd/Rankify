@@ -16,6 +16,7 @@ import TeamStatusTemplateEditorPage from "./pages/TeamStatusTemplateEditorPage.j
 import TeamStatusResultsPage from "./pages/TeamStatusResultsPage.jsx";
 import FramedPostTemplatesPage from "./pages/FramedPostTemplatesPage.jsx";
 import FramedPostTemplateEditorPage from "./pages/FramedPostTemplateEditorPage.jsx";
+import FramedPostsPage from "./pages/FramedPostsPage.jsx";
 import { COMMON_GOOGLE_FONTS_URL } from "./constants/fontFamilies.js";
 
 if (typeof document !== "undefined" && !document.querySelector('link[data-rankify-fonts="true"]')) {
@@ -72,7 +73,7 @@ export default function App() {
         <Route path="framed-posts" element={<FramedPostTemplatesPage />} />
         <Route path="framed-posts/new" element={<FramedPostTemplateEditorPage />} />
         <Route path="framed-posts/:templateId/edit" element={<FramedPostTemplateEditorPage />} />
-        <Route path="framed-posts/my-posts" element={<PlaceholderPage title="My Posts" />} />
+        <Route path="framed-posts/my-posts" element={<FramedPostsPage />} />
         <Route path="certificate-templates" element={<PlaceholderPage title="Certificate Templates" />} />
         <Route path="certificate-results" element={<PlaceholderPage title="Certificate Results" />} />
         <Route path="teams" element={<TeamsPage />} />

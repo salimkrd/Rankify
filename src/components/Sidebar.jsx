@@ -220,6 +220,7 @@ export default function Sidebar() {
         teamStatusTemplates: getGroupedCount("rankify_team_status_templates", validActiveEventId),
         teamStatusResults: getGroupedCount("rankify_team_status_results", validActiveEventId),
         framedPostTemplates: getGroupedCount("rankify_framed_post_templates", validActiveEventId),
+        framedPosts: getGroupedCount("rankify_framed_posts", validActiveEventId),
       });
     }
 
