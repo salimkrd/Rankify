@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { NavLink } from "react-router-dom";
+import { NavLink, useLocation } from "react-router-dom";
 
 const EVENTS_KEY = "rankify_events";
 const ACTIVE_EVENT_KEY = "rankify_active_event_id";
@@ -59,7 +59,14 @@ const sections = [
   {
     label: "FRAMED POSTS",
     links: [
-      { label: "Templates", to: "/dashboard/framed-posts/templates", icon: "#" },
+      {
+        label: "Templates",
+        to: "/dashboard/framed-posts",
+        icon: "#",
+        activePrefix: "/dashboard/framed-posts",
+        activeExcludePrefixes: ["/dashboard/framed-posts/my-posts"],
+        countKey: "framedPostTemplates",
+      },
       { label: "My Posts", to: "/dashboard/framed-posts/my-posts", icon: "▱" },
     ],
   },
@@ -142,10 +149,19 @@ function getGroupedCount(storageKey, activeEventId) {
 }
 
 function SidebarLink({ link, counts }) {
+  const location = useLocation();
   const count =
     link.countKey && Object.prototype.hasOwnProperty.call(counts, link.countKey)
       ? counts[link.countKey]
       : link.count;
+
+  const active = link.activePrefix
+    ? location.pathname === link.to ||
+      (location.pathname.startsWith(link.activePrefix) &&
+        !link.activeExcludePrefixes?.some((prefix) =>
+          location.pathname.startsWith(prefix)
+        ))
+    : false;
 
   return (
     <NavLink
@@ -154,7 +170,7 @@ function SidebarLink({ link, counts }) {
       className={({ isActive }) =>
         [
           "flex h-9 items-center gap-3 rounded-md px-3 text-sm font-medium transition-colors",
-          isActive
+          active || isActive
             ? "bg-[#E8F3EA] text-[#26752C]"
             : "text-gray-700 hover:bg-gray-100 hover:text-[#0D1B2A]",
         ].join(" ")
@@ -183,6 +199,7 @@ export default function Sidebar() {
     programTemplates: 0,
     teamStatusTemplates: 0,
     teamStatusResults: 0,
+    framedPostTemplates: 0,
   });
 
   useEffect(() => {
@@ -202,6 +219,7 @@ export default function Sidebar() {
         ),
         teamStatusTemplates: getGroupedCount("rankify_team_status_templates", validActiveEventId),
         teamStatusResults: getGroupedCount("rankify_team_status_results", validActiveEventId),
+        framedPostTemplates: getGroupedCount("rankify_framed_post_templates", validActiveEventId),
       });
     }
 
