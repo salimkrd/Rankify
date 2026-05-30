@@ -1,0 +1,13 @@
+const fs = require('fs');
+const zlib = require('zlib');
+const buf = fs.readFileSync('large-test-5000x2812.png');
+const rows = 2812;
+const rowBytes = 15001;
+console.log('expected', rows * rowBytes);
+const idatStart = buf.indexOf(Buffer.from('IDAT'));
+const len = buf.readUInt32BE(idatStart - 4);
+const chunk = buf.slice(idatStart + 4, idatStart + 4 + len);
+const dec = zlib.inflateSync(chunk);
+console.log('dec len', dec.length);
+console.log('first row length', dec.indexOf(0));
+console.log('last bytes', dec.slice(dec.length - 20).toString('hex'));

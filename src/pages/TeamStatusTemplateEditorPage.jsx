@@ -322,12 +322,14 @@ function LayerRow({ active, label, onSelect, onDuplicate, onDelete }) {
 export default function TeamStatusTemplateEditorPage() {
   const navigate = useNavigate();
   const { templateId } = useParams();
+  const previewContainerRef = useRef(null);
   const previewRef = useRef(null);
   const dragRef = useRef(null);
   const [activeEvent, setActiveEvent] = useState(() => getActiveEvent());
   const [template, setTemplate] = useState(() => defaultTemplate(getActiveEvent()));
   const [selectedId, setSelectedId] = useState("title_final");
   const [exampleOpen, setExampleOpen] = useState(false);
+  const [scalePercent, setScalePercent] = useState(60);
 
   const isEdit = Boolean(templateId);
   const titles = template.elements.filter((element) => element.kind === "title");
@@ -338,11 +340,26 @@ export default function TeamStatusTemplateEditorPage() {
     return { element, child };
   }, [selectedId, template.elements]);
 
-  const scale = useMemo(() => {
-    const maxWidth = 520;
-    const maxHeight = 570;
-    return Math.min(maxWidth / template.canvas.width, maxHeight / template.canvas.height, 1);
-  }, [template.canvas.height, template.canvas.width]);
+  const scale = scalePercent / 100;
+
+  useEffect(() => {
+    const node = previewContainerRef.current;
+    if (!node) return;
+
+    function updateFitScale() {
+      const previewWidth = node.clientWidth;
+      const previewHeight = node.clientHeight;
+      const fitScale = Math.min(previewWidth / template.canvas.width, previewHeight / template.canvas.height, 1);
+      const fitPercent = Math.max(1, Math.round(fitScale * 100));
+      if (scalePercent > fitPercent) {
+        setScalePercent(fitPercent);
+      }
+    }
+
+    updateFitScale();
+    window.addEventListener("resize", updateFitScale);
+    return () => window.removeEventListener("resize", updateFitScale);
+  }, [template.canvas.height, template.canvas.width, scalePercent]);
 
   useEffect(() => {
     const event = getActiveEvent();
@@ -530,11 +547,19 @@ export default function TeamStatusTemplateEditorPage() {
     reader.onload = () => {
       const image = new Image();
       image.onload = () => {
+        const nextWidth = image.naturalWidth;
+        const nextHeight = image.naturalHeight;
         updateCanvas({
           backgroundImage: reader.result,
-          width: image.naturalWidth,
-          height: image.naturalHeight,
+          width: nextWidth,
+          height: nextHeight,
         });
+
+        const node = previewContainerRef.current;
+        if (node) {
+          const fitScale = Math.min(node.clientWidth / nextWidth, node.clientHeight / nextHeight, 1);
+          setScalePercent(Math.max(1, Math.round(fitScale * 100)));
+        }
       };
       image.src = reader.result;
     };
@@ -666,15 +691,23 @@ export default function TeamStatusTemplateEditorPage() {
       <header className="sticky top-0 z-30 border-b border-gray-200 bg-[#F8FAFC] px-5 py-4">
         <div className="flex items-center justify-between gap-4">
           <div className="flex items-center gap-4">
-            <button type="button" className="back-btn" onClick={() => navigate("/dashboard/team-status-templates")}> 
-              <ArrowLeft size={18} />
+            <button
+              type="button"
+              onClick={() => navigate("/dashboard/team-status-templates")}
+              className="rounded-md px-2 py-1 text-2xl text-gray-600 hover:bg-gray-100"
+            >
+              &larr;
             </button>
             <div>
-              <p>Team Point Status Templates</p>
-              <h1>{isEdit ? `Edit — ${template.name}` : "Create team status template"}</h1>
+              <p className="text-sm text-gray-500">Team Point Status Templates</p>
+              <h1 className="text-2xl font-bold">{isEdit ? `Edit — ${template.name}` : "Create team status template"}</h1>
             </div>
           </div>
-          <button type="button" className="save-btn" onClick={saveTemplate}>
+          <button
+            type="button"
+            onClick={saveTemplate}
+            className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-md bg-[#26752C] px-4 text-sm font-semibold text-white shadow-sm hover:bg-[#1f6425]"
+          >
             <Save size={17} />
             {isEdit ? "Save changes" : "Create template"}
           </button>
@@ -727,7 +760,7 @@ export default function TeamStatusTemplateEditorPage() {
               <span className="rounded-md border border-gray-300 bg-white px-3 py-1 text-sm">Scaled to {Math.round(scale * 100)}%</span>
             </div>
           </div>
-          <div className="max-h-[520px] overflow-auto rounded-lg bg-white p-4">
+          <div className="max-h-[520px] overflow-auto rounded-lg bg-white p-4" ref={previewContainerRef}>
             <div
               className="canvas-outer"
               ref={previewRef}

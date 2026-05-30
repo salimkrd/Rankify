@@ -109,7 +109,21 @@ export default function FramedPostTemplateEditorPage() {
     eventLocation: "",
   });
   const [isLoaded, setIsLoaded] = useState(false);
-  const previewScale = 0.6;
+  const previewWrapperRef = useRef(null);
+  const [previewScale, setPreviewScale] = useState(() => {
+    const maxWidth = 520;
+    const maxHeight = 570;
+    return Math.min(maxWidth / canvasWidth, maxHeight / canvasHeight, 1);
+  });
+
+  useEffect(() => {
+    const node = previewWrapperRef.current;
+    if (!node) return;
+
+    const previewWidth = node.clientWidth;
+    const previewHeight = node.clientHeight;
+    setPreviewScale(Math.min(previewWidth / canvasWidth, previewHeight / canvasHeight, 1));
+  }, [canvasWidth, canvasHeight]);
 
   const storageRaw = useMemo(() => safeJsonParse(localStorage.getItem(STORAGE_KEY), []), []);
   const storageShape = getStorageShape(storageRaw);
@@ -472,6 +486,10 @@ export default function FramedPostTemplateEditorPage() {
           </div>
 
           <div className="mt-4 border-t border-gray-200 pt-4">
+            <div className="mb-2 rounded-md bg-gray-50 px-3 py-2 text-sm text-gray-700">
+              <div className="font-semibold">Frame Image</div>
+              <div className="text-xs text-gray-500">Overlay saved with the template</div>
+            </div>
             <button
               type="button"
               onClick={addCustomField}
@@ -496,132 +514,156 @@ export default function FramedPostTemplateEditorPage() {
             <h2 className="whitespace-nowrap text-2xl font-bold">Live Preview</h2>
             <div className="flex items-center gap-3 text-sm">
               <span className="text-gray-600">Canvas: {canvasWidth}×{canvasHeight}px</span>
-              <span className="rounded-md border border-gray-300 bg-white px-3 py-1 text-sm">Scaled to 60%</span>
+              <span className="rounded-md border border-gray-300 bg-white px-3 py-1 text-sm">Scaled to {Math.round(previewScale * 100)}%</span>
             </div>
           </div>
 
           <div className="max-h-[520px] overflow-auto rounded-lg bg-white p-4">
-            <div className="flex justify-center">
+            <div className="flex justify-center" ref={previewWrapperRef}>
               <div
+                className="canvas-outer"
                 style={{
-                  width: canvasWidth * 0.6,
-                  height: canvasHeight * 0.6,
-                  position: "relative",
-                  flex: "0 0 auto",
+                  width: canvasWidth * previewScale,
+                  height: canvasHeight * previewScale,
+                  overflow: "hidden",
                 }}
-                className="border border-gray-200 rounded-lg bg-gray-100"
               >
-                {frameImageUrl ? (
-                  <img src={frameImageUrl} alt="frame" className="absolute inset-0 w-full h-full object-cover rounded-lg" />
-                ) : (
-                  <div className="absolute inset-0 flex items-center justify-center text-gray-400">
-                    <span>Frame Preview</span>
-                  </div>
-                )}
-                {/* render custom fields and images */}
-                {customFields.map((field, idx) => {
-                  const scale = previewScale;
-                  const left = (Number(field.x) || 0) * scale;
-                  const top = (Number(field.y) || 0) * scale;
-                  const zIndex = 20 + idx;
-
-                  if (field.type === "image") {
-                    const width = (Number(field.width) || 200) * scale;
-                    const height = (Number(field.height) || 160) * scale;
-                    const opacity = field.opacity === undefined ? 1 : Number(field.opacity);
-                    const borderRadius = (Number(field.borderRadius) || 0) * scale;
-                    const objectFit = field.objectFit || "cover";
-
-                    return (
-                      <div
-                        key={field.id}
-                        onPointerDown={(e) => startDrag(e, field)}
-                        style={{
-                          position: "absolute",
-                          left,
-                          top,
-                          width,
-                          height,
-                          zIndex,
-                          boxSizing: "border-box",
-                          cursor: "pointer",
-                          padding: 0,
-                        }}
-                        className={selectedFieldId === field.id ? "rounded-sm ring-2 ring-offset-1 ring-[#26752C] bg-white/10" : ""}
-                      >
-                        {field.src ? (
-                          <img
-                            src={field.src}
-                            alt={field.label}
-                            style={{
-                              width: "100%",
-                              height: "100%",
-                              objectFit,
-                              opacity,
-                              borderRadius: borderRadius,
-                              display: "block",
-                            }}
-                            draggable={false}
-                          />
-                        ) : (
-                          <div
-                            style={{
-                              width: "100%",
-                              height: "100%",
-                              background: "#f3f4f6",
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                              color: "#9ca3af",
-                              borderRadius: borderRadius,
-                              border: "1px dashed #e5e7eb",
-                            }}
-                          >
-                            Image
-                          </div>
-                        )}
+                <div
+                  style={{
+                    width: canvasWidth,
+                    height: canvasHeight,
+                    transform: `scale(${previewScale})`,
+                    transformOrigin: "top left",
+                    position: "relative",
+                  }}
+                >
+                  <div
+                    style={{
+                      width: canvasWidth,
+                      height: canvasHeight,
+                      position: "relative",
+                    }}
+                    className="border border-gray-200 rounded-lg bg-gray-100"
+                  >
+                    {frameImageUrl ? (
+                      <img
+                        src={frameImageUrl}
+                        alt="frame"
+                        className="absolute inset-0 w-full h-full rounded-lg"
+                        style={{ objectFit: "contain", opacity: 1, display: "block" }}
+                        draggable={false}
+                      />
+                    ) : (
+                      <div className="absolute inset-0 flex items-center justify-center text-gray-400">
+                        <span>Frame Preview</span>
                       </div>
-                    );
-                  }
+                    )}
+                    {/* render custom fields and images */}
+                    {customFields.map((field, idx) => {
+                      const scale = 1;
+                      const left = Number(field.x) || 0;
+                      const top = Number(field.y) || 0;
+                      const zIndex = 20 + idx;
 
-                  const width = field.width ? Number(field.width) * scale : undefined;
-                  const fontSize = (Number(field.fontSize) || 16) * scale;
-                  const fontFamily = field.fontFamily || "Inter";
-                  const fontWeight = field.fontWeight || "400";
-                  const color = field.color || "#000";
-                  const textAlign = field.textAlign || "left";
-                  const lineHeight = field.lineHeight || 1.2;
+                      if (field.type === "image") {
+                        const width = Number(field.width) || 200;
+                        const height = Number(field.height) || 160;
+                        const opacity = field.opacity === undefined ? 1 : Number(field.opacity);
+                        const borderRadius = Number(field.borderRadius) || 0;
+                        const objectFit = field.objectFit || "cover";
 
-                  const displayText = String(resolveFramedFieldText(field, normalizedPreview) || "");
+                        return (
+                          <div
+                            key={field.id}
+                            onPointerDown={(e) => startDrag(e, field)}
+                            style={{
+                              position: "absolute",
+                              left,
+                              top,
+                              width,
+                              height,
+                              zIndex,
+                              boxSizing: "border-box",
+                              cursor: "pointer",
+                              padding: 0,
+                            }}
+                            className={selectedFieldId === field.id ? "rounded-sm ring-2 ring-offset-1 ring-[#26752C] bg-white/10" : ""}
+                          >
+                            {field.src ? (
+                              <img
+                                src={field.src}
+                                alt={field.label}
+                                style={{
+                                  width: "100%",
+                                  height: "100%",
+                                  objectFit,
+                                  opacity,
+                                  borderRadius: borderRadius,
+                                  display: "block",
+                                }}
+                                draggable={false}
+                              />
+                            ) : (
+                              <div
+                                style={{
+                                  width: "100%",
+                                  height: "100%",
+                                  background: "#f3f4f6",
+                                  display: "flex",
+                                  alignItems: "center",
+                                  justifyContent: "center",
+                                  color: "#9ca3af",
+                                  borderRadius: borderRadius,
+                                  border: "1px dashed #e5e7eb",
+                                }}
+                              >
+                                Image
+                              </div>
+                            )}
+                          </div>
+                        );
+                      }
 
-                  return (
-                    <div
-                      key={field.id}
-                      onPointerDown={(e) => startDrag(e, field)}
-                      style={{
-                        position: "absolute",
-                        left,
-                        top,
-                        width: width,
-                        fontSize,
-                        fontFamily,
-                        fontWeight,
-                        color,
-                        textAlign,
-                        lineHeight,
-                        whiteSpace: "normal",
-                        overflowWrap: "break-word",
-                        zIndex,
-                        padding: 2,
-                        boxSizing: "border-box",
-                        cursor: "pointer",
-                      }}
-                      className={selectedFieldId === field.id ? "rounded-sm ring-2 ring-offset-1 ring-[#26752C] bg-white/30" : ""}
-                    >
-                      <div style={{ pointerEvents: "none" }}>{displayText}</div>
-                    </div>
-                  );
-                })}
+                      const width = field.width ? Number(field.width) * scale : undefined;
+                      const fontSize = (Number(field.fontSize) || 16) * scale;
+                      const fontFamily = field.fontFamily || "Inter";
+                      const fontWeight = field.fontWeight || "400";
+                      const color = field.color || "#000";
+                      const textAlign = field.textAlign || "left";
+                      const lineHeight = field.lineHeight || 1.2;
+
+                      const displayText = String(resolveFramedFieldText(field, normalizedPreview) || "");
+
+                      return (
+                        <div
+                          key={field.id}
+                          onPointerDown={(e) => startDrag(e, field)}
+                          style={{
+                            position: "absolute",
+                            left,
+                            top,
+                            width: width,
+                            fontSize,
+                            fontFamily,
+                            fontWeight,
+                            color,
+                            textAlign,
+                            lineHeight,
+                            whiteSpace: "normal",
+                            overflowWrap: "break-word",
+                            zIndex,
+                            padding: 2,
+                            boxSizing: "border-box",
+                            cursor: "pointer",
+                          }}
+                          className={selectedFieldId === field.id ? "rounded-sm ring-2 ring-offset-1 ring-[#26752C] bg-white/30" : ""}
+                        >
+                          <div style={{ pointerEvents: "none" }}>{displayText}</div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -723,7 +765,17 @@ export default function FramedPostTemplateEditorPage() {
                 const file = e.target.files?.[0];
                 if (file) {
                   const reader = new FileReader();
-                  reader.onload = () => setFrameImageUrl(reader.result);
+                  reader.onload = () => {
+                    const dataUrl = reader.result;
+                    if (typeof dataUrl !== "string") return;
+                    const img = new Image();
+                    img.onload = () => {
+                      setFrameImageUrl(dataUrl);
+                      setCanvasWidth(img.naturalWidth || 800);
+                      setCanvasHeight(img.naturalHeight || 600);
+                    };
+                    img.src = dataUrl;
+                  };
                   reader.readAsDataURL(file);
                 }
               }}
@@ -763,7 +815,7 @@ export default function FramedPostTemplateEditorPage() {
                 />
               </label>
             </div>
-            <p className="mt-2 text-xs text-gray-500">Dimensions are automatically set by the frame image.</p>
+            <p className="mt-2 text-xs text-gray-500">Canvas dimensions remain editable. Adjust width/height manually as needed.</p>
           </div>
 
           {selectedField && (

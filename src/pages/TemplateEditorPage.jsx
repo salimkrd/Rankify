@@ -272,6 +272,10 @@ export default function TemplateEditorPage() {
   const [elements, setElements] = useState(defaultElements);
   const [selectedElementId, setSelectedElementId] = useState("programName");
   const [previewOpen, setPreviewOpen] = useState(false);
+  const scaleOptions = [40, 60, 75, 100];
+  const scaleSelectOptions = scaleOptions.includes(scalePercent)
+    ? scaleOptions
+    : [scalePercent, ...scaleOptions].sort((a, b) => a - b);
   const [previewData, setPreviewData] = useState(defaultPreviewData);
   const [removeTarget, setRemoveTarget] = useState(null);
 
@@ -299,6 +303,25 @@ export default function TemplateEditorPage() {
     setElements(Array.isArray(template.elements) && template.elements.length ? template.elements : defaultElements);
     setPreviewData(template.previewData || defaultPreviewData);
   }, [templateId]);
+
+  useEffect(() => {
+    const node = canvasScrollRef.current;
+    if (!node) return;
+
+    function updateFitScale() {
+      const previewWidth = node.clientWidth;
+      const previewHeight = node.clientHeight;
+      const fitScale = Math.min(previewWidth / canvas.width, previewHeight / canvas.height, 1);
+      const fitPercent = Math.max(1, Math.round(fitScale * 100));
+      if (scalePercent > fitPercent) {
+        setScalePercent(fitPercent);
+      }
+    }
+
+    updateFitScale();
+    window.addEventListener("resize", updateFitScale);
+    return () => window.removeEventListener("resize", updateFitScale);
+  }, [canvas.width, canvas.height, scalePercent]);
 
   useEffect(() => {
     function onKeyDown(event) {
@@ -414,14 +437,18 @@ export default function TemplateEditorPage() {
     const dataUrl = await dataUrlFromFile(file);
     const image = new Image();
     image.onload = () => {
-      const nextCanvas = { width: image.naturalWidth, height: image.naturalHeight, backgroundImage: dataUrl };
-      setCanvas(nextCanvas);
+      setCanvas((current) => ({
+        ...current,
+        width: Number(image.naturalWidth) || 1,
+        height: Number(image.naturalHeight) || 1,
+        backgroundImage: dataUrl,
+      }));
       setBackgroundName(file.name);
 
       const previewWidth = canvasScrollRef.current?.clientWidth || 900;
       const previewHeight = canvasScrollRef.current?.clientHeight || 520;
       const fitScale = Math.min(previewWidth / image.naturalWidth, previewHeight / image.naturalHeight, 1);
-      setScalePercent(Math.round(Math.max(fitScale, 0.25) * 100));
+      setScalePercent(Math.max(1, Math.round(fitScale * 100)));
     };
     image.src = dataUrl;
   }
@@ -444,6 +471,13 @@ export default function TemplateEditorPage() {
       return;
     }
 
+    const normalizedCanvas = {
+      ...canvas,
+      width: Number(canvas.width) || 1,
+      height: Number(canvas.height) || 1,
+      backgroundImage: canvas.backgroundImage || "",
+    };
+
     const { shape, templates } = normalizeTemplates();
     const now = new Date().toISOString();
     const template = {
@@ -451,10 +485,10 @@ export default function TemplateEditorPage() {
       eventId: activeEventId,
       name: templateName.trim(),
       type: "program",
-      canvas,
+      canvas: normalizedCanvas,
       elements,
       previewData,
-      previewImage: canvas.backgroundImage || makePreviewImage(templateName.trim(), canvas),
+      previewImage: normalizedCanvas.backgroundImage || makePreviewImage(templateName.trim(), normalizedCanvas),
       createdAt: templateId ? templates.find((item) => item.id === templateId)?.createdAt || today() : today(),
       updatedAt: now,
     };
@@ -685,7 +719,7 @@ export default function TemplateEditorPage() {
                 onChange={(event) => setScalePercent(Number(event.target.value))}
                 className="h-9 rounded-md border border-gray-300 bg-white px-3"
               >
-                {[40, 60, 75, 100].map((value) => (
+                {scaleSelectOptions.map((value) => (
                   <option key={value} value={value}>Scaled to {value}%</option>
                 ))}
               </select>

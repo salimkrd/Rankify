@@ -181,6 +181,7 @@ function buildFormState(template) {
     aspectRatio: 1.33,
     cropX: 0,
     cropY: 0,
+    imageFit: "contain",
     status: "Published",
     fieldValues: initialFieldValues(template),
   };
@@ -209,6 +210,7 @@ export default function FramedPostsPage() {
   const [formState, setFormState] = useState(buildFormState(templates[0]));
   const [isExporting, setIsExporting] = useState(false);
   const exportRef = useRef(null);
+  const adjustDragState = useRef({ isDragging: false, startX: 0, startY: 0, startCropX: 0, startCropY: 0 });
 
   const templateOptions = templates;
 
@@ -298,6 +300,7 @@ export default function FramedPostsPage() {
       aspectRatio: post.aspectRatio || 1.33,
       cropX: post.cropX || 0,
       cropY: post.cropY || 0,
+      imageFit: post.imageFit || "contain",
       status: post.status || "Published",
       fieldValues: post.fieldValues || initialFieldValues(template),
     });
@@ -331,7 +334,15 @@ export default function FramedPostsPage() {
     }));
   }
 
+  function clampAspectRatio(value) {
+    if (!Number.isFinite(value) || value <= 0) return 1.33;
+    return Math.min(Math.max(value, 0.5), 3);
+  }
+
   function handleFormFieldChange(key, value) {
+    if (key === "aspectRatio") {
+      value = clampAspectRatio(value);
+    }
     setFormState((prev) => ({ ...prev, [key]: value }));
   }
 
@@ -355,6 +366,54 @@ export default function FramedPostsPage() {
     reader.readAsDataURL(file);
   }
 
+  function getContentImageStyle(zoom, rotation, imageFit, cropX, cropY) {
+    return {
+      position: "absolute",
+      left: "50%",
+      top: "50%",
+      width: "100%",
+      height: "100%",
+      objectFit: imageFit || "contain",
+      transform: `translate(calc(-50% + ${cropX}px), calc(-50% + ${cropY}px)) scale(${zoom}) rotate(${rotation}deg)`,
+      transformOrigin: "center center",
+      opacity: 1,
+      mixBlendMode: "normal",
+      filter: "none",
+      zIndex: 1,
+      userSelect: "none",
+      WebkitUserDrag: "none",
+      pointerEvents: "none",
+    };
+  }
+
+  function handleAdjustPointerDown(event) {
+    if (!formState.contentImageSrc) return;
+    event.currentTarget.setPointerCapture(event.pointerId);
+    adjustDragState.current = {
+      isDragging: true,
+      startX: event.clientX,
+      startY: event.clientY,
+      startCropX: formState.cropX || 0,
+      startCropY: formState.cropY || 0,
+    };
+  }
+
+  function handleAdjustPointerMove(event) {
+    if (!adjustDragState.current.isDragging) return;
+    if (formState.zoom <= 1) return;
+    event.preventDefault();
+    const deltaX = event.clientX - adjustDragState.current.startX;
+    const deltaY = event.clientY - adjustDragState.current.startY;
+    handleFormFieldChange("cropX", adjustDragState.current.startCropX + deltaX);
+    handleFormFieldChange("cropY", adjustDragState.current.startCropY + deltaY);
+  }
+
+  function handleAdjustPointerUp(event) {
+    if (!adjustDragState.current.isDragging) return;
+    adjustDragState.current.isDragging = false;
+    event.currentTarget.releasePointerCapture(event.pointerId);
+  }
+
   function savePost() {
     if (!formState.name.trim()) {
       alert("Result name is required.");
@@ -362,6 +421,10 @@ export default function FramedPostsPage() {
     }
     if (!formState.templateId) {
       alert("Please select a frame template.");
+      return;
+    }
+    if (!formState.contentImageSrc) {
+      alert("Please upload a content image.");
       return;
     }
 
@@ -378,6 +441,7 @@ export default function FramedPostsPage() {
       aspectRatio: formState.aspectRatio,
       cropX: formState.cropX || 0,
       cropY: formState.cropY || 0,
+      imageFit: formState.imageFit || "contain",
       status: formState.status,
       fieldValues: formState.fieldValues,
       createdAt: editingPost?.createdAt || now,
@@ -471,7 +535,9 @@ export default function FramedPostsPage() {
     aspectRatio = 1.33,
     cropX = 0,
     cropY = 0,
+    imageFit = "contain",
     scale = 1,
+    isExport = false,
   }) {
     if (!template) {
       return (
@@ -490,28 +556,14 @@ export default function FramedPostsPage() {
     return (
       <div
         style={{ width: scaledWidth, height: scaledHeight }}
-        className="relative overflow-hidden rounded-[24px] border border-gray-200 bg-[#f8f2ff] shadow-sm"
+        className={isExport ? "relative overflow-hidden bg-[#f8f2ff]" : "relative overflow-hidden rounded-[24px] border border-gray-200 bg-[#f8f2ff] shadow-sm"}
       >
         <div className="absolute inset-0 overflow-hidden bg-[#f8f2ff]">
           {contentImageSrc ? (
             <img
               src={contentImageSrc}
               alt="Content"
-              style={{
-                position: "absolute",
-                left: "50%",
-                top: "50%",
-                width: "100%",
-                height: "100%",
-                objectFit: "cover",
-                aspectRatio,
-                transform: `translate(calc(-50% + ${cropX}px), calc(-50% + ${cropY}px)) scale(${zoom}) rotate(${rotation}deg)`,
-                transformOrigin: "center center",
-                opacity: 1,
-                mixBlendMode: "normal",
-                filter: "none",
-                zIndex: 1,
-              }}
+              style={getContentImageStyle(zoom, rotation, imageFit, cropX, cropY)}
             />
           ) : (
             <div className="flex h-full flex-col items-center justify-center gap-3 text-sm text-gray-500">
@@ -575,7 +627,7 @@ export default function FramedPostsPage() {
     );
   }
 
-  function renderPreview(template, contentImageSrc, fieldValues, zoom, rotation, aspectRatio, cropX, cropY, scale = 0.65) {
+  function renderPreview(template, contentImageSrc, fieldValues, zoom, rotation, aspectRatio, cropX, cropY, imageFit = "contain", scale = 0.65) {
     return renderFramedPostCanvas({
       template,
       contentImageSrc,
@@ -585,6 +637,7 @@ export default function FramedPostsPage() {
       aspectRatio,
       cropX,
       cropY,
+      imageFit,
       scale,
     });
   }
@@ -600,7 +653,7 @@ export default function FramedPostsPage() {
         style={{
           position: "fixed",
           left: -9999,
-          top: 0,
+          top: -9999,
           width,
           height,
           opacity: 1,
@@ -614,12 +667,14 @@ export default function FramedPostsPage() {
           template,
           contentImageSrc: post.contentImageSrc,
           fieldValues,
-          zoom: post.zoom || 1,
-          rotation: post.rotation || 0,
-          aspectRatio: post.aspectRatio || 1.33,
-          cropX: post.cropX || 0,
-          cropY: post.cropY || 0,
+          zoom: post.zoom ?? 1,
+          rotation: post.rotation ?? 0,
+          aspectRatio: post.aspectRatio ?? 1.33,
+          cropX: post.cropX ?? 0,
+          cropY: post.cropY ?? 0,
+          imageFit: post.imageFit || "contain",
           scale: 1,
+          isExport: true,
         })}
       </div>
     );
@@ -757,9 +812,10 @@ export default function FramedPostsPage() {
       </div>
 
       {isFormOpen && (
-        <div className="fixed inset-0 z-50 overflow-y-auto bg-black/40 p-4">
-          <div className="mx-auto max-w-6xl rounded-[28px] bg-white p-6 shadow-2xl md:p-8">
-            <div className="mb-6 flex items-start justify-between gap-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/40 p-4">
+          <div className="w-full rounded-[28px] bg-white shadow-2xl" style={{ maxWidth: "min(1100px, calc(100vw - 48px))", maxHeight: "calc(100vh - 48px)", overflowY: "auto" }}>
+            <div className="p-6 md:p-8">
+              <div className="mb-6 flex items-start justify-between gap-4">
               <div>
                 <h2 className="text-2xl font-bold">
                   {editingPost ? "Edit Framed Post Result" : "Create New Framed Post Result"}
@@ -779,7 +835,7 @@ export default function FramedPostsPage() {
               </button>
             </div>
 
-            <div className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
+            <div className="grid gap-6 grid-cols-1 lg:grid-cols-[1fr_500px]">
               <div className="space-y-5">
                 <label className="block">
                   <span className="text-sm font-medium text-gray-700">Result Name</span>
@@ -860,7 +916,7 @@ export default function FramedPostsPage() {
                       </div>
                     )}
 
-                    <div className="grid gap-4 sm:grid-cols-2">
+                            <div className="grid gap-4 sm:grid-cols-2">
                       <label className="block">
                         <span className="text-sm font-medium text-gray-700">Zoom</span>
                         <input
@@ -904,7 +960,16 @@ export default function FramedPostsPage() {
 
                     <button
                       type="button"
-                      onClick={() => setFormState((prev) => ({ ...prev, zoom: 1, rotation: 0, aspectRatio: 1.33 }))}
+                      onClick={() =>
+                        setFormState((prev) => ({
+                          ...prev,
+                          zoom: 1,
+                          rotation: 0,
+                          aspectRatio: 1.33,
+                          cropX: 0,
+                          cropY: 0,
+                        }))
+                      }
                       className="inline-flex h-11 items-center justify-center rounded-xl border border-gray-300 bg-white px-4 text-sm font-semibold text-[#0D1B2A] hover:bg-gray-50"
                     >
                       Reset Crop/Zoom
@@ -914,29 +979,89 @@ export default function FramedPostsPage() {
               </div>
 
               <div className="space-y-5">
-                <div className="rounded-[28px] border border-gray-200 bg-white p-5 shadow-sm">
+                <div className="rounded-[28px] border border-gray-200 bg-white p-5 shadow-sm min-w-0">
                   <div className="mb-4 flex items-center justify-between gap-4">
-                    <div>
+                    <div className="min-w-0">
+                      <h3 className="text-lg font-semibold text-[#0D1B2A]">Adjust Content Image</h3>
+                      <p className="text-sm text-gray-500">Drag to position, zoom, rotate, and crop your content image.</p>
+                    </div>
+                    <div className="rounded-full bg-[#eef9f1] px-3 py-1 text-xs font-semibold text-[#167f42] shrink-0">
+                      Editable
+                    </div>
+                  </div>
+                  <div className="rounded-[32px] bg-[#e5e7eb] p-4 overflow-hidden">
+                    <div style={{ aspectRatio: clampAspectRatio(formState.aspectRatio), width: "100%", maxWidth: "100%" }}>
+                      <div
+                        className="relative h-full overflow-hidden rounded-[24px] bg-white shadow-inner"
+                        onPointerDown={handleAdjustPointerDown}
+                        onPointerMove={handleAdjustPointerMove}
+                        onPointerUp={handleAdjustPointerUp}
+                        onPointerCancel={handleAdjustPointerUp}
+                      >
+                        {formState.contentImageSrc ? (
+                          <img
+                            src={formState.contentImageSrc}
+                            alt="Adjust content"
+                            draggable={false}
+                            onDragStart={(e) => e.preventDefault()}
+                            style={getContentImageStyle(
+                              formState.zoom,
+                              formState.rotation,
+                              formState.imageFit,
+                              formState.cropX,
+                              formState.cropY
+                            )}
+                            className="cursor-grab"
+                          />
+                        ) : (
+                          <div className="flex h-full flex-col items-center justify-center gap-3 text-sm text-gray-500">
+                            <div className="h-16 w-16 rounded-full bg-[#e9d6ff]" />
+                            <div>Upload a content image to adjust crop and position.</div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="mt-3 grid grid-cols-2 gap-4 text-sm text-gray-600">
+                    <div>Crop ratio: {clampAspectRatio(formState.aspectRatio).toFixed(2)}:1</div>
+                    <div className="text-right">Drag the image to reposition it inside the crop area.</div>
+                  </div>
+                </div>
+
+                <div className="rounded-[28px] border border-gray-200 bg-white p-5 shadow-sm min-w-0 flex flex-col">
+                  <div className="mb-4 flex items-center justify-between gap-4">
+                    <div className="min-w-0">
                       <h3 className="text-lg font-semibold text-[#0D1B2A]">Live Preview</h3>
                       <p className="text-sm text-gray-500">Preview the framed post render before saving.</p>
                     </div>
-                    <div className="rounded-full bg-[#eef9f1] px-3 py-1 text-xs font-semibold text-[#167f42]">
+                    <div className="rounded-full bg-[#eef9f1] px-3 py-1 text-xs font-semibold text-[#167f42] shrink-0">
                       View only
                     </div>
                   </div>
-                  <div className="flex justify-center">
-                    {renderPreview(
-                      selectedTemplate,
-                      formState.contentImageSrc,
-                      formState.fieldValues,
-                      formState.zoom,
-                      formState.rotation,
-                      formState.aspectRatio,
-                      formState.cropX,
-                      formState.cropY,
-                      0.65
+                  <div className="flex flex-col items-center justify-center overflow-auto" style={{ minHeight: "240px", maxHeight: "400px" }}>
+                    {selectedTemplate ? (
+                      <div style={{ maxWidth: "100%", width: "100%", overflow: "auto" }}>
+                        {renderPreview(
+                          selectedTemplate,
+                          formState.contentImageSrc,
+                          formState.fieldValues,
+                          formState.zoom,
+                          formState.rotation,
+                          formState.aspectRatio,
+                          formState.cropX,
+                          formState.cropY,
+                          formState.imageFit,
+                          0.35
+                        )}
+                      </div>
+                    ) : (
+                      <div className="h-[240px] rounded-3xl border border-dashed border-gray-300 bg-white p-6 text-center text-sm text-gray-500 flex items-center justify-center">
+                        Select a template to preview
+                      </div>
                     )}
                   </div>
+                </div>
+
                 </div>
 
                 <div className="flex flex-wrap gap-3">
@@ -988,6 +1113,7 @@ export default function FramedPostsPage() {
                   viewingPost.aspectRatio,
                   viewingPost.cropX,
                   viewingPost.cropY,
+                  viewingPost.imageFit || "contain",
                   0.75
                 )}
               </div>
