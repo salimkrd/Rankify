@@ -8,6 +8,7 @@ import { getUserStorageKey } from "../utils/storage.js";
 const EVENTS_KEY = "rankify_events";
 const ACTIVE_EVENT_KEY = "rankify_active_event_id";
 const STORAGE_KEY = "rankify_team_status_templates";
+const MAX_IMAGE_SIZE = 1024 * 1024; // 1MB
 
 const defaultTeams = [
   { name: "Nullamkulam", score: "581" },
@@ -27,6 +28,15 @@ function safeJsonParse(value, fallback) {
   } catch {
     return fallback;
   }
+}
+
+function validateImageFile(file) {
+  if (!file) return true;
+  if (file.size > MAX_IMAGE_SIZE) {
+    alert("Image is too large. Please compress the image below 1MB and upload again.");
+    return false;
+  }
+  return true;
 }
 
 function today() {
@@ -543,6 +553,7 @@ export default function TeamStatusTemplateEditorPage() {
   function handleBackgroundUpload(event) {
     const file = event.target.files?.[0];
     if (!file) return;
+    if (!validateImageFile(file)) return;
 
     const reader = new FileReader();
     reader.onload = () => {
@@ -606,25 +617,44 @@ export default function TeamStatusTemplateEditorPage() {
   }
 
   function saveTemplate() {
-    const activeEventId = localStorage.getItem(getUserStorageKey(ACTIVE_EVENT_KEY)) || activeEvent.id;
-    const stored = getTemplatesByEvent();
-    const currentList = stored[activeEventId] || [];
-    const nextTemplate = {
-      ...template,
-      id: isEdit ? template.id : template.id || uid("team_status_template"),
-      eventId: activeEventId,
-      type: "team-status",
-      previewImage: makePreviewImage(template),
-      updatedAt: today(),
-      createdAt: template.createdAt || today(),
-    };
-    const nextList = isEdit
-      ? currentList.map((item) => (String(item.id) === String(nextTemplate.id) ? nextTemplate : item))
-      : [...currentList, nextTemplate];
+    try {
+      const activeEventId = localStorage.getItem(getUserStorageKey(ACTIVE_EVENT_KEY)) || activeEvent?.id;
+      
+      if (!activeEventId) {
+        alert("Please create or select an event first before creating a template.");
+        return;
+      }
 
-    localStorage.setItem(getUserStorageKey(STORAGE_KEY), JSON.stringify({ ...stored, [activeEventId]: nextList }));
-    window.dispatchEvent(new Event("rankify-data-changed"));
-    navigate("/dashboard/team-status-templates");
+      const stored = getTemplatesByEvent();
+      const currentList = stored[activeEventId] || [];
+      const nextTemplate = {
+        ...template,
+        id: isEdit ? template.id : template.id || uid("team_status_template"),
+        eventId: activeEventId,
+        type: "team-status",
+        previewImage: makePreviewImage(template),
+        updatedAt: today(),
+        createdAt: template.createdAt || today(),
+      };
+
+      const nextList = isEdit
+        ? currentList.map((item) => (String(item.id) === String(nextTemplate.id) ? nextTemplate : item))
+        : [...currentList, nextTemplate];
+
+      localStorage.setItem(getUserStorageKey(STORAGE_KEY), JSON.stringify({ ...stored, [activeEventId]: nextList }));
+
+      window.dispatchEvent(new Event("rankify-data-changed"));
+      window.dispatchEvent(new Event("rankify-team-status-templates-changed"));
+      
+      navigate("/dashboard/team-status-templates");
+    } catch (error) {
+      if (error?.name === "QuotaExceededError") {
+        alert("Storage limit exceeded. Please use a smaller/compressed image.");
+      } else {
+        alert("Failed to save template. Please try again.");
+      }
+      console.error("Error saving team status template:", error);
+    }
   }
 
   function renderToolbar() {

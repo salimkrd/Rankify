@@ -6,6 +6,7 @@ import { getUserStorageKey } from "../utils/storage.js";
 
 const STORAGE_KEY = "rankify_framed_post_templates";
 const ACTIVE_EVENT_KEY = "rankify_active_event_id";
+const MAX_IMAGE_SIZE = 1024 * 1024; // 1MB
 
 function safeJsonParse(value, fallback) {
   try {
@@ -48,13 +49,24 @@ function createGroupedTemplates(rawArray) {
 }
 
 function saveTemplates(allTemplates, shape) {
-  if (shape === "object") {
-    const grouped = createGroupedTemplates(allTemplates);
-    localStorage.setItem(getUserStorageKey(STORAGE_KEY), JSON.stringify(grouped));
-    return;
-  }
+  try {
+    if (shape === "object") {
+      const grouped = createGroupedTemplates(allTemplates);
+      localStorage.setItem(getUserStorageKey(STORAGE_KEY), JSON.stringify(grouped));
+      return true;
+    }
 
-  localStorage.setItem(getUserStorageKey(STORAGE_KEY), JSON.stringify(allTemplates));
+    localStorage.setItem(getUserStorageKey(STORAGE_KEY), JSON.stringify(allTemplates));
+    return true;
+  } catch (error) {
+    if (error?.name === "QuotaExceededError") {
+      alert("Storage limit exceeded. Please use a smaller/compressed image.");
+    } else {
+      alert("Unable to save template. Please try again.");
+    }
+    console.error("Failed to save framed post template", error);
+    return false;
+  }
 }
 
 function makeId(prefix = "field") {
@@ -399,7 +411,9 @@ export default function FramedPostTemplateEditorPage() {
       ? all.map((item) => (String(item.id) === String(nextTemplate.id) ? nextTemplate : item))
       : [...all, nextTemplate];
 
-    saveTemplates(updated, storageShape);
+    if (!saveTemplates(updated, storageShape)) {
+      return;
+    }
     window.dispatchEvent(new Event("rankify-data-changed"));
     navigate("/dashboard/framed-posts");
   }
@@ -764,21 +778,24 @@ export default function FramedPostTemplateEditorPage() {
               accept="image/*"
               onChange={(e) => {
                 const file = e.target.files?.[0];
-                if (file) {
-                  const reader = new FileReader();
-                  reader.onload = () => {
-                    const dataUrl = reader.result;
-                    if (typeof dataUrl !== "string") return;
-                    const img = new Image();
-                    img.onload = () => {
-                      setFrameImageUrl(dataUrl);
-                      setCanvasWidth(img.naturalWidth || 800);
-                      setCanvasHeight(img.naturalHeight || 600);
-                    };
-                    img.src = dataUrl;
-                  };
-                  reader.readAsDataURL(file);
+                if (!file) return;
+                if (file.size > MAX_IMAGE_SIZE) {
+                  alert("Image is too large. Please compress the image below 1MB and upload again.");
+                  return;
                 }
+                const reader = new FileReader();
+                reader.onload = () => {
+                  const dataUrl = reader.result;
+                  if (typeof dataUrl !== "string") return;
+                  const img = new Image();
+                  img.onload = () => {
+                    setFrameImageUrl(dataUrl);
+                    setCanvasWidth(img.naturalWidth || 800);
+                    setCanvasHeight(img.naturalHeight || 600);
+                  };
+                  img.src = dataUrl;
+                };
+                reader.readAsDataURL(file);
               }}
               className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm"
             />
@@ -851,11 +868,14 @@ export default function FramedPostTemplateEditorPage() {
                       accept="image/*"
                       onChange={(e) => {
                         const file = e.target.files?.[0];
-                        if (file) {
-                          const reader = new FileReader();
-                          reader.onload = () => updateField(selectedField.id, { src: reader.result });
-                          reader.readAsDataURL(file);
+                        if (!file) return;
+                        if (file.size > MAX_IMAGE_SIZE) {
+                          alert("Image is too large. Please compress the image below 1MB and upload again.");
+                          return;
                         }
+                        const reader = new FileReader();
+                        reader.onload = () => updateField(selectedField.id, { src: reader.result });
+                        reader.readAsDataURL(file);
                       }}
                       className="rounded-md border border-gray-300 px-2 py-1 text-sm"
                     />

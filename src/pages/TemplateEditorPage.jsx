@@ -7,6 +7,7 @@ const GREEN = "#26752C";
 const TEMPLATE_KEY = "rankify_program_templates";
 const ACTIVE_EVENT_KEY = "rankify_active_event_id";
 const EVENTS_KEY = "rankify_events";
+const MAX_IMAGE_SIZE = 1024 * 1024; // 1MB
 
 function safeParse(value, fallback) {
   try {
@@ -56,18 +57,29 @@ function normalizeTemplates() {
 }
 
 function saveTemplates(templates, shape) {
-  if (shape === "object") {
-    const grouped = templates.reduce((acc, template) => {
-      const eventId = template.eventId || "default";
-      acc[eventId] = acc[eventId] || [];
-      acc[eventId].push(template);
-      return acc;
-    }, {});
-    localStorage.setItem(getUserStorageKey(TEMPLATE_KEY), JSON.stringify(grouped));
-  } else {
-    localStorage.setItem(getUserStorageKey(TEMPLATE_KEY), JSON.stringify(templates));
+  try {
+    if (shape === "object") {
+      const grouped = templates.reduce((acc, template) => {
+        const eventId = template.eventId || "default";
+        acc[eventId] = acc[eventId] || [];
+        acc[eventId].push(template);
+        return acc;
+      }, {});
+      localStorage.setItem(getUserStorageKey(TEMPLATE_KEY), JSON.stringify(grouped));
+    } else {
+      localStorage.setItem(getUserStorageKey(TEMPLATE_KEY), JSON.stringify(templates));
+    }
+    window.dispatchEvent(new Event("rankify-data-changed"));
+    return true;
+  } catch (error) {
+    if (error?.name === "QuotaExceededError") {
+      alert("Storage limit exceeded. Please use a smaller/compressed image.");
+    } else {
+      alert("Unable to save template. Please try again.");
+    }
+    console.error("Failed to save program template", error);
+    return false;
   }
-  window.dispatchEvent(new Event("rankify-data-changed"));
 }
 
 function dataUrlFromFile(file) {
@@ -435,6 +447,10 @@ export default function TemplateEditorPage() {
   async function handleBackgroundUpload(event) {
     const file = event.target.files?.[0];
     if (!file) return;
+    if (file.size > MAX_IMAGE_SIZE) {
+      alert("Image is too large. Please compress the image below 1MB and upload again.");
+      return;
+    }
     const dataUrl = await dataUrlFromFile(file);
     const image = new Image();
     image.onload = () => {
@@ -457,6 +473,10 @@ export default function TemplateEditorPage() {
   async function handleImageUpload(event, elementId) {
     const file = event.target.files?.[0];
     if (!file) return;
+    if (file.size > MAX_IMAGE_SIZE) {
+      alert("Image is too large. Please compress the image below 1MB and upload again.");
+      return;
+    }
     const dataUrl = await dataUrlFromFile(file);
     updateElement(elementId, { imageData: dataUrl, imageName: file.name });
   }
@@ -498,7 +518,9 @@ export default function TemplateEditorPage() {
       ? templates.map((item) => (item.id === templateId ? template : item))
       : [...templates, template];
 
-    saveTemplates(updated, shape || templateShapeRef.current);
+    if (!saveTemplates(updated, shape || templateShapeRef.current)) {
+      return;
+    }
     navigate("/dashboard/program-templates");
   }
 
@@ -1103,6 +1125,10 @@ function PreviewDataPanel({ previewData, setPreviewData }) {
 
   async function updateWinnerImage(index, file) {
     if (!file) return;
+    if (file.size > MAX_IMAGE_SIZE) {
+      alert("Image is too large. Please compress the image below 1MB and upload again.");
+      return;
+    }
     const image = await dataUrlFromFile(file);
     updateWinner(index, "image", image);
   }
