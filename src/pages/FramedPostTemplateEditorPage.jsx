@@ -64,6 +64,33 @@ function today() {
   return new Date().toLocaleDateString("en-US");
 }
 
+function getSavedFrameImage(template) {
+  if (!template || typeof template !== "object") return "";
+  return (
+    template.frameImage ||
+    template.frameImageUrl ||
+    template.frameOverlay ||
+    template.overlayImage ||
+    template.overlayUrl ||
+    template.overlaySrc ||
+    template.backgroundImage ||
+    template.previewImage ||
+    template.imageUrl ||
+    template.imageSrc ||
+    template.image ||
+    template.src ||
+    template.frameSrc ||
+    template.frame_image_url ||
+    template.frame_image ||
+    template.frame_overlay ||
+    template.overlay_image ||
+    template.overlay_src ||
+    template.image_url ||
+    template.image_src ||
+    ""
+  );
+}
+
 export default function FramedPostTemplateEditorPage() {
   const navigate = useNavigate();
   const { templateId } = useParams();
@@ -144,7 +171,7 @@ export default function FramedPostTemplateEditorPage() {
     setActiveEventId(getActiveEventId());
     if (isEdit && existingTemplate) {
       setTemplateName(existingTemplate.name || "");
-      setFrameImageUrl(existingTemplate.frameImageUrl || "");
+      setFrameImageUrl(getSavedFrameImage(existingTemplate));
       setCanvasWidth(existingTemplate.canvasWidth || 800);
       setCanvasHeight(existingTemplate.canvasHeight || 600);
       setCustomFields(existingTemplate.customFields || []);
@@ -342,7 +369,9 @@ export default function FramedPostTemplateEditorPage() {
       id: isEdit && existingTemplate ? existingTemplate.id : makeId("framed_post_template"),
       name: templateName.trim(),
       eventId: activeEvent,
-      frameImageUrl,
+      frameImage: frameImageUrl,
+      frameImageUrl: frameImageUrl,
+      frameSrc: frameImageUrl,
       canvasWidth,
       canvasHeight,
       customFields,

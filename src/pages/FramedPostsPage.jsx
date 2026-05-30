@@ -179,6 +179,8 @@ function buildFormState(template) {
     zoom: 1,
     rotation: 0,
     aspectRatio: 1.33,
+    cropX: 0,
+    cropY: 0,
     status: "Published",
     fieldValues: initialFieldValues(template),
   };
@@ -294,6 +296,8 @@ export default function FramedPostsPage() {
       zoom: post.zoom || 1,
       rotation: post.rotation || 0,
       aspectRatio: post.aspectRatio || 1.33,
+      cropX: post.cropX || 0,
+      cropY: post.cropY || 0,
       status: post.status || "Published",
       fieldValues: post.fieldValues || initialFieldValues(template),
     });
@@ -372,6 +376,8 @@ export default function FramedPostsPage() {
       zoom: formState.zoom,
       rotation: formState.rotation,
       aspectRatio: formState.aspectRatio,
+      cropX: formState.cropX || 0,
+      cropY: formState.cropY || 0,
       status: formState.status,
       fieldValues: formState.fieldValues,
       createdAt: editingPost?.createdAt || now,
@@ -420,7 +426,53 @@ export default function FramedPostsPage() {
     }
   }
 
-  function renderPreview(template, contentImageSrc, fieldValues, zoom, rotation, aspectRatio, scale = 0.65) {
+  function resolveImageSource(value) {
+    if (!value) return "";
+    if (typeof value === "string") return value;
+    if (typeof value === "object") {
+      return value.url || value.src || value.data || "";
+    }
+    return "";
+  }
+
+  function getTemplateFrameSource(template) {
+    if (!template || typeof template !== "object") return "";
+    return (
+      resolveImageSource(template.frameImage) ||
+      resolveImageSource(template.frameImageUrl) ||
+      resolveImageSource(template.frameOverlay) ||
+      resolveImageSource(template.overlayImage) ||
+      resolveImageSource(template.overlayUrl) ||
+      resolveImageSource(template.overlaySrc) ||
+      resolveImageSource(template.backgroundImage) ||
+      resolveImageSource(template.previewImage) ||
+      resolveImageSource(template.imageUrl) ||
+      resolveImageSource(template.imageSrc) ||
+      resolveImageSource(template.image) ||
+      resolveImageSource(template.src) ||
+      resolveImageSource(template.frameSrc) ||
+      resolveImageSource(template.frame_image_url) ||
+      resolveImageSource(template.frame_image) ||
+      resolveImageSource(template.frame_overlay) ||
+      resolveImageSource(template.overlay_image) ||
+      resolveImageSource(template.overlay_src) ||
+      resolveImageSource(template.image_url) ||
+      resolveImageSource(template.image_src) ||
+      ""
+    );
+  }
+
+  function renderFramedPostCanvas({
+    template,
+    contentImageSrc,
+    fieldValues,
+    zoom = 1,
+    rotation = 0,
+    aspectRatio = 1.33,
+    cropX = 0,
+    cropY = 0,
+    scale = 1,
+  }) {
     if (!template) {
       return (
         <div className="h-[320px] rounded-3xl border border-dashed border-gray-300 bg-white p-6 text-center text-sm text-gray-500">
@@ -429,10 +481,11 @@ export default function FramedPostsPage() {
       );
     }
 
-    const { width, height } = getTemplatePreviewSize(template);
+    const width = Number(template.canvasWidth || template.width || 800);
+    const height = Number(template.canvasHeight || template.height || 600);
     const scaledWidth = Math.round(width * scale);
     const scaledHeight = Math.round(height * scale);
-    const frameSrc = template.frameImageUrl;
+    const frameSrc = getTemplateFrameSource(template);
 
     return (
       <div
@@ -445,13 +498,20 @@ export default function FramedPostsPage() {
               src={contentImageSrc}
               alt="Content"
               style={{
+                position: "absolute",
+                left: "50%",
+                top: "50%",
                 width: "100%",
                 height: "100%",
                 objectFit: "cover",
-                transform: `scale(${zoom}) rotate(${rotation}deg)`,
+                aspectRatio,
+                transform: `translate(calc(-50% + ${cropX}px), calc(-50% + ${cropY}px)) scale(${zoom}) rotate(${rotation}deg)`,
                 transformOrigin: "center center",
+                opacity: 1,
+                mixBlendMode: "normal",
+                filter: "none",
+                zIndex: 1,
               }}
-              className="absolute left-1/2 top-1/2 max-h-none max-w-none -translate-x-1/2 -translate-y-1/2"
             />
           ) : (
             <div className="flex h-full flex-col items-center justify-center gap-3 text-sm text-gray-500">
@@ -461,7 +521,21 @@ export default function FramedPostsPage() {
           )}
         </div>
 
-        {template.customFields?.map((field, index) => {
+        {frameSrc ? (
+          <img
+            src={frameSrc}
+            alt={template.name}
+            className="absolute inset-0 h-full w-full object-cover"
+            style={{ zIndex: 2, opacity: 1, mixBlendMode: "normal", filter: "none" }}
+          />
+        ) : (
+          <div
+            className="absolute inset-0 border border-dashed border-gray-300"
+            style={{ zIndex: 2, background: "transparent" }}
+          />
+        )}
+
+        {(template.customFields || []).map((field, index) => {
           const left = (Number(field.x) || 0) * scale;
           const top = (Number(field.y) || 0) * scale;
           const widthValue = field.width ? Number(field.width) * scale : undefined;
@@ -488,7 +562,7 @@ export default function FramedPostsPage() {
                 textAlign,
                 lineHeight,
                 whiteSpace: "pre-wrap",
-                zIndex: 30,
+                zIndex: 3,
                 padding: 2,
                 boxSizing: "border-box",
               }}
@@ -497,19 +571,22 @@ export default function FramedPostsPage() {
             </div>
           );
         })}
-
-        {frameSrc ? (
-          <img
-            src={frameSrc}
-            alt={template.name}
-            className="absolute inset-0 h-full w-full object-cover"
-            style={{ zIndex: 40 }}
-          />
-        ) : (
-          <div className="absolute inset-0 border border-dashed border-gray-300 bg-white/70" style={{ zIndex: 40 }} />
-        )}
       </div>
     );
+  }
+
+  function renderPreview(template, contentImageSrc, fieldValues, zoom, rotation, aspectRatio, cropX, cropY, scale = 0.65) {
+    return renderFramedPostCanvas({
+      template,
+      contentImageSrc,
+      fieldValues,
+      zoom,
+      rotation,
+      aspectRatio,
+      cropX,
+      cropY,
+      scale,
+    });
   }
 
   function renderExportPreview(template, post) {
@@ -520,83 +597,30 @@ export default function FramedPostsPage() {
     return (
       <div
         ref={exportRef}
-        className="hidden"
         style={{
           position: "fixed",
           left: -9999,
           top: 0,
           width,
           height,
-          opacity: 0,
+          opacity: 1,
           pointerEvents: "none",
           overflow: "hidden",
-          background: "white",
+          background: "transparent",
+          zIndex: -1,
         }}
       >
-        <div style={{ width, height, position: "relative", overflow: "hidden", background: "#f8f2ff" }}>
-          {post.contentImageSrc ? (
-            <img
-              src={post.contentImageSrc}
-              alt="Content"
-              style={{
-                width: "100%",
-                height: "100%",
-                objectFit: "cover",
-                transform: `scale(${post.zoom || 1}) rotate(${post.rotation || 0}deg)`,
-                transformOrigin: "center center",
-                position: "absolute",
-                left: "50%",
-                top: "50%",
-                translate: "-50% -50%",
-              }}
-            />
-          ) : null}
-
-          {(template.customFields || []).map((field, index) => {
-            const left = Number(field.x || 0);
-            const top = Number(field.y || 0);
-            const widthValue = field.width ? Number(field.width) : undefined;
-            const fontSize = Number(field.fontSize || 24);
-            const fontFamily = field.fontFamily || "Inter";
-            const fontWeight = field.fontWeight || "400";
-            const color = field.color || "#000";
-            const textAlign = field.textAlign || "left";
-            const lineHeight = field.lineHeight || 1.2;
-            const displayText = resolveFramedFieldText(field, fieldValues, activeEvent);
-
-            return (
-              <div
-                key={field.id || `${field.label}-${index}`}
-                style={{
-                  position: "absolute",
-                  left,
-                  top,
-                  width: widthValue,
-                  fontSize,
-                  fontFamily,
-                  fontWeight,
-                  color,
-                  textAlign,
-                  lineHeight,
-                  whiteSpace: "pre-wrap",
-                  zIndex: 30,
-                  padding: 2,
-                  boxSizing: "border-box",
-                }}
-              >
-                {displayText}
-              </div>
-            );
-          })}
-
-          {template.frameImageUrl ? (
-            <img
-              src={template.frameImageUrl}
-              alt={template.name}
-              style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", zIndex: 40 }}
-            />
-          ) : null}
-        </div>
+        {renderFramedPostCanvas({
+          template,
+          contentImageSrc: post.contentImageSrc,
+          fieldValues,
+          zoom: post.zoom || 1,
+          rotation: post.rotation || 0,
+          aspectRatio: post.aspectRatio || 1.33,
+          cropX: post.cropX || 0,
+          cropY: post.cropY || 0,
+          scale: 1,
+        })}
       </div>
     );
   }
@@ -901,7 +925,17 @@ export default function FramedPostsPage() {
                     </div>
                   </div>
                   <div className="flex justify-center">
-                    {renderPreview(selectedTemplate, formState.contentImageSrc, formState.fieldValues, formState.zoom, formState.rotation, formState.aspectRatio, 0.65)}
+                    {renderPreview(
+                      selectedTemplate,
+                      formState.contentImageSrc,
+                      formState.fieldValues,
+                      formState.zoom,
+                      formState.rotation,
+                      formState.aspectRatio,
+                      formState.cropX,
+                      formState.cropY,
+                      0.65
+                    )}
                   </div>
                 </div>
 
@@ -945,7 +979,17 @@ export default function FramedPostsPage() {
             </div>
             <div className="rounded-[24px] border border-gray-200 bg-[#f8f2ff] p-6">
               <div className="flex justify-center">
-                {renderPreview(currentViewTemplate, viewingPost.contentImageSrc, viewingPost.fieldValues, viewingPost.zoom, viewingPost.rotation, viewingPost.aspectRatio, 0.75)}
+                {renderPreview(
+                  currentViewTemplate,
+                  viewingPost.contentImageSrc,
+                  viewingPost.fieldValues,
+                  viewingPost.zoom,
+                  viewingPost.rotation,
+                  viewingPost.aspectRatio,
+                  viewingPost.cropX,
+                  viewingPost.cropY,
+                  0.75
+                )}
               </div>
             </div>
             <div className="mt-5 flex flex-wrap items-center gap-3">
@@ -965,12 +1009,12 @@ export default function FramedPostsPage() {
                 Close
               </button>
             </div>
-            <div className="sr-only">
-              {renderExportPreview(currentViewTemplate, viewingPost)}
-            </div>
+            {renderExportPreview(currentViewTemplate, viewingPost)}
           </div>
         </div>
       )}
     </div>
   );
 }
+
+
