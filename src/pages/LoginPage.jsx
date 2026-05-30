@@ -1,15 +1,21 @@
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Trophy } from "lucide-react";
+import { authRequest, hashPassword, saveUserSession } from "../utils/auth.js";
 
-export default function Login() {
+function isValidEmail(email) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+
+export default function LoginPage() {
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  function handleLogin(e) {
-    e.preventDefault();
+  async function handleLogin(event) {
+    event.preventDefault();
     setError("");
 
     if (!email.trim() || !password.trim()) {
@@ -17,18 +23,38 @@ export default function Login() {
       return;
     }
 
-    const stored = localStorage.getItem("rankify_user");
-    let user = stored ? JSON.parse(stored) : null;
-
-    if (!user) {
-      const namePart = email.split("@")[0] || "User";
-      const name = namePart.charAt(0).toUpperCase() + namePart.slice(1);
-      user = { name, email };
-      localStorage.setItem("rankify_user", JSON.stringify(user));
+    if (!isValidEmail(email)) {
+      setError("Please enter a valid email address.");
+      return;
     }
 
-    localStorage.setItem("rankify_is_logged_in", "true");
-    navigate("/dashboard");
+    setLoading(true);
+
+    try {
+      const passwordHash = await hashPassword(password);
+      const result = await authRequest("login", {
+        email: email.trim(),
+        password: passwordHash,
+        passwordHash,
+      });
+
+      if (!result.success) {
+        setError(result.message || "Invalid email or password");
+        setLoading(false);
+        return;
+      }
+
+      const user = {
+        name: result.user?.name || "User",
+        email: result.user?.email || email.trim(),
+      };
+
+      saveUserSession(user);
+      navigate("/dashboard");
+    } catch (error_) {
+      setError(error_.message || "Invalid email or password");
+      setLoading(false);
+    }
   }
 
   return (
@@ -45,7 +71,7 @@ export default function Login() {
           <h1 className="text-2xl font-bold text-[#0D1B2A]">Welcome back</h1>
           <p className="mt-1 text-sm text-gray-500">Sign in to your account to continue</p>
 
-          {error && <div className="mt-4 text-sm text-red-600">{error}</div>}
+          {error && <div className="mt-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
 
           <label className="mt-6 block text-sm text-gray-700">Email</label>
           <input
@@ -66,9 +92,10 @@ export default function Login() {
 
           <button
             type="submit"
-            className="mt-6 w-full rounded-lg bg-green-600 px-4 py-2 font-semibold text-white hover:bg-green-700 transition-colors"
+            disabled={loading}
+            className="mt-6 w-full rounded-lg bg-green-600 px-4 py-2 font-semibold text-white hover:bg-green-700 transition-colors disabled:cursor-not-allowed disabled:opacity-60"
           >
-            Sign In
+            {loading ? "Signing in..." : "Sign In"}
           </button>
 
           <p className="mt-4 text-sm text-gray-600">

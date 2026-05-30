@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { getUserStorageKey } from "../utils/storage.js";
 
 const EVENTS_KEY = "rankify_events";
 const ACTIVE_EVENT_KEY = "rankify_active_event_id";
@@ -417,18 +418,12 @@ function safeJsonParse(value, fallback) {
 }
 
 function getStoredEvents() {
-  const storedEvents = safeJsonParse(localStorage.getItem(EVENTS_KEY), []);
-
-  if (Array.isArray(storedEvents) && storedEvents.length > 0) {
-    return storedEvents;
-  }
-
-  localStorage.setItem(EVENTS_KEY, JSON.stringify(fallbackEvents));
-  return fallbackEvents;
+  const storedEvents = safeJsonParse(localStorage.getItem(getUserStorageKey(EVENTS_KEY)), []);
+  return Array.isArray(storedEvents) ? storedEvents : [];
 }
 
 function getActiveEventId(events) {
-  const storedActiveId = localStorage.getItem(ACTIVE_EVENT_KEY);
+  const storedActiveId = localStorage.getItem(getUserStorageKey(ACTIVE_EVENT_KEY));
   const isValid = events.some((event) => event.id === storedActiveId);
 
   if (isValid) return storedActiveId;
@@ -436,16 +431,16 @@ function getActiveEventId(events) {
   const firstEventId = events[0]?.id || "";
 
   if (firstEventId) {
-    localStorage.setItem(ACTIVE_EVENT_KEY, firstEventId);
+    localStorage.setItem(getUserStorageKey(ACTIVE_EVENT_KEY), firstEventId);
   } else {
-    localStorage.removeItem(ACTIVE_EVENT_KEY);
+    localStorage.removeItem(getUserStorageKey(ACTIVE_EVENT_KEY));
   }
 
   return firstEventId;
 }
 
 function getTemplatesByEvent() {
-  const stored = safeJsonParse(localStorage.getItem(TEMPLATES_KEY), {});
+  const stored = safeJsonParse(localStorage.getItem(getUserStorageKey(TEMPLATES_KEY)), {});
 
   if (Array.isArray(stored)) {
     return stored.reduce((grouped, template) => {
@@ -504,7 +499,7 @@ export default function ProgramTemplatesPage() {
   );
 
   function persistTemplates(nextTemplatesByEvent) {
-    localStorage.setItem(TEMPLATES_KEY, JSON.stringify(nextTemplatesByEvent));
+    localStorage.setItem(getUserStorageKey(TEMPLATES_KEY), JSON.stringify(nextTemplatesByEvent));
     setTemplatesByEvent(nextTemplatesByEvent);
     window.dispatchEvent(new Event("rankify-data-changed"));
   }

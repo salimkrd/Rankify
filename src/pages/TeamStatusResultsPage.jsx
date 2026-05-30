@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { createRoot } from "react-dom/client";
 import TeamStatusTemplatePreview from "../components/TeamStatusTemplatePreview";
+import { getUserStorageKey } from "../utils/storage.js";
 
 const STORAGE_KEY = "rankify_team_status_results";
 const TEMPLATES_KEY = "rankify_team_status_templates";
@@ -19,7 +20,7 @@ const safeParse = (v, fallback = null) => {
 const asArray = (value) => (Array.isArray(value) ? value : value && typeof value === "object" ? Object.values(value) : []);
 
 function readTeamsForActiveEvent(activeEventId) {
-  const stored = safeParse(localStorage.getItem(TEAMS_KEY), null);
+  const stored = safeParse(localStorage.getItem(getUserStorageKey(TEAMS_KEY)), null);
   let eventTeams = [];
   if (Array.isArray(stored)) eventTeams = stored.filter((t) => String(t?.eventId) === String(activeEventId));
   else if (stored && typeof stored === "object") eventTeams = Array.isArray(stored[activeEventId]) ? stored[activeEventId] : [];
@@ -27,7 +28,7 @@ function readTeamsForActiveEvent(activeEventId) {
 }
 
 function flattenTemplatesStorage(key) {
-  const raw = safeParse(localStorage.getItem(key), []);
+  const raw = safeParse(localStorage.getItem(getUserStorageKey(key)), []);
   if (!raw) return [];
   if (Array.isArray(raw)) return raw;
   if (typeof raw === "object") {
@@ -85,15 +86,15 @@ export default function TeamStatusResultsPage() {
 
   useEffect(() => {
     function load() {
-      const events = asArray(safeParse(localStorage.getItem(EVENTS_KEY), []));
-      const activeId = localStorage.getItem(ACTIVE_EVENT_KEY) || events[0]?.id || "default";
+      const events = asArray(safeParse(localStorage.getItem(getUserStorageKey(EVENTS_KEY)), []));
+      const activeId = localStorage.getItem(getUserStorageKey(ACTIVE_EVENT_KEY)) || events[0]?.id || "default";
       const event = events.find((e) => String(e.id) === String(activeId)) || { id: activeId, name: "Active Event" };
 
       setActiveEvent({ id: String(event.id || activeId), name: event.name || event.title || "Active Event" });
       setTemplates(flattenTemplatesStorage(TEMPLATES_KEY));
       setTeams(readTeamsForActiveEvent(activeId));
 
-      const raw = safeParse(localStorage.getItem(STORAGE_KEY), []);
+      const raw = safeParse(localStorage.getItem(getUserStorageKey(STORAGE_KEY)), []);
       // support grouped by event id or array
       const list = asArray(raw).filter((item) => String(item.eventId) === String(activeId));
       setResults(list);
@@ -114,17 +115,17 @@ export default function TeamStatusResultsPage() {
   const saveResults = (next) => {
     setResults(next);
     // write grouped by eventId if existing stored as object
-    const raw = safeParse(localStorage.getItem(STORAGE_KEY), null);
+    const raw = safeParse(localStorage.getItem(getUserStorageKey(STORAGE_KEY)), null);
     if (raw && !Array.isArray(raw) && typeof raw === "object") {
       const activeId = activeEvent.id;
       const nextRaw = { ...(raw || {}), [activeId]: next };
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(nextRaw));
+      localStorage.setItem(getUserStorageKey(STORAGE_KEY), JSON.stringify(nextRaw));
     } else {
       // fallback: store as array (flat)
       // merge with other-event items
-      const existing = asArray(safeParse(localStorage.getItem(STORAGE_KEY), []));
+      const existing = asArray(safeParse(localStorage.getItem(getUserStorageKey(STORAGE_KEY)), []));
       const others = existing.filter((item) => String(item.eventId) !== String(activeEvent.id));
-      localStorage.setItem(STORAGE_KEY, JSON.stringify([...others, ...next]));
+      localStorage.setItem(getUserStorageKey(STORAGE_KEY), JSON.stringify([...others, ...next]));
     }
     window.dispatchEvent(new Event("rankify-data-changed"));
   };

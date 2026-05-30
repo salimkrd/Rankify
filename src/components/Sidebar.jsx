@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
-import { NavLink, useLocation } from "react-router-dom";
+import { NavLink, useLocation, Link, useNavigate } from "react-router-dom";
+import { getUserStorageKey } from "../utils/storage.js";
 
 const EVENTS_KEY = "rankify_events";
 const ACTIVE_EVENT_KEY = "rankify_active_event_id";
@@ -96,18 +97,12 @@ function safeJsonParse(value, fallback) {
 }
 
 function getStoredEvents() {
-  const storedEvents = safeJsonParse(localStorage.getItem(EVENTS_KEY), []);
-
-  if (Array.isArray(storedEvents) && storedEvents.length > 0) {
-    return storedEvents;
-  }
-
-  localStorage.setItem(EVENTS_KEY, JSON.stringify(fallbackEvents));
-  return fallbackEvents;
+  const storedEvents = safeJsonParse(localStorage.getItem(getUserStorageKey(EVENTS_KEY)), []);
+  return Array.isArray(storedEvents) ? storedEvents : [];
 }
 
 function getEventsCount() {
-  const storedEvents = safeJsonParse(localStorage.getItem(EVENTS_KEY), []);
+  const storedEvents = safeJsonParse(localStorage.getItem(getUserStorageKey(EVENTS_KEY)), []);
 
   if (Array.isArray(storedEvents)) {
     return storedEvents.length;
@@ -117,22 +112,37 @@ function getEventsCount() {
 }
 
 function getValidActiveEventId(events) {
-  const storedActiveId = localStorage.getItem(ACTIVE_EVENT_KEY);
-  const isValid = events.some((event) => event.id === storedActiveId);
+  const storedActiveId = localStorage.getItem(getUserStorageKey(ACTIVE_EVENT_KEY));
+  const isValid = storedActiveId && events.some((event) => event.id === storedActiveId);
 
   if (isValid) {
     return storedActiveId;
   }
 
-  const firstEventId = events[0]?.id || "";
+  localStorage.removeItem(getUserStorageKey(ACTIVE_EVENT_KEY));
+  return "";
+}
 
-  if (firstEventId) {
-    localStorage.setItem(ACTIVE_EVENT_KEY, firstEventId);
-  } else {
-    localStorage.removeItem(ACTIVE_EVENT_KEY);
+function getStoredUser() {
+  const stored = safeJsonParse(localStorage.getItem("rankify_user"), null);
+  if (stored && typeof stored === "object") {
+    return {
+      name: String(stored.name || "User").trim() || "User",
+      email: String(stored.email || "").trim(),
+    };
   }
+  return { name: "User", email: "" };
+}
 
-  return firstEventId;
+function getUserInitials(name) {
+  const cleaned = String(name || "").trim();
+  if (!cleaned) return "US";
+  const parts = cleaned.split(/\s+/).filter(Boolean);
+  if (parts.length === 1) {
+    const initials = parts[0].slice(0, 2).toUpperCase();
+    return initials.padEnd(2, parts[0][0].toUpperCase());
+  }
+  return (parts[0][0] + parts[1][0]).toUpperCase();
 }
 
 function getGroupedCount(storageKey, activeEventId) {
@@ -190,8 +200,10 @@ function SidebarLink({ link, counts }) {
 }
 
 export default function Sidebar() {
+  const navigate = useNavigate();
   const [events, setEvents] = useState([]);
   const [activeEventId, setActiveEventId] = useState("");
+  const [user, setUser] = useState(getStoredUser());
   const [counts, setCounts] = useState({
     events: 0,
     teams: 0,
@@ -211,30 +223,38 @@ export default function Sidebar() {
       setActiveEventId(validActiveEventId);
       setCounts({
         events: getEventsCount(),
-        teams: getGroupedCount(TEAMS_KEY, validActiveEventId),
-        categories: getGroupedCount(CATEGORIES_KEY, validActiveEventId),
+        teams: getGroupedCount(getUserStorageKey(TEAMS_KEY), validActiveEventId),
+        categories: getGroupedCount(getUserStorageKey(CATEGORIES_KEY), validActiveEventId),
         programTemplates: getGroupedCount(
-          PROGRAM_TEMPLATES_KEY,
+          getUserStorageKey(PROGRAM_TEMPLATES_KEY),
           validActiveEventId
         ),
-        teamStatusTemplates: getGroupedCount("rankify_team_status_templates", validActiveEventId),
-        teamStatusResults: getGroupedCount("rankify_team_status_results", validActiveEventId),
-        framedPostTemplates: getGroupedCount("rankify_framed_post_templates", validActiveEventId),
-        framedPosts: getGroupedCount("rankify_framed_posts", validActiveEventId),
+        teamStatusTemplates: getGroupedCount(getUserStorageKey("rankify_team_status_templates"), validActiveEventId),
+        teamStatusResults: getGroupedCount(getUserStorageKey("rankify_team_status_results"), validActiveEventId),
+        framedPostTemplates: getGroupedCount(getUserStorageKey("rankify_framed_post_templates"), validActiveEventId),
+        framedPosts: getGroupedCount(getUserStorageKey("rankify_framed_posts"), validActiveEventId),
       });
     }
 
     syncActiveEvent();
+    setUser(getStoredUser());
+
+    const syncUser = () => setUser(getStoredUser());
 
     window.addEventListener("storage", syncActiveEvent);
+    window.addEventListener("storage", syncUser);
     window.addEventListener("rankify-active-event-changed", syncActiveEvent);
     window.addEventListener("rankify-data-changed", syncActiveEvent);
     window.addEventListener("rankify-events-changed", syncActiveEvent);
 
-    const refreshInterval = window.setInterval(syncActiveEvent, 1000);
+    const refreshInterval = window.setInterval(() => {
+      syncActiveEvent();
+      syncUser();
+    }, 1000);
 
     return () => {
       window.removeEventListener("storage", syncActiveEvent);
+      window.removeEventListener("storage", syncUser);
       window.removeEventListener("rankify-active-event-changed", syncActiveEvent);
       window.removeEventListener("rankify-data-changed", syncActiveEvent);
       window.removeEventListener("rankify-events-changed", syncActiveEvent);
@@ -245,19 +265,29 @@ export default function Sidebar() {
   function handleActiveEventChange(event) {
     const nextEventId = event.target.value;
 
-    localStorage.setItem(ACTIVE_EVENT_KEY, nextEventId);
+    localStorage.setItem(getUserStorageKey(ACTIVE_EVENT_KEY), nextEventId);
     setActiveEventId(nextEventId);
     window.dispatchEvent(new Event("rankify-active-event-changed"));
   }
 
+  function handleLogout() {
+    localStorage.removeItem("rankify_is_logged_in");
+    localStorage.removeItem("rankify_user");
+    setUser({ name: "User", email: "" });
+    navigate("/login");
+  }
+
   return (
     <aside className="fixed bottom-0 left-0 top-0 z-40 flex w-[260px] flex-col border-r border-gray-200 bg-white">
-      <div className="flex h-[62px] shrink-0 items-center gap-3 border-b border-gray-200 px-4">
+      <Link
+        to="/"
+        className="flex h-[62px] shrink-0 items-center gap-3 border-b border-gray-200 px-4 transition-colors hover:bg-gray-50 cursor-pointer"
+      >
         <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#26752C] text-sm font-bold text-white">
           P
         </div>
         <div className="text-lg font-bold text-[#0D1B2A]">PosterGen</div>
-      </div>
+      </Link>
 
       <div className="shrink-0 border-b border-gray-100 px-3 py-4">
         <p className="mb-2 px-1 text-[11px] font-bold uppercase tracking-wide text-gray-500">
@@ -268,6 +298,9 @@ export default function Sidebar() {
           onChange={handleActiveEventChange}
           className="h-10 w-full rounded-md border border-gray-300 bg-white px-3 text-sm text-[#0D1B2A] shadow-sm outline-none focus:border-[#26752C] focus:ring-2 focus:ring-green-100"
         >
+          <option value="" disabled={events.length > 0}>
+            {events.length === 0 ? "No active event" : "Select active event"}
+          </option>
           {events.map((event) => (
             <option key={event.id} value={event.id}>
               {event.name}
@@ -294,17 +327,17 @@ export default function Sidebar() {
       <div className="shrink-0 border-t border-gray-200 p-3">
         <div className="flex items-center gap-3">
           <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#DCEFD9] text-sm font-bold text-[#26752C]">
-            SK
+            {getUserInitials(user.name)}
           </div>
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-semibold text-[#0D1B2A]">
-              Salim karakkad
+              {user.name}
             </p>
-            <p className="truncate text-xs text-gray-500">salimkrd66@gmail...</p>
+            <p className="truncate text-xs text-gray-500">{user.email}</p>
           </div>
           <button
             type="button"
-            onClick={() => alert("Logout coming soon")}
+            onClick={handleLogout}
             className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-gray-500 hover:bg-gray-100 hover:text-[#0D1B2A]"
             aria-label="Logout"
           >

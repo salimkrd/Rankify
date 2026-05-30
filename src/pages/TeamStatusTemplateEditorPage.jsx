@@ -3,6 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, Copy, Save, Trash2 } from "lucide-react";
 import FontFamilySelect from "../components/FontFamilySelect";
 import TeamStatusTemplatePreview from "../components/TeamStatusTemplatePreview";
+import { getUserStorageKey } from "../utils/storage.js";
 
 const EVENTS_KEY = "rankify_events";
 const ACTIVE_EVENT_KEY = "rankify_active_event_id";
@@ -33,13 +34,13 @@ function today() {
 }
 
 function getTemplatesByEvent() {
-  const stored = safeJsonParse(localStorage.getItem(STORAGE_KEY), {});
+  const stored = safeJsonParse(localStorage.getItem(getUserStorageKey(STORAGE_KEY)), {});
   return stored && typeof stored === "object" && !Array.isArray(stored) ? stored : {};
 }
 
 function getActiveEvent() {
-  const events = safeJsonParse(localStorage.getItem(EVENTS_KEY), []);
-  const activeEventId = localStorage.getItem(ACTIVE_EVENT_KEY) || "";
+  const events = safeJsonParse(localStorage.getItem(getUserStorageKey(EVENTS_KEY)), []);
+  const activeEventId = localStorage.getItem(getUserStorageKey(ACTIVE_EVENT_KEY)) || "";
   const activeEvent = Array.isArray(events)
     ? events.find((event) => String(event.id) === String(activeEventId))
     : null;
@@ -605,7 +606,7 @@ export default function TeamStatusTemplateEditorPage() {
   }
 
   function saveTemplate() {
-    const activeEventId = localStorage.getItem(ACTIVE_EVENT_KEY) || activeEvent.id;
+    const activeEventId = localStorage.getItem(getUserStorageKey(ACTIVE_EVENT_KEY)) || activeEvent.id;
     const stored = getTemplatesByEvent();
     const currentList = stored[activeEventId] || [];
     const nextTemplate = {
@@ -621,7 +622,7 @@ export default function TeamStatusTemplateEditorPage() {
       ? currentList.map((item) => (String(item.id) === String(nextTemplate.id) ? nextTemplate : item))
       : [...currentList, nextTemplate];
 
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...stored, [activeEventId]: nextList }));
+    localStorage.setItem(getUserStorageKey(STORAGE_KEY), JSON.stringify({ ...stored, [activeEventId]: nextList }));
     window.dispatchEvent(new Event("rankify-data-changed"));
     navigate("/dashboard/team-status-templates");
   }

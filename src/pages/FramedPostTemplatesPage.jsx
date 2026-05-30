@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { getUserStorageKey } from "../utils/storage.js";
 
 const STORAGE_KEY = "rankify_framed_post_templates";
 const ACTIVE_EVENT_KEY = "rankify_active_event_id";
@@ -22,11 +23,11 @@ function normalizeTemplates(raw) {
 }
 
 function getActiveEventId() {
-  return localStorage.getItem(ACTIVE_EVENT_KEY) || "";
+  return localStorage.getItem(getUserStorageKey(ACTIVE_EVENT_KEY)) || "";
 }
 
 function getAllTemplates() {
-  return normalizeTemplates(safeJsonParse(localStorage.getItem(STORAGE_KEY), []));
+  return normalizeTemplates(safeJsonParse(localStorage.getItem(getUserStorageKey(STORAGE_KEY)), []));
 }
 
 function getEventTemplates(activeEventId) {
@@ -73,7 +74,7 @@ export default function FramedPostTemplatesPage() {
   const hasTemplates = templates.length > 0;
 
   function persistTemplatesRaw(value) {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(value));
+    localStorage.setItem(getUserStorageKey(STORAGE_KEY), JSON.stringify(value));
     window.dispatchEvent(new Event("rankify-data-changed"));
   }
 
@@ -81,7 +82,7 @@ export default function FramedPostTemplatesPage() {
     const confirmed = window.confirm("Are you sure you want to delete this framed post template?");
     if (!confirmed) return;
 
-    const raw = safeJsonParse(localStorage.getItem(STORAGE_KEY), []);
+    const raw = safeJsonParse(localStorage.getItem(getUserStorageKey(STORAGE_KEY)), []);
     // array shape
     if (Array.isArray(raw)) {
       const filtered = raw.filter(

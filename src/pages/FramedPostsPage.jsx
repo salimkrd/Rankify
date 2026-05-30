@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import html2canvas from "html2canvas";
+import { getUserStorageKey } from "../utils/storage.js";
 
 const EVENTS_KEY = "rankify_events";
 const ACTIVE_EVENT_KEY = "rankify_active_event_id";
@@ -49,7 +50,7 @@ function normalizeStored(raw) {
 }
 
 function getStoredEvents() {
-  const stored = safeJsonParse(localStorage.getItem(EVENTS_KEY), []);
+  const stored = safeJsonParse(localStorage.getItem(getUserStorageKey(EVENTS_KEY)), []);
   if (Array.isArray(stored) && stored.length > 0) {
     return stored;
   }
@@ -57,12 +58,12 @@ function getStoredEvents() {
 }
 
 function getValidActiveEventId(events) {
-  const storedId = localStorage.getItem(ACTIVE_EVENT_KEY);
+  const storedId = localStorage.getItem(getUserStorageKey(ACTIVE_EVENT_KEY));
   const hasStored = events.some((event) => String(event.id) === String(storedId));
   if (hasStored) return storedId;
   const next = events[0]?.id || "";
   if (next) {
-    localStorage.setItem(ACTIVE_EVENT_KEY, next);
+    localStorage.setItem(getUserStorageKey(ACTIVE_EVENT_KEY), next);
   }
   return next;
 }
@@ -77,13 +78,13 @@ function getActiveEvent(activeEventId) {
 }
 
 function getEventTemplates(activeEventId) {
-  const raw = safeJsonParse(localStorage.getItem(TEMPLATE_KEY), []);
+  const raw = safeJsonParse(localStorage.getItem(getUserStorageKey(TEMPLATE_KEY)), []);
   const templates = normalizeStored(raw);
   return templates.filter((template) => String(template.eventId) === String(activeEventId));
 }
 
 function getEventPosts(activeEventId) {
-  const raw = safeJsonParse(localStorage.getItem(STORAGE_KEY), []);
+  const raw = safeJsonParse(localStorage.getItem(getUserStorageKey(STORAGE_KEY)), []);
   if (Array.isArray(raw)) {
     return raw.filter((post) => String(post.eventId) === String(activeEventId));
   }
@@ -94,7 +95,7 @@ function getEventPosts(activeEventId) {
 }
 
 function getRawPosts() {
-  return safeJsonParse(localStorage.getItem(STORAGE_KEY), []);
+  return safeJsonParse(localStorage.getItem(getUserStorageKey(STORAGE_KEY)), []);
 }
 
 function getPostsStorageShape(raw) {
@@ -111,7 +112,7 @@ function persistPosts(activeEventId, posts) {
     const next = { ...(raw || {}) };
     if (posts.length) next[activeEventId] = posts;
     else delete next[activeEventId];
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+    localStorage.setItem(getUserStorageKey(STORAGE_KEY), JSON.stringify(next));
     window.dispatchEvent(new Event("rankify-data-changed"));
     return;
   }
@@ -119,7 +120,7 @@ function persistPosts(activeEventId, posts) {
   const existing = Array.isArray(raw) ? raw : [];
   const filtered = existing.filter((post) => String(post.eventId) !== String(activeEventId));
   const merged = [...filtered, ...posts.map((post) => ({ ...post, eventId: activeEventId }))];
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
+  localStorage.setItem(getUserStorageKey(STORAGE_KEY), JSON.stringify(merged));
   window.dispatchEvent(new Event("rankify-data-changed"));
 }
 

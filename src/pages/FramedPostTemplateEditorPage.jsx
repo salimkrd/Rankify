@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState, useRef } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, Save, Copy, Trash2 } from "lucide-react";
 import FontFamilySelect from "../components/FontFamilySelect.jsx";
+import { getUserStorageKey } from "../utils/storage.js";
 
 const STORAGE_KEY = "rankify_framed_post_templates";
 const ACTIVE_EVENT_KEY = "rankify_active_event_id";
@@ -16,7 +17,7 @@ function safeJsonParse(value, fallback) {
 }
 
 function getActiveEventId() {
-  return localStorage.getItem(ACTIVE_EVENT_KEY) || "";
+  return localStorage.getItem(getUserStorageKey(ACTIVE_EVENT_KEY)) || "";
 }
 
 function normalizeTemplates(raw) {
@@ -34,7 +35,7 @@ function getStorageShape(raw) {
 }
 
 function loadAllTemplates() {
-  return normalizeTemplates(safeJsonParse(localStorage.getItem(STORAGE_KEY), []));
+  return normalizeTemplates(safeJsonParse(localStorage.getItem(getUserStorageKey(STORAGE_KEY)), []));
 }
 
 function createGroupedTemplates(rawArray) {
@@ -49,11 +50,11 @@ function createGroupedTemplates(rawArray) {
 function saveTemplates(allTemplates, shape) {
   if (shape === "object") {
     const grouped = createGroupedTemplates(allTemplates);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(grouped));
+    localStorage.setItem(getUserStorageKey(STORAGE_KEY), JSON.stringify(grouped));
     return;
   }
 
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(allTemplates));
+  localStorage.setItem(getUserStorageKey(STORAGE_KEY), JSON.stringify(allTemplates));
 }
 
 function makeId(prefix = "field") {
@@ -125,7 +126,7 @@ export default function FramedPostTemplateEditorPage() {
     setPreviewScale(Math.min(previewWidth / canvasWidth, previewHeight / canvasHeight, 1));
   }, [canvasWidth, canvasHeight]);
 
-  const storageRaw = useMemo(() => safeJsonParse(localStorage.getItem(STORAGE_KEY), []), []);
+  const storageRaw = useMemo(() => safeJsonParse(localStorage.getItem(getUserStorageKey(STORAGE_KEY)), []), []);
   const storageShape = getStorageShape(storageRaw);
   const allTemplates = useMemo(() => normalizeTemplates(storageRaw), [storageRaw]);
   const existingTemplate = useMemo(
@@ -143,7 +144,7 @@ export default function FramedPostTemplateEditorPage() {
       case "eventName":
         if (pd.eventName || pd.event) return pd.eventName || pd.event;
         try {
-          const eventsRaw = safeJsonParse(localStorage.getItem("rankify_events"), []);
+          const eventsRaw = safeJsonParse(localStorage.getItem(getUserStorageKey("rankify_events")), []);
           const activeId = getActiveEventId();
           const found = (eventsRaw || []).find((ev) => String(ev.id) === String(activeId));
           if (found && found.name) return found.name;

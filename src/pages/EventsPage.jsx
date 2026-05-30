@@ -1,4 +1,9 @@
 import React, { useEffect, useMemo, useState } from "react";
+import {
+  getUserStorageItem,
+  setUserStorageItem,
+  removeUserStorageItem,
+} from "../utils/storage.js";
 
 const EVENTS_KEY = "rankify_events";
 const ACTIVE_EVENT_KEY = "rankify_active_event_id";
@@ -32,7 +37,8 @@ const emptyForm = {
 
 function readStoredEvents() {
   try {
-    const parsed = JSON.parse(localStorage.getItem(EVENTS_KEY) || "[]");
+    const raw = getUserStorageItem(EVENTS_KEY);
+    const parsed = JSON.parse(raw || "[]");
     return Array.isArray(parsed) ? parsed : [];
   } catch {
     return [];
@@ -51,22 +57,15 @@ function hasInvalidTestEvents(events) {
 }
 
 function getValidActiveEventId(events) {
-  const storedActiveId = localStorage.getItem(ACTIVE_EVENT_KEY);
-  const isValid = events.some((event) => event.id === storedActiveId);
+  const storedActiveId = getUserStorageItem(ACTIVE_EVENT_KEY);
+  const isValid = storedActiveId && events.some((event) => event.id === storedActiveId);
 
   if (isValid) {
     return storedActiveId;
   }
 
-  const firstEventId = events[0]?.id || "";
-
-  if (firstEventId) {
-    localStorage.setItem(ACTIVE_EVENT_KEY, firstEventId);
-  } else {
-    localStorage.removeItem(ACTIVE_EVENT_KEY);
-  }
-
-  return firstEventId;
+  removeUserStorageItem(ACTIVE_EVENT_KEY);
+  return "";
 }
 
 function getToday() {
@@ -85,13 +84,8 @@ export default function EventsPage() {
   useEffect(() => {
     function syncEventsAndActiveEvent() {
       const stored = readStoredEvents();
-      const initialEvents =
-        stored.length === 0 || hasInvalidTestEvents(stored) ? demoEvents : stored;
-
-      localStorage.setItem(EVENTS_KEY, JSON.stringify(initialEvents));
-      setEvents(initialEvents);
-
-      setActiveEventId(getValidActiveEventId(initialEvents));
+      setEvents(stored);
+      setActiveEventId(getValidActiveEventId(stored));
     }
 
     syncEventsAndActiveEvent();
@@ -120,7 +114,7 @@ export default function EventsPage() {
   }, [events, search]);
 
   function persistEvents(nextEvents) {
-    localStorage.setItem(EVENTS_KEY, JSON.stringify(nextEvents));
+    setUserStorageItem(EVENTS_KEY, JSON.stringify(nextEvents));
     setEvents(nextEvents);
   }
 
@@ -201,15 +195,16 @@ export default function EventsPage() {
     persistEvents(updatedEvents);
 
     if (!activeEventId) {
-      localStorage.setItem(ACTIVE_EVENT_KEY, newEvent.id);
+      setUserStorageItem(ACTIVE_EVENT_KEY, newEvent.id);
       setActiveEventId(newEvent.id);
+      window.dispatchEvent(new Event("rankify-active-event-changed"));
     }
 
     closeModal();
   }
 
   function handleSelectEvent(eventId) {
-    localStorage.setItem(ACTIVE_EVENT_KEY, eventId);
+    setUserStorageItem(ACTIVE_EVENT_KEY, eventId);
     setActiveEventId(eventId);
     setOpenMenuId("");
     window.dispatchEvent(new Event("rankify-active-event-changed"));
@@ -225,11 +220,12 @@ export default function EventsPage() {
     if (activeEventId === eventId) {
       const nextActiveId = updatedEvents[0]?.id || "";
       if (nextActiveId) {
-        localStorage.setItem(ACTIVE_EVENT_KEY, nextActiveId);
+        setUserStorageItem(ACTIVE_EVENT_KEY, nextActiveId);
       } else {
-        localStorage.removeItem(ACTIVE_EVENT_KEY);
+        removeUserStorageItem(ACTIVE_EVENT_KEY);
       }
       setActiveEventId(nextActiveId);
+      window.dispatchEvent(new Event("rankify-active-event-changed"));
     }
 
     setOpenMenuId("");
@@ -289,8 +285,20 @@ export default function EventsPage() {
           </button>
         </div>
 
-        <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
-          {filteredEvents.map((event) => {
+        {filteredEvents.length === 0 ? (
+          <div className="rounded-xl border border-dashed border-gray-300 bg-white p-8 text-center text-gray-600">
+            <p className="text-lg font-semibold text-[#0D1B2A]">
+              {events.length === 0 ? "No events yet" : "No events found"}
+            </p>
+            <p className="mt-2 text-sm">
+              {events.length === 0
+                ? "Create a new event to get started."
+                : "Try a different search term."}
+            </p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
+            {filteredEvents.map((event) => {
             const isActive = event.id === activeEventId;
 
             return (
@@ -384,7 +392,8 @@ export default function EventsPage() {
               </div>
             );
           })}
-        </div>
+          </div>
+        )}
       </div>
 
       {modalOpen && (

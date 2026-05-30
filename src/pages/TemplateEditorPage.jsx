@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import FontFamilySelect from "../components/FontFamilySelect";
+import { getUserStorageKey } from "../utils/storage.js";
 
 const GREEN = "#26752C";
 const TEMPLATE_KEY = "rankify_program_templates";
@@ -26,22 +27,22 @@ function today() {
 }
 
 function readEvents() {
-  return safeParse(localStorage.getItem(EVENTS_KEY), []);
+  return safeParse(localStorage.getItem(getUserStorageKey(EVENTS_KEY)), []);
 }
 
 function getActiveEventId() {
   const events = readEvents();
-  const stored = localStorage.getItem(ACTIVE_EVENT_KEY);
+  const stored = localStorage.getItem(getUserStorageKey(ACTIVE_EVENT_KEY));
   if (stored && events.some((event) => event.id === stored)) return stored;
   if (events[0]?.id) {
-    localStorage.setItem(ACTIVE_EVENT_KEY, events[0].id);
+    localStorage.setItem(getUserStorageKey(ACTIVE_EVENT_KEY), events[0].id);
     return events[0].id;
   }
   return "";
 }
 
 function normalizeTemplates() {
-  const raw = safeParse(localStorage.getItem(TEMPLATE_KEY), []);
+  const raw = safeParse(localStorage.getItem(getUserStorageKey(TEMPLATE_KEY)), []);
   if (Array.isArray(raw)) return { shape: "array", templates: raw };
   if (raw && typeof raw === "object") {
     return {
@@ -62,9 +63,9 @@ function saveTemplates(templates, shape) {
       acc[eventId].push(template);
       return acc;
     }, {});
-    localStorage.setItem(TEMPLATE_KEY, JSON.stringify(grouped));
+    localStorage.setItem(getUserStorageKey(TEMPLATE_KEY), JSON.stringify(grouped));
   } else {
-    localStorage.setItem(TEMPLATE_KEY, JSON.stringify(templates));
+    localStorage.setItem(getUserStorageKey(TEMPLATE_KEY), JSON.stringify(templates));
   }
   window.dispatchEvent(new Event("rankify-data-changed"));
 }

@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { BarChart3, FileText, Image, Key, Tags, Trophy, Users } from "lucide-react";
+import { getUserStorageKey } from "../utils/storage.js";
 
 const EVENTS_KEY = "rankify_events";
 const ACTIVE_EVENT_KEY = "rankify_active_event_id";
@@ -37,7 +38,7 @@ const baseCards = [
   },
   {
     title: "Team Status Templates",
-    count: "2",
+    countKey: "teamStatusTemplates",
     description: "Total team status poster templates",
     linkText: "View Team Templates",
     linkTo: "/dashboard/team-status-templates",
@@ -45,7 +46,7 @@ const baseCards = [
   },
   {
     title: "Team Status Results",
-    count: "0",
+    countKey: "teamStatusResults",
     description: "Total team status results",
     linkText: "View Team Results",
     linkTo: "/dashboard/team-status-results",
@@ -53,7 +54,7 @@ const baseCards = [
   },
   {
     title: "Framed Post Templates",
-    count: "1",
+    countKey: "framedPostTemplates",
     description: "Total framed post templates",
     linkText: "View Framed Templates",
     linkTo: "/dashboard/framed-templates",
@@ -87,14 +88,14 @@ function safeJsonParse(value, fallback) {
 }
 
 function getStoredArray(key) {
-  const storedValue = safeJsonParse(localStorage.getItem(key), []);
+  const storedValue = safeJsonParse(localStorage.getItem(getUserStorageKey(key)), []);
   return Array.isArray(storedValue) ? storedValue : [];
 }
 
 function countItemsForEvent(key, activeEventId) {
   if (!activeEventId) return 0;
 
-  const storedValue = safeJsonParse(localStorage.getItem(key), []);
+  const storedValue = safeJsonParse(localStorage.getItem(getUserStorageKey(key)), []);
 
   if (Array.isArray(storedValue)) {
     return storedValue.filter((item) => item?.eventId === activeEventId).length;
@@ -110,7 +111,7 @@ function countItemsForEvent(key, activeEventId) {
 
 function loadDashboardData() {
   const events = getStoredArray(EVENTS_KEY);
-  const activeEventId = localStorage.getItem(ACTIVE_EVENT_KEY) || "";
+  const activeEventId = localStorage.getItem(getUserStorageKey(ACTIVE_EVENT_KEY)) || "";
   const activeEvent = events.find((event) => event.id === activeEventId) || null;
 
   return {
@@ -118,6 +119,9 @@ function loadDashboardData() {
     counts: {
       programTemplates: countItemsForEvent(PROGRAM_TEMPLATES_KEY, activeEventId),
       programResults: countItemsForEvent(PROGRAM_RESULTS_KEY, activeEventId),
+      teamStatusTemplates: countItemsForEvent("rankify_team_status_templates", activeEventId),
+      teamStatusResults: countItemsForEvent("rankify_team_status_results", activeEventId),
+      framedPostTemplates: countItemsForEvent("rankify_framed_post_templates", activeEventId),
       teams: countItemsForEvent(TEAMS_KEY, activeEventId),
       categories: countItemsForEvent(CATEGORIES_KEY, activeEventId),
     },

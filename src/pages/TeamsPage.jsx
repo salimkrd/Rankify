@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { getUserStorageKey } from "../utils/storage.js";
 
 const EVENTS_KEY = "rankify_events";
 const ACTIVE_EVENT_KEY = "rankify_active_event_id";
@@ -33,24 +34,19 @@ function safeJsonParse(value, fallback) {
 }
 
 function getStoredEvents() {
-  const storedEvents = safeJsonParse(localStorage.getItem(EVENTS_KEY), []);
-  if (Array.isArray(storedEvents) && storedEvents.length > 0) {
-    return storedEvents;
-  }
-
-  localStorage.setItem(EVENTS_KEY, JSON.stringify(fallbackEvents));
-  return fallbackEvents;
+  const storedEvents = safeJsonParse(localStorage.getItem(getUserStorageKey(EVENTS_KEY)), []);
+  return Array.isArray(storedEvents) ? storedEvents : [];
 }
 
 function getStoredTeams() {
-  const storedTeams = safeJsonParse(localStorage.getItem(TEAMS_KEY), {});
+  const storedTeams = safeJsonParse(localStorage.getItem(getUserStorageKey(TEAMS_KEY)), {});
   return storedTeams && typeof storedTeams === "object" && !Array.isArray(storedTeams)
     ? storedTeams
     : {};
 }
 
 function getValidActiveEventId(events) {
-  const storedActiveId = localStorage.getItem(ACTIVE_EVENT_KEY);
+  const storedActiveId = localStorage.getItem(getUserStorageKey(ACTIVE_EVENT_KEY));
   const storedActiveEvent = events.find((event) => event.id === storedActiveId);
 
   if (storedActiveEvent) {
@@ -60,9 +56,9 @@ function getValidActiveEventId(events) {
   const firstEventId = events[0]?.id || "";
 
   if (firstEventId) {
-    localStorage.setItem(ACTIVE_EVENT_KEY, firstEventId);
+    localStorage.setItem(getUserStorageKey(ACTIVE_EVENT_KEY), firstEventId);
   } else {
-    localStorage.removeItem(ACTIVE_EVENT_KEY);
+    localStorage.removeItem(getUserStorageKey(ACTIVE_EVENT_KEY));
   }
 
   return firstEventId;
@@ -86,21 +82,6 @@ export default function TeamsPage() {
       const storedEvents = getStoredEvents();
       const validActiveId = getValidActiveEventId(storedEvents);
       const storedTeams = getStoredTeams();
-
-      if (
-        validActiveId &&
-        (!storedTeams[validActiveId] || storedTeams[validActiveId].length === 0)
-      ) {
-        storedTeams[validActiveId] = [
-          {
-            id: "team_alpha",
-            name: "Alpha",
-            created: "5/24/2026",
-          },
-        ];
-        localStorage.setItem(TEAMS_KEY, JSON.stringify(storedTeams));
-        window.dispatchEvent(new Event("rankify-data-changed"));
-      }
 
       setEvents(storedEvents);
       setActiveEventId(validActiveId);
@@ -142,7 +123,7 @@ export default function TeamsPage() {
       [activeEventId]: nextTeams,
     };
 
-    localStorage.setItem(TEAMS_KEY, JSON.stringify(updatedTeamsByEvent));
+    localStorage.setItem(getUserStorageKey(TEAMS_KEY), JSON.stringify(updatedTeamsByEvent));
     setTeamsByEvent(updatedTeamsByEvent);
     window.dispatchEvent(new Event("rankify-data-changed"));
   }

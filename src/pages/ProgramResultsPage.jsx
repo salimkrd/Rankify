@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { createRoot } from "react-dom/client";
+import { getUserStorageKey } from "../utils/storage.js";
 
 const STORAGE_KEY = "rankify_program_results";
 const FALLBACK_CATEGORIES = ["General", "Lower primary", "Upper primary", "High school", "Higher secondary", "Junior", "Senior"];
@@ -15,13 +16,13 @@ const safeParse = (value, fallback = null) => {
 const asArray = (value) => Array.isArray(value) ? value : value && typeof value === "object" ? Object.values(value) : [];
 const readStorageArray = (keys) => {
   for (const key of keys) {
-    const list = asArray(safeParse(localStorage.getItem(key), null));
+    const list = asArray(safeParse(localStorage.getItem(getUserStorageKey(key)), null));
     if (list.length) return list;
   }
   return [];
 };
 const readTeamsForActiveEvent = (activeEventId) => {
-  const storedTeams = safeParse(localStorage.getItem("rankify_teams"), null);
+  const storedTeams = safeParse(localStorage.getItem(getUserStorageKey("rankify_teams")), null);
   let eventTeams = [];
 
   if (Array.isArray(storedTeams)) {
@@ -66,7 +67,7 @@ const flattenTemplateStorage = (value) => {
 };
 const readSavedProgramTemplates = (eventId) => {
   const collected = flattenTemplateStorage(
-    safeParse(localStorage.getItem("rankify_program_templates"), [])
+    safeParse(localStorage.getItem(getUserStorageKey("rankify_program_templates")), [])
   );
 
   const seen = new Set();
@@ -755,8 +756,8 @@ function ProgramResultsPage() {
   useEffect(() => {
     const load = () => {
       const events = readStorageArray(["rankify_events", "events"]);
-      const activeRaw = safeParse(localStorage.getItem("rankify_active_event"), null) || safeParse(localStorage.getItem("activeEvent"), null);
-      const activeId = localStorage.getItem("rankify_active_event_id") || localStorage.getItem("activeEventId") || localStorage.getItem("active_event_id") || (typeof activeRaw === "string" ? activeRaw : activeRaw?.id);
+      const activeRaw = safeParse(localStorage.getItem(getUserStorageKey("rankify_active_event")), null) || safeParse(localStorage.getItem("activeEvent"), null);
+      const activeId = localStorage.getItem(getUserStorageKey("rankify_active_event_id")) || localStorage.getItem("activeEventId") || localStorage.getItem("active_event_id") || (typeof activeRaw === "string" ? activeRaw : activeRaw?.id);
       const event = events.find((item) => String(item?.id) === String(activeId)) || (activeRaw && typeof activeRaw === "object" ? activeRaw : null) || events[0] || { id: "default", name: "Active Event" };
       const normalizedEvent = { id: String(event.id ?? event.eventId ?? "default"), name: textOf(event, ["name", "eventName", "title"], "Active Event") };
 
@@ -764,7 +765,7 @@ function ProgramResultsPage() {
         .filter((item) => !item?.eventId || String(item.eventId) === normalizedEvent.id)
         .map((item) => textOf(item, ["name", "category", "title"])).filter(Boolean);
       const eventTeams = readTeamsForActiveEvent(
-        localStorage.getItem("rankify_active_event_id") || normalizedEvent.id
+        localStorage.getItem(getUserStorageKey("rankify_active_event_id")) || normalizedEvent.id
       );
       const eventTemplates = readSavedProgramTemplates(normalizedEvent.id);
 
@@ -772,7 +773,7 @@ function ProgramResultsPage() {
       setCategories(eventCategories.length ? eventCategories : FALLBACK_CATEGORIES);
       setTeams(eventTeams.length ? eventTeams : FALLBACK_TEAMS);
       setTemplates(eventTemplates);
-      setResults(asArray(safeParse(localStorage.getItem(STORAGE_KEY), [])));
+      setResults(asArray(safeParse(localStorage.getItem(getUserStorageKey(STORAGE_KEY)), [])));
     };
     load();
     window.addEventListener("storage", load);
@@ -781,7 +782,7 @@ function ProgramResultsPage() {
 
   const saveResults = (next) => {
     setResults(next);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+    localStorage.setItem(getUserStorageKey(STORAGE_KEY), JSON.stringify(next));
     window.dispatchEvent(new Event("storage"));
   };
   const openView = (result) => {

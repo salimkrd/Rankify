@@ -1,4 +1,5 @@
 import { Outlet, NavLink, useNavigate } from "react-router-dom";
+import { clearUserSession } from "../utils/auth.js";
 
 function getUser() {
   try {
@@ -13,8 +14,8 @@ export default function DashboardLayout() {
   const user = getUser();
 
   function logout() {
-    localStorage.removeItem("rankify_is_logged_in");
-    navigate("/");
+    clearUserSession();
+    navigate("/login");
   }
 
   const navItems = [

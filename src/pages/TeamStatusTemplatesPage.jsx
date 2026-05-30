@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Copy, Edit, FileText, Plus, Trash2, X } from "lucide-react";
 import TeamStatusTemplatePreview from "../components/TeamStatusTemplatePreview";
+import { getUserStorageKey } from "../utils/storage.js";
 
 const EVENTS_KEY = "rankify_events";
 const ACTIVE_EVENT_KEY = "rankify_active_event_id";
@@ -53,11 +54,11 @@ function asArray(value) {
 }
 
 function getEvents() {
-  return asArray(safeJsonParse(localStorage.getItem(EVENTS_KEY), []));
+  return asArray(safeJsonParse(localStorage.getItem(getUserStorageKey(EVENTS_KEY)), []));
 }
 
 function getActiveEvent(events) {
-  const activeEventId = localStorage.getItem(ACTIVE_EVENT_KEY) || "";
+  const activeEventId = localStorage.getItem(getUserStorageKey(ACTIVE_EVENT_KEY)) || "";
   return (
     events.find((event) => String(event.id) === String(activeEventId)) ||
     events[0] || {
@@ -68,7 +69,7 @@ function getActiveEvent(events) {
 }
 
 function getTemplatesByEvent() {
-  const stored = safeJsonParse(localStorage.getItem(STORAGE_KEY), {});
+  const stored = safeJsonParse(localStorage.getItem(getUserStorageKey(STORAGE_KEY)), {});
   return stored && typeof stored === "object" && !Array.isArray(stored) ? stored : {};
 }
 
@@ -267,7 +268,7 @@ export default function TeamStatusTemplatesPage() {
   );
 
   function persist(nextTemplates) {
-    const activeEventId = localStorage.getItem(ACTIVE_EVENT_KEY) || activeEvent.id;
+    const activeEventId = localStorage.getItem(getUserStorageKey(ACTIVE_EVENT_KEY)) || activeEvent.id;
     if (!activeEventId) return;
 
     const stored = getTemplatesByEvent();
@@ -276,7 +277,7 @@ export default function TeamStatusTemplatesPage() {
       [activeEventId]: nextTemplates,
     };
 
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+    localStorage.setItem(getUserStorageKey(STORAGE_KEY), JSON.stringify(updated));
     setTemplatesByEvent(updated);
     window.dispatchEvent(new Event("rankify-data-changed"));
   }
@@ -291,7 +292,7 @@ export default function TeamStatusTemplatesPage() {
   }
 
   function handleUsePublic(template) {
-    const activeEventId = localStorage.getItem(ACTIVE_EVENT_KEY) || activeEvent.id;
+    const activeEventId = localStorage.getItem(getUserStorageKey(ACTIVE_EVENT_KEY)) || activeEvent.id;
     const currentTemplates = templatesByEvent[activeEventId] || [];
     persist([...currentTemplates, createTemplateFromPublic(template, activeEventId)]);
     setPublicModalOpen(false);

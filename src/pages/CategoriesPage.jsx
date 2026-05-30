@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { getUserStorageKey } from "../utils/storage.js";
 
 const EVENTS_KEY = "rankify_events";
 const ACTIVE_EVENT_KEY = "rankify_active_event_id";
@@ -43,18 +44,12 @@ function safeJsonParse(value, fallback) {
 }
 
 function getStoredEvents() {
-  const storedEvents = safeJsonParse(localStorage.getItem(EVENTS_KEY), []);
-
-  if (Array.isArray(storedEvents) && storedEvents.length > 0) {
-    return storedEvents;
-  }
-
-  localStorage.setItem(EVENTS_KEY, JSON.stringify(fallbackEvents));
-  return fallbackEvents;
+  const storedEvents = safeJsonParse(localStorage.getItem(getUserStorageKey(EVENTS_KEY)), []);
+  return Array.isArray(storedEvents) ? storedEvents : [];
 }
 
 function getStoredCategories() {
-  const storedCategories = safeJsonParse(localStorage.getItem(CATEGORIES_KEY), {});
+  const storedCategories = safeJsonParse(localStorage.getItem(getUserStorageKey(CATEGORIES_KEY)), {});
   return storedCategories &&
     typeof storedCategories === "object" &&
     !Array.isArray(storedCategories)
@@ -63,7 +58,7 @@ function getStoredCategories() {
 }
 
 function getValidActiveEventId(events) {
-  const storedActiveId = localStorage.getItem(ACTIVE_EVENT_KEY);
+  const storedActiveId = localStorage.getItem(getUserStorageKey(ACTIVE_EVENT_KEY));
   const isValid = events.some((event) => event.id === storedActiveId);
 
   if (isValid) {
@@ -143,7 +138,7 @@ export default function CategoriesPage() {
       [activeEventId]: nextCategories,
     };
 
-    localStorage.setItem(CATEGORIES_KEY, JSON.stringify(updatedCategoriesByEvent));
+    localStorage.setItem(getUserStorageKey(CATEGORIES_KEY), JSON.stringify(updatedCategoriesByEvent));
     setCategoriesByEvent(updatedCategoriesByEvent);
     window.dispatchEvent(new Event("rankify-data-changed"));
   }
