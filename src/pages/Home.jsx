@@ -87,8 +87,11 @@ export default function Home() {
   });
 
   const handleGetStarted = () => {
-    // Homepage CTAs should always navigate to the public register page
-    navigate("/register");
+    if (isLoggedIn) {
+      navigate("/dashboard");
+    } else {
+      navigate("/signup");
+    }
   };
 
   const handleDownload = (type) => {
@@ -201,7 +204,7 @@ export default function Home() {
             onClick={handleGetStarted}
             className="inline-flex items-center gap-2 rounded-lg bg-green-600 px-8 py-4 text-lg font-semibold text-white hover:bg-green-700 transition-colors shadow-lg hover:shadow-xl"
           >
-            {isLoggedIn ? "Go to Dashboard" : "Get Started For Free"}
+            {isLoggedIn ? "Go to Dashboard →" : "Get Started For Free →"}
             <ArrowRight className="h-5 w-5" />
           </button>
 

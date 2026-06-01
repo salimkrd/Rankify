@@ -7,6 +7,8 @@ const ACTIVE_EVENT_KEY = "rankify_active_event_id";
 const TEAMS_KEY = "rankify_teams";
 const CATEGORIES_KEY = "rankify_categories";
 const PROGRAM_TEMPLATES_KEY = "rankify_program_templates";
+const CERTIFICATE_TEMPLATES_KEY = "rankify_certificate_templates";
+const CERTIFICATE_RESULTS_KEY = "rankify_certificate_results";
 
 const fallbackEvents = [
   {
@@ -74,8 +76,20 @@ const sections = [
   {
     label: "CERTIFICATES",
     links: [
-      { label: "Templates", to: "/dashboard/certificates/templates", icon: "▤" },
-      { label: "Results", to: "/dashboard/certificates/results", icon: "⌾" },
+      {
+        label: "Templates",
+        to: "/dashboard/certificate-templates",
+        icon: "▤",
+        activePrefix: "/dashboard/certificate-templates",
+        countKey: "certificateTemplates",
+      },
+      {
+        label: "Results",
+        to: "/dashboard/certificate-results",
+        icon: "⌾",
+        activePrefix: "/dashboard/certificate-results",
+        countKey: "certificateResults",
+      },
     ],
   },
   {
@@ -158,6 +172,20 @@ function getGroupedCount(storageKey, activeEventId) {
   return Array.isArray(activeItems) ? activeItems.length : 0;
 }
 
+function getCertificateTemplatesCount(activeEventId) {
+  const baseCount = getGroupedCount(CERTIFICATE_TEMPLATES_KEY, activeEventId);
+  if (baseCount > 0) return baseCount;
+
+  return getGroupedCount(getUserStorageKey(CERTIFICATE_TEMPLATES_KEY), activeEventId);
+}
+
+function getCertificateResultsCount(activeEventId) {
+  const baseCount = getGroupedCount(CERTIFICATE_RESULTS_KEY, activeEventId);
+  if (baseCount > 0) return baseCount;
+
+  return getGroupedCount(getUserStorageKey(CERTIFICATE_RESULTS_KEY), activeEventId);
+}
+
 function SidebarLink({ link, counts }) {
   const location = useLocation();
   const count =
@@ -212,6 +240,8 @@ export default function Sidebar() {
     teamStatusTemplates: 0,
     teamStatusResults: 0,
     framedPostTemplates: 0,
+    certificateTemplates: 0,
+    certificateResults: 0,
   });
 
   useEffect(() => {
@@ -232,6 +262,8 @@ export default function Sidebar() {
         teamStatusTemplates: getGroupedCount(getUserStorageKey("rankify_team_status_templates"), validActiveEventId),
         teamStatusResults: getGroupedCount(getUserStorageKey("rankify_team_status_results"), validActiveEventId),
         framedPostTemplates: getGroupedCount(getUserStorageKey("rankify_framed_post_templates"), validActiveEventId),
+        certificateTemplates: getCertificateTemplatesCount(validActiveEventId),
+        certificateResults: getCertificateResultsCount(validActiveEventId),
         framedPosts: getGroupedCount(getUserStorageKey("rankify_framed_posts"), validActiveEventId),
       });
     }

@@ -17,6 +17,9 @@ import TeamStatusResultsPage from "./pages/TeamStatusResultsPage.jsx";
 import FramedPostTemplatesPage from "./pages/FramedPostTemplatesPage.jsx";
 import FramedPostTemplateEditorPage from "./pages/FramedPostTemplateEditorPage.jsx";
 import FramedPostsPage from "./pages/FramedPostsPage.jsx";
+import CertificateTemplatesPage from "./pages/CertificateTemplatesPage.jsx";
+import CertificateTemplateEditorPage from "./pages/CertificateTemplateEditorPage.jsx";
+import CertificateResultsPage from "./pages/CertificateResultsPage.jsx";
 import { COMMON_GOOGLE_FONTS_URL } from "./constants/fontFamilies.js";
 
 if (typeof document !== "undefined" && !document.querySelector('link[data-rankify-fonts="true"]')) {
@@ -75,8 +78,13 @@ export default function App() {
         <Route path="framed-posts/new" element={<FramedPostTemplateEditorPage />} />
         <Route path="framed-posts/:templateId/edit" element={<FramedPostTemplateEditorPage />} />
         <Route path="framed-posts/my-posts" element={<FramedPostsPage />} />
-        <Route path="certificate-templates" element={<PlaceholderPage title="Certificate Templates" />} />
-        <Route path="certificate-results" element={<PlaceholderPage title="Certificate Results" />} />
+        <Route path="certificate-templates" element={<CertificateTemplatesPage />} />
+        <Route path="certificate-templates/new" element={<CertificateTemplateEditorPage />} />
+        <Route path="certificate-templates/:templateId/edit" element={<CertificateTemplateEditorPage />} />
+        <Route path="certificate-templates/edit/:templateId" element={<CertificateTemplateEditorPage />} />
+        <Route path="certificates/templates" element={<Navigate to="/dashboard/certificate-templates" replace />} />
+        <Route path="certificate-results" element={<CertificateResultsPage />} />
+        <Route path="certificates/results" element={<Navigate to="/dashboard/certificate-results" replace />} />
         <Route path="teams" element={<TeamsPage />} />
         <Route path="categories" element={<CategoriesPage />} />
       </Route>

@@ -128,6 +128,17 @@ function loadDashboardData() {
   };
 }
 
+function getStoredUserName() {
+  const stored = safeJsonParse(localStorage.getItem("rankify_user"), null);
+  if (stored && typeof stored === "object") {
+    return (
+      String(stored.name || stored.fullName || stored.username || stored.email || "User")
+        .trim() || "User"
+    );
+  }
+  return "User";
+}
+
 function StatCard({ card }) {
   const Icon = card.icon;
 
@@ -151,22 +162,35 @@ function StatCard({ card }) {
 
 export default function DashboardHome() {
   const [dashboardData, setDashboardData] = useState(() => loadDashboardData());
+  const [userName, setUserName] = useState(() => getStoredUserName());
 
   useEffect(() => {
     function syncDashboardData() {
       setDashboardData(loadDashboardData());
     }
 
+    function syncUserName() {
+      setUserName(getStoredUserName());
+    }
+
     window.addEventListener("storage", syncDashboardData);
+    window.addEventListener("storage", syncUserName);
     window.addEventListener("rankify-active-event-changed", syncDashboardData);
     window.addEventListener("rankify-data-changed", syncDashboardData);
     window.addEventListener("rankify-events-changed", syncDashboardData);
 
+    const refreshInterval = window.setInterval(() => {
+      syncDashboardData();
+      syncUserName();
+    }, 1000);
+
     return () => {
       window.removeEventListener("storage", syncDashboardData);
+      window.removeEventListener("storage", syncUserName);
       window.removeEventListener("rankify-active-event-changed", syncDashboardData);
       window.removeEventListener("rankify-data-changed", syncDashboardData);
       window.removeEventListener("rankify-events-changed", syncDashboardData);
+      window.clearInterval(refreshInterval);
     };
   }, []);
 
@@ -182,7 +206,7 @@ export default function DashboardHome() {
   return (
     <section className="min-h-screen bg-[#F8FAFC] p-6">
       <div className="mb-8">
-        <h1 className="text-2xl font-bold text-[#0D1B2A]">Welcome, Salim karakkad!</h1>
+        <h1 className="text-2xl font-bold text-[#0D1B2A]">Welcome, {userName}!</h1>
         <h2 className="mt-4 text-2xl font-bold text-[#0D1B2A]">
           Current Event:{" "}
           <span className="text-[#2563EB]">{dashboardData.activeEventName}</span>

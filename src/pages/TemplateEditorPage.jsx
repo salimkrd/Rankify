@@ -263,7 +263,7 @@ function inputClass(extra = "") {
 
 function ToolbarField({ label, children }) {
   return (
-    <label className="flex flex-col gap-1 text-sm text-[#0D1B2A]">
+    <label className="flex min-w-0 flex-col gap-1 text-sm text-[#0D1B2A]">
       <span className="whitespace-nowrap font-medium">{label}</span>
       {children}
     </label>
@@ -658,10 +658,10 @@ export default function TemplateEditorPage() {
   );
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] pb-28 text-[#0D1B2A]">
+    <div className="min-h-screen overflow-x-hidden bg-[#F8FAFC] pb-28 text-[#0D1B2A]">
       <header className="sticky top-0 z-30 border-b border-gray-200 bg-[#F8FAFC] px-5 py-4">
-        <div className="flex items-center justify-between gap-4">
-          <div className="flex items-center gap-4">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div className="flex min-w-0 items-center gap-4">
             <button
               type="button"
               onClick={() => navigate("/dashboard/program-templates")}
@@ -669,9 +669,9 @@ export default function TemplateEditorPage() {
             >
               &larr;
             </button>
-            <div>
+            <div className="min-w-0">
               <p className="text-sm text-gray-500">Poster Templates</p>
-              <h1 className="text-2xl font-bold">{templateId ? `Edit - ${templateName || "New Template"}` : "Create poster template"}</h1>
+              <h1 className="truncate text-2xl font-bold">{templateId ? `Edit - ${templateName || "New Template"}` : "Create poster template"}</h1>
             </div>
           </div>
           <button
@@ -684,8 +684,8 @@ export default function TemplateEditorPage() {
         </div>
       </header>
 
-      <main className="grid grid-cols-[260px_minmax(0,1fr)_360px] gap-4 p-4">
-        <aside className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
+      <main className="grid w-full max-w-full grid-cols-[260px_minmax(0,1fr)_360px] gap-4 overflow-x-hidden p-4 max-[1180px]:grid-cols-1">
+        <aside className="min-w-0 rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
           <h2 className="mb-4 text-xs font-bold uppercase tracking-wide text-gray-600">Layers</h2>
           <LayerButton element={elements.find((item) => item.id === "programName")} selected={selectedElementId} onSelect={setSelectedElementId} />
           <LayerButton element={elements.find((item) => item.id === "category")} selected={selectedElementId} onSelect={setSelectedElementId} />
@@ -732,7 +732,7 @@ export default function TemplateEditorPage() {
           <p className="mt-40 text-xs text-gray-400">↑↓ Arrow keys nudge selected element<br />(Shift = 10 px)</p>
         </aside>
 
-        <section className="min-w-0 rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
+        <section className="min-w-0 max-w-full overflow-hidden rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
             <h2 className="whitespace-nowrap text-2xl font-bold">Live Preview</h2>
             <div className="flex items-center gap-3 text-sm">
@@ -755,12 +755,12 @@ export default function TemplateEditorPage() {
 
           <div
             ref={canvasScrollRef}
-            className="max-h-[520px] overflow-auto rounded-lg bg-white p-4"
+            className="max-h-[520px] w-full max-w-full overflow-auto rounded-lg bg-white p-4"
             onPointerMove={handlePointerMove}
             onPointerUp={endDrag}
             onPointerLeave={endDrag}
           >
-            <div className="flex min-w-full justify-center">
+            <div className="flex w-max min-w-full justify-center">
               <div
                 style={{
                   width: canvas.width * scale,
@@ -825,15 +825,15 @@ export default function TemplateEditorPage() {
           </section>
         </section>
 
-        <aside className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
+        <aside className="min-w-0 overflow-x-hidden rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
           <h2 className="mb-8 text-2xl font-bold">Template Configuration</h2>
           <label className="mb-5 block">
             <span className="mb-1 block text-sm font-semibold">Template Name</span>
-            <input value={templateName} onChange={(event) => setTemplateName(event.target.value)} className={inputClass("w-full text-base")} />
+            <input value={templateName} onChange={(event) => setTemplateName(event.target.value)} className={inputClass("box-border w-full max-w-full min-w-0 text-base")} />
           </label>
           <label className="mb-5 block">
             <span className="mb-1 block text-sm font-semibold">Background Image</span>
-            <input type="file" accept="image/*" onChange={handleBackgroundUpload} className={inputClass("w-full")} />
+            <input type="file" accept="image/*" onChange={handleBackgroundUpload} className={inputClass("box-border w-full max-w-full min-w-0 truncate")} />
           </label>
           {backgroundName && (
             <div className="mb-5 flex items-start justify-between gap-3 text-sm text-gray-500">
@@ -844,13 +844,13 @@ export default function TemplateEditorPage() {
             </div>
           )}
           <h3 className="mb-3 text-sm font-bold">Canvas Dimensions</h3>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid w-full grid-cols-1 gap-3 min-[1380px]:grid-cols-[repeat(2,minmax(0,1fr))]">
             <ToolbarField label="Width (px)">
               <input
                 type="number"
                 value={canvas.width}
                 onChange={(event) => setCanvas((current) => ({ ...current, width: Number(event.target.value) || 1 }))}
-                className={inputClass("w-full")}
+                className={inputClass("box-border w-full max-w-full min-w-0")}
               />
             </ToolbarField>
             <ToolbarField label="Height (px)">
@@ -858,7 +858,7 @@ export default function TemplateEditorPage() {
                 type="number"
                 value={canvas.height}
                 onChange={(event) => setCanvas((current) => ({ ...current, height: Number(event.target.value) || 1 }))}
-                className={inputClass("w-full")}
+                className={inputClass("box-border w-full max-w-full min-w-0")}
               />
             </ToolbarField>
           </div>
@@ -961,7 +961,7 @@ function ElementToolbar({
 
   if (!selectedElement) {
     return (
-      <div className="fixed bottom-0 left-[260px] right-0 z-40 border-t border-gray-200 bg-[#F8FAFC]/95 px-4 py-3 shadow-[0_-8px_20px_rgba(15,23,42,0.04)] backdrop-blur">
+      <div className="fixed bottom-0 left-[260px] right-0 z-40 border-t border-gray-200 bg-[#F8FAFC]/95 px-4 py-3 shadow-[0_-8px_20px_rgba(15,23,42,0.04)] backdrop-blur max-[900px]:left-0">
         <div className="flex min-w-max items-center gap-8 overflow-x-auto">
           <div>
             <p className="text-xs font-bold uppercase text-gray-500">Tools</p>
@@ -1003,7 +1003,7 @@ function ElementToolbar({
   const isResult = selectedElement.id === "resultNumber";
 
   return (
-    <div className="fixed bottom-0 left-[260px] right-0 z-40 overflow-x-auto border-t border-gray-200 bg-[#F8FAFC]/95 px-4 py-3 shadow-[0_-8px_20px_rgba(15,23,42,0.04)] backdrop-blur">
+    <div className="fixed bottom-0 left-[260px] right-0 z-40 overflow-x-auto border-t border-gray-200 bg-[#F8FAFC]/95 px-4 py-3 shadow-[0_-8px_20px_rgba(15,23,42,0.04)] backdrop-blur max-[900px]:left-0">
       <div className="flex min-w-max items-end gap-3">
         {isWinnerContainer ? (
           <>
@@ -1138,14 +1138,14 @@ function PreviewDataPanel({ previewData, setPreviewData }) {
       <p className="mb-4 text-sm text-gray-500">
         Adjust these values to see how your template elements will look with real data. These values are NOT saved with the template.
       </p>
-      <div className="grid grid-cols-2 gap-4">
-        <ToolbarField label="Program Name"><input value={previewData.programName} onChange={(event) => updateField("programName", event.target.value)} className={inputClass("w-full")} /></ToolbarField>
-        <ToolbarField label="Program Category"><input value={previewData.category} onChange={(event) => updateField("category", event.target.value)} className={inputClass("w-full")} /></ToolbarField>
-        <ToolbarField label="Result Number"><input value={previewData.resultNumber} onChange={(event) => updateField("resultNumber", event.target.value)} className={inputClass("w-full")} /></ToolbarField>
-        <ToolbarField label="Event Name"><input value={previewData.eventName} onChange={(event) => updateField("eventName", event.target.value)} className={inputClass("w-full")} /></ToolbarField>
-        <ToolbarField label="Organizer Name"><input value={previewData.organizerName} onChange={(event) => updateField("organizerName", event.target.value)} className={inputClass("w-full")} /></ToolbarField>
-        <ToolbarField label="Event Date (string)"><input value={previewData.eventDate} onChange={(event) => updateField("eventDate", event.target.value)} className={inputClass("w-full")} /></ToolbarField>
-        <ToolbarField label="Event Location"><input value={previewData.eventLocation} onChange={(event) => updateField("eventLocation", event.target.value)} className={inputClass("w-full")} /></ToolbarField>
+      <div className="grid w-full max-w-full grid-cols-1 gap-4 overflow-x-hidden min-[900px]:grid-cols-[repeat(2,minmax(0,1fr))]">
+        <ToolbarField label="Program Name"><input value={previewData.programName} onChange={(event) => updateField("programName", event.target.value)} className={inputClass("box-border w-full max-w-full min-w-0")} /></ToolbarField>
+        <ToolbarField label="Program Category"><input value={previewData.category} onChange={(event) => updateField("category", event.target.value)} className={inputClass("box-border w-full max-w-full min-w-0")} /></ToolbarField>
+        <ToolbarField label="Result Number"><input value={previewData.resultNumber} onChange={(event) => updateField("resultNumber", event.target.value)} className={inputClass("box-border w-full max-w-full min-w-0")} /></ToolbarField>
+        <ToolbarField label="Event Name"><input value={previewData.eventName} onChange={(event) => updateField("eventName", event.target.value)} className={inputClass("box-border w-full max-w-full min-w-0")} /></ToolbarField>
+        <ToolbarField label="Organizer Name"><input value={previewData.organizerName} onChange={(event) => updateField("organizerName", event.target.value)} className={inputClass("box-border w-full max-w-full min-w-0")} /></ToolbarField>
+        <ToolbarField label="Event Date (string)"><input value={previewData.eventDate} onChange={(event) => updateField("eventDate", event.target.value)} className={inputClass("box-border w-full max-w-full min-w-0")} /></ToolbarField>
+        <ToolbarField label="Event Location"><input value={previewData.eventLocation} onChange={(event) => updateField("eventLocation", event.target.value)} className={inputClass("box-border w-full max-w-full min-w-0")} /></ToolbarField>
       </div>
 
       <h3 className="mt-6 font-semibold">Example Winners</h3>
@@ -1162,11 +1162,11 @@ function PreviewDataPanel({ previewData, setPreviewData }) {
                 ×
               </button>
             </div>
-            <div className="grid grid-cols-[160px_1fr_1fr_1fr] gap-2">
-              <ToolbarField label="Position"><input value={winner.position} onChange={(event) => updateWinner(index, "position", event.target.value)} className={inputClass("w-full")} /></ToolbarField>
-              <ToolbarField label="Name"><input value={winner.name} onChange={(event) => updateWinner(index, "name", event.target.value)} className={inputClass("w-full")} /></ToolbarField>
-              <ToolbarField label="Team"><input value={winner.team} onChange={(event) => updateWinner(index, "team", event.target.value)} className={inputClass("w-full")} /></ToolbarField>
-              <ToolbarField label="Image File"><input type="file" accept="image/*" onChange={(event) => updateWinnerImage(index, event.target.files?.[0])} className={inputClass("w-full")} /></ToolbarField>
+            <div className="grid w-full grid-cols-1 gap-2 min-[900px]:grid-cols-[120px_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)]">
+              <ToolbarField label="Position"><input value={winner.position} onChange={(event) => updateWinner(index, "position", event.target.value)} className={inputClass("box-border w-full max-w-full min-w-0")} /></ToolbarField>
+              <ToolbarField label="Name"><input value={winner.name} onChange={(event) => updateWinner(index, "name", event.target.value)} className={inputClass("box-border w-full max-w-full min-w-0")} /></ToolbarField>
+              <ToolbarField label="Team"><input value={winner.team} onChange={(event) => updateWinner(index, "team", event.target.value)} className={inputClass("box-border w-full max-w-full min-w-0")} /></ToolbarField>
+              <ToolbarField label="Image File"><input type="file" accept="image/*" onChange={(event) => updateWinnerImage(index, event.target.files?.[0])} className={inputClass("box-border w-full max-w-full min-w-0 truncate")} /></ToolbarField>
             </div>
           </div>
         ))}

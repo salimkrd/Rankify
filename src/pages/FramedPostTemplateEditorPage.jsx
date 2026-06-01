@@ -423,10 +423,10 @@ export default function FramedPostTemplateEditorPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] pb-28 font-[Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,Segoe_UI,sans-serif]">
+    <div className="min-h-screen overflow-x-hidden bg-[#F8FAFC] pb-28 font-[Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,Segoe_UI,sans-serif] [&_input]:box-border [&_input]:max-w-full [&_label]:min-w-0 [&_select]:box-border [&_select]:max-w-full">
       <header className="sticky top-0 z-30 border-b border-gray-200 bg-[#F8FAFC] px-5 py-4">
-        <div className="flex items-center justify-between gap-4">
-          <div className="flex items-center gap-4">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div className="flex min-w-0 items-center gap-4">
             <button
               type="button"
               onClick={() => navigate("/dashboard/framed-posts")}
@@ -434,9 +434,9 @@ export default function FramedPostTemplateEditorPage() {
             >
               ← 
             </button>
-            <div>
+            <div className="min-w-0">
               <p className="text-sm text-gray-500">Framed Post Templates</p>
-              <h1 className="text-2xl font-bold">
+              <h1 className="truncate text-2xl font-bold">
                 {isEdit ? `Edit — ${templateName}` : "Create framed post template"}
               </h1>
             </div>
@@ -452,8 +452,8 @@ export default function FramedPostTemplateEditorPage() {
         </div>
       </header>
 
-      <main className="grid grid-cols-[260px_minmax(0,1fr)_360px] gap-4 p-4">
-        <aside className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
+      <main className="grid w-full max-w-full grid-cols-[260px_minmax(0,1fr)_360px] gap-4 overflow-x-hidden p-4 max-[1180px]:grid-cols-1">
+        <aside className="min-w-0 rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
           <h2 className="mb-4 text-xs font-bold uppercase tracking-wide text-gray-600">Layers</h2>
           
           <div className="space-y-1">
@@ -524,7 +524,7 @@ export default function FramedPostTemplateEditorPage() {
           <p className="mt-6 text-xs text-gray-400">↑↓ Arrow keys nudge selected element (Shift = 10 px)</p>
         </aside>
 
-        <section className="min-w-0 rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
+        <section className="min-w-0 max-w-full overflow-hidden rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
             <h2 className="whitespace-nowrap text-2xl font-bold">Live Preview</h2>
             <div className="flex items-center gap-3 text-sm">
@@ -533,8 +533,8 @@ export default function FramedPostTemplateEditorPage() {
             </div>
           </div>
 
-          <div className="max-h-[520px] overflow-auto rounded-lg bg-white p-4">
-            <div className="flex justify-center" ref={previewWrapperRef}>
+          <div className="max-h-[520px] w-full max-w-full overflow-auto rounded-lg bg-white p-4">
+            <div className="flex w-max min-w-full justify-center" ref={previewWrapperRef}>
               <div
                 className="canvas-outer"
                 style={{
@@ -694,7 +694,7 @@ export default function FramedPostTemplateEditorPage() {
             {exampleOpen && (
               <div className="mt-4 space-y-3">
                 <p className="text-sm text-gray-600">Adjust these values to see how your template will look with real data.</p>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid w-full max-w-full grid-cols-1 gap-3 min-[900px]:grid-cols-[repeat(2,minmax(0,1fr))]">
                   <label className="flex flex-col gap-1 text-sm">
                     <span className="font-medium text-gray-700">Event Name</span>
                     <input
@@ -759,7 +759,7 @@ export default function FramedPostTemplateEditorPage() {
           </section>
         </section>
 
-        <aside className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
+        <aside className="min-w-0 overflow-x-hidden rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
           <h2 className="mb-8 text-2xl font-bold">Template Configuration</h2>
 
           <label className="mb-5 block">
@@ -813,7 +813,7 @@ export default function FramedPostTemplateEditorPage() {
 
           <div className="mb-6">
             <h3 className="mb-3 text-sm font-bold">Canvas Dimensions</h3>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid w-full max-w-full grid-cols-1 gap-3 min-[900px]:grid-cols-[repeat(2,minmax(0,1fr))]">
               <label className="flex flex-col gap-1 text-sm">
                 <span className="font-medium text-gray-700">Width (px)</span>
                 <input
@@ -881,7 +881,7 @@ export default function FramedPostTemplateEditorPage() {
                     />
                   </label>
 
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid w-full max-w-full grid-cols-1 gap-3 min-[900px]:grid-cols-[repeat(2,minmax(0,1fr))]">
                     <label className="flex flex-col gap-1">
                       <span className="font-medium text-gray-700">X</span>
                       <input
@@ -902,7 +902,7 @@ export default function FramedPostTemplateEditorPage() {
                     </label>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid w-full max-w-full grid-cols-1 gap-3 min-[900px]:grid-cols-[repeat(2,minmax(0,1fr))]">
                     <label className="flex flex-col gap-1">
                       <span className="font-medium text-gray-700">Width (px)</span>
                       <input
@@ -923,7 +923,7 @@ export default function FramedPostTemplateEditorPage() {
                     </label>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid w-full max-w-full grid-cols-1 gap-3 min-[900px]:grid-cols-[repeat(2,minmax(0,1fr))]">
                     <label className="flex flex-col gap-1">
                       <span className="font-medium text-gray-700">Opacity</span>
                       <input
@@ -998,7 +998,7 @@ export default function FramedPostTemplateEditorPage() {
                     />
                   </label>
 
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid w-full max-w-full grid-cols-1 gap-3 min-[900px]:grid-cols-[repeat(2,minmax(0,1fr))]">
                     <label className="flex flex-col gap-1">
                       <span className="font-medium text-gray-700">X</span>
                       <input
@@ -1019,7 +1019,7 @@ export default function FramedPostTemplateEditorPage() {
                     </label>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid w-full max-w-full grid-cols-1 gap-3 min-[900px]:grid-cols-[repeat(2,minmax(0,1fr))]">
                     <label className="flex flex-col gap-1">
                       <span className="font-medium text-gray-700">Width (px)</span>
                       <input
@@ -1041,7 +1041,7 @@ export default function FramedPostTemplateEditorPage() {
                     </label>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid w-full max-w-full grid-cols-1 gap-3 min-[900px]:grid-cols-[repeat(2,minmax(0,1fr))]">
                     <label className="flex flex-col gap-1">
                       <span className="font-medium text-gray-700">Font Family</span>
                       <FontFamilySelect
@@ -1071,7 +1071,7 @@ export default function FramedPostTemplateEditorPage() {
                     </label>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid w-full max-w-full grid-cols-1 gap-3 min-[900px]:grid-cols-[repeat(2,minmax(0,1fr))]">
                     <label className="flex flex-col gap-1">
                       <span className="font-medium text-gray-700">Color</span>
                       <input
