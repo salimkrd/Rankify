@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import html2canvas from "html2canvas";
+import { Download, Edit, Eye, FilePlus2, Plus, RefreshCw, Trash2, X } from "lucide-react";
 import { getUserStorageKey } from "../utils/storage.js";
 
 const EVENTS_KEY = "rankify_events";
@@ -699,7 +700,8 @@ export default function FramedPostsPage() {
             onClick={openCreateModal}
             className="inline-flex h-12 items-center justify-center rounded-md bg-[#26752C] px-5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#1f6425]"
           >
-            + Create New Framed Post
+            <Plus className="mr-2" size={18} strokeWidth={2} aria-hidden="true" />
+            Create New Framed Post
           </button>
         </div>
 
@@ -768,21 +770,24 @@ export default function FramedPostsPage() {
                         onClick={() => openViewModal(post)}
                         className="inline-flex h-10 items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 text-sm font-semibold text-[#0D1B2A] hover:bg-gray-50"
                       >
-                        👁 View Framed Post
+                        <Eye size={16} strokeWidth={1.9} aria-hidden="true" />
+                        View Framed Post
                       </button>
                       <button
                         type="button"
                         onClick={() => openEditModal(post)}
                         className="inline-flex h-10 items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 text-sm font-semibold text-[#0D1B2A] hover:bg-gray-50"
                       >
-                        ✎ Edit
+                        <Edit size={16} strokeWidth={1.9} aria-hidden="true" />
+                        Edit
                       </button>
                       <button
                         type="button"
                         onClick={() => deletePost(post.id)}
                         className="inline-flex h-10 items-center gap-2 rounded-xl bg-red-600 px-4 text-sm font-semibold text-white hover:bg-red-700"
                       >
-                        🗑 Delete
+                        <Trash2 size={16} strokeWidth={1.9} aria-hidden="true" />
+                        Delete
                       </button>
                     </div>
                   </div>
@@ -794,7 +799,7 @@ export default function FramedPostsPage() {
           <div className="flex min-h-[52vh] items-center justify-center rounded-[32px] border border-dashed border-gray-200 bg-white p-10 shadow-sm">
             <div className="text-center">
               <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-[#EAF5EA] text-2xl text-[#26752C]">
-                +
+                <FilePlus2 size={36} strokeWidth={1.8} aria-hidden="true" />
               </div>
               <h2 className="text-2xl font-semibold text-[#0D1B2A]">No Framed Posts Yet</h2>
               <p className="mt-2 text-sm text-gray-500">
@@ -832,7 +837,7 @@ export default function FramedPostsPage() {
                 onClick={closeForm}
                 className="rounded-full bg-gray-100 px-3 py-2 text-gray-600 hover:bg-gray-200"
               >
-                ×
+                <X size={18} strokeWidth={2} aria-hidden="true" />
               </button>
             </div>
 
@@ -973,6 +978,7 @@ export default function FramedPostsPage() {
                       }
                       className="inline-flex h-11 items-center justify-center rounded-xl border border-gray-300 bg-white px-4 text-sm font-semibold text-[#0D1B2A] hover:bg-gray-50"
                     >
+                      <RefreshCw className="mr-2 inline-block align-[-2px]" size={16} strokeWidth={1.9} aria-hidden="true" />
                       Reset Crop/Zoom
                     </button>
                   </div>
@@ -1100,7 +1106,7 @@ export default function FramedPostsPage() {
                 onClick={closeViewModal}
                 className="rounded-full bg-gray-100 px-3 py-2 text-gray-600 hover:bg-gray-200"
               >
-                ×
+                <X size={18} strokeWidth={2} aria-hidden="true" />
               </button>
             </div>
             <div className="rounded-[24px] border border-gray-200 bg-[#f8f2ff] p-6">
@@ -1126,6 +1132,7 @@ export default function FramedPostsPage() {
                 disabled={isExporting}
                 className="inline-flex h-12 items-center justify-center rounded-xl bg-[#26752C] px-5 text-sm font-semibold text-white hover:bg-[#1f6425] disabled:cursor-not-allowed disabled:bg-gray-400"
               >
+                {!isExporting && <Download className="mr-2" size={17} strokeWidth={1.9} aria-hidden="true" />}
                 {isExporting ? "Preparing download..." : "Download Framed Post"}
               </button>
               <button

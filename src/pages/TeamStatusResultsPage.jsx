@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { createRoot } from "react-dom/client";
+import { BarChart3, Edit, Eye, MoreVertical, Plus, Trash2, X } from "lucide-react";
 import TeamStatusTemplatePreview from "../components/TeamStatusTemplatePreview";
 import { getUserStorageKey } from "../utils/storage.js";
 
@@ -304,7 +305,9 @@ export default function TeamStatusResultsPage() {
       <div className="mt-8">
         {filtered.length === 0 ? (
           <div className="text-center py-20">
-            <div className="mx-auto w-20 h-20 rounded-full bg-gray-100 flex items-center justify-center">📊</div>
+            <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-gray-100 text-gray-500">
+              <BarChart3 size={44} strokeWidth={1.8} aria-hidden="true" />
+            </div>
             <h3 className="text-xl font-bold mt-4">No Team Point Statuses Yet</h3>
             <p className="text-gray-600 mt-2">You haven't created any team point status posters yet. Get started by creating your first one!</p>
             <div className="mt-4">
@@ -326,19 +329,27 @@ export default function TeamStatusResultsPage() {
 
                   <div className="mt-4 flex items-center">
                     <button onClick={() => openViewPosters(item)} className="flex items-center gap-2 text-sm text-gray-700 border rounded px-3 py-1">
-                      <span className="text-lg">👁️</span>
+                      <Eye size={16} strokeWidth={1.9} aria-hidden="true" />
                       <span>View Posters</span>
                     </button>
 
                     <div className="flex-1" />
 
                     <div style={{ position: 'relative' }}>
-                      <button onClick={() => setMenuOpenId(menuOpenId === item.id ? null : item.id)} className="px-2 py-1 rounded-full hover:bg-gray-100">⋯</button>
+                      <button onClick={() => setMenuOpenId(menuOpenId === item.id ? null : item.id)} className="px-2 py-1 rounded-full hover:bg-gray-100" aria-label="Status actions">
+                        <MoreVertical size={18} strokeWidth={1.9} aria-hidden="true" />
+                      </button>
                       {menuOpenId === item.id && (
                         <div className="absolute right-0 mt-2 w-40 bg-white border rounded shadow-md z-20">
                           <div className="px-3 py-2 text-xs text-gray-500 border-b">Actions</div>
-                          <button onClick={() => { setMenuOpenId(null); openEdit(item); }} className="w-full text-left px-3 py-2 hover:bg-gray-50">Edit</button>
-                          <button onClick={() => { setMenuOpenId(null); remove(item.id); }} className="w-full text-left px-3 py-2 hover:bg-gray-50 text-red-600">Delete</button>
+                          <button onClick={() => { setMenuOpenId(null); openEdit(item); }} className="w-full text-left px-3 py-2 hover:bg-gray-50">
+                            <Edit className="mr-2 inline-block align-[-2px]" size={15} strokeWidth={1.9} aria-hidden="true" />
+                            Edit
+                          </button>
+                          <button onClick={() => { setMenuOpenId(null); remove(item.id); }} className="w-full text-left px-3 py-2 hover:bg-gray-50 text-red-600">
+                            <Trash2 className="mr-2 inline-block align-[-2px]" size={15} strokeWidth={1.9} aria-hidden="true" />
+                            Delete
+                          </button>
                         </div>
                       )}
                     </div>
@@ -354,7 +365,9 @@ export default function TeamStatusResultsPage() {
       {modalMode && (
         <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto p-6 max-sm:p-3" style={{ background: 'rgba(0,0,0,0.5)' }}>
           <div className="relative overflow-y-auto shadow-lg" style={{ position: 'relative', background: '#ffffff', borderRadius: '10px', width: 'min(760px, calc(100vw - 24px))', maxWidth: '760px', maxHeight: 'calc(100vh - 24px)' }}>
-            <button type="button" onClick={closeEditor} aria-label="Close" style={{ position: 'absolute', top: 16, right: 16, left: 'auto' }} className="text-gray-600 hover:text-gray-800 bg-transparent rounded-md p-2">✕</button>
+            <button type="button" onClick={closeEditor} aria-label="Close" style={{ position: 'absolute', top: 16, right: 16, left: 'auto' }} className="text-gray-600 hover:text-gray-800 bg-transparent rounded-md p-2">
+              <X size={20} strokeWidth={2} aria-hidden="true" />
+            </button>
             <form onSubmit={submit} className="p-6">
               <header>
                 <h2 className="text-2xl font-bold">{modalMode === "create" ? "Create New Team Point Status" : "Edit Team Point Status"}</h2>
@@ -398,7 +411,10 @@ export default function TeamStatusResultsPage() {
                         <button type="button" onClick={() => setForm((c) => ({ ...c, teams: c.teams.filter((_, i) => i !== idx) }))} className="text-red-600 px-3 py-1">Remove</button>
                       </div>
                     ))}
-                    <button type="button" onClick={() => setForm((c) => ({ ...c, teams: [...(c.teams||[]), { id: uid(), teamName: teams[0]?.name || "Alpha", score: "0" }] }))} className="mt-2 w-full bg-[#26752C] text-white px-3 py-2 rounded-md">+ Add Team Slot</button>
+                    <button type="button" onClick={() => setForm((c) => ({ ...c, teams: [...(c.teams||[]), { id: uid(), teamName: teams[0]?.name || "Alpha", score: "0" }] }))} className="mt-2 inline-flex w-full items-center justify-center gap-2 rounded-md bg-[#26752C] px-3 py-2 text-white">
+                      <Plus size={16} strokeWidth={2} aria-hidden="true" />
+                      Add Team Slot
+                    </button>
                   </div>
                 </div>
 
@@ -436,7 +452,9 @@ export default function TeamStatusResultsPage() {
       {viewing && (
         <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto p-6 max-sm:p-3" style={{ background: 'rgba(0,0,0,0.5)' }}>
           <div className="relative overflow-y-auto" style={{ background: '#ffffff', borderRadius: 10, width: 'min(720px, calc(100vw - 24px))', maxHeight: 'calc(100vh - 24px)', boxShadow: '0 8px 24px rgba(0,0,0,0.12)', padding: 24 }}>
-            <button type="button" onClick={closeViewPosters} aria-label="Close" style={{ position: 'absolute', top: 16, right: 16, left: 'auto' }} className="text-gray-600 hover:text-gray-800 bg-transparent rounded-md p-2">✕</button>
+            <button type="button" onClick={closeViewPosters} aria-label="Close" style={{ position: 'absolute', top: 16, right: 16, left: 'auto' }} className="text-gray-600 hover:text-gray-800 bg-transparent rounded-md p-2">
+              <X size={20} strokeWidth={2} aria-hidden="true" />
+            </button>
             <header>
               <h2 className="text-lg font-bold">Posters for: {viewing.statusName}</h2>
               <p className="text-sm text-gray-500 mt-1">View and download posters for this team point status.</p>

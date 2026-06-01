@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { Download, Eye, FileSearch, Trash2 } from "lucide-react";
 import { getUserStorageKey } from "../utils/storage.js";
 
 const EVENTS_KEY = "rankify_events";
@@ -101,6 +102,9 @@ export default function CertificateResultsPage() {
         {eventResults.length === 0 ? (
           <div className="mt-12 flex min-h-[220px] w-full items-center justify-center rounded-xl border border-dashed border-gray-300 bg-[#F8FAFC] px-6 text-center max-sm:px-4">
             <div>
+              <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-full bg-gray-100 text-gray-500">
+                <FileSearch size={38} strokeWidth={1.8} aria-hidden="true" />
+              </div>
               <h2 className="text-2xl font-extrabold leading-tight text-[#020817] max-sm:text-xl">No Certificates Found</h2>
               <p className="mt-3 text-xl text-[#020817] max-sm:text-base">
                 No certificates have been generated for this event yet.
@@ -129,12 +133,15 @@ export default function CertificateResultsPage() {
                   <p className="mt-3 text-xs text-gray-400">Created: {formatDate(result.createdAt)}</p>
                   <div className="mt-4 flex flex-wrap gap-2">
                     <button type="button" className="rounded-md border border-gray-200 bg-white px-3 py-2 text-sm font-semibold text-[#0D1B2A] hover:bg-gray-50">
+                      <Eye className="mr-2 inline-block align-[-2px]" size={16} strokeWidth={1.9} aria-hidden="true" />
                       View
                     </button>
                     <button type="button" className="rounded-md border border-gray-200 bg-white px-3 py-2 text-sm font-semibold text-[#0D1B2A] hover:bg-gray-50">
+                      <Download className="mr-2 inline-block align-[-2px]" size={16} strokeWidth={1.9} aria-hidden="true" />
                       Download
                     </button>
                     <button type="button" onClick={() => handleDelete(result.id)} className="rounded-md px-3 py-2 text-sm font-semibold text-red-600 hover:bg-red-50">
+                      <Trash2 className="mr-2 inline-block align-[-2px]" size={16} strokeWidth={1.9} aria-hidden="true" />
                       Delete
                     </button>
                   </div>

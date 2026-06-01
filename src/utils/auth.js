@@ -10,6 +10,33 @@ export function clearUserSession() {
   localStorage.removeItem("rankify_is_logged_in");
 }
 
+export function getInitials(user) {
+  const name = String(
+    user?.name || user?.displayName || user?.fullName || user?.username || ""
+  ).trim();
+
+  if (name) {
+    const parts = name.split(/\s+/).filter(Boolean);
+    if (parts.length >= 2) {
+      return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
+    }
+    if (parts[0].length >= 2) {
+      return parts[0].slice(0, 2).toUpperCase();
+    }
+    return parts[0][0].toUpperCase();
+  }
+
+  const email = String(user?.email || "").trim();
+  if (email) {
+    const emailName = email.split("@")[0];
+    const clean = emailName.replace(/[^a-zA-Z]/g, "");
+    if (clean.length >= 2) return clean.slice(0, 2).toUpperCase();
+    if (clean.length === 1) return clean[0].toUpperCase();
+  }
+
+  return "U";
+}
+
 export async function hashPassword(password) {
   if (!password) return "";
   if (!window.crypto || !window.crypto.subtle) {

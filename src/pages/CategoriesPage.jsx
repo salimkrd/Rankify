@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { Edit, FolderOpen, Plus, Trash2, X } from "lucide-react";
 import { getUserStorageKey } from "../utils/storage.js";
 
 const EVENTS_KEY = "rankify_events";
@@ -264,7 +265,7 @@ export default function CategoriesPage() {
               onClick={openCreateModal}
               className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-[#26752C] px-4 text-sm font-semibold text-white shadow-sm hover:bg-[#1f6425]"
             >
-              <span className="text-lg leading-none">+</span>
+              <Plus size={18} strokeWidth={2} aria-hidden="true" />
               Create New Category
             </button>
             <button
@@ -279,8 +280,8 @@ export default function CategoriesPage() {
 
         {visibleCategories.length === 0 ? (
           <div className="flex min-h-[520px] flex-col items-center justify-center text-center">
-            <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-full bg-gray-100 text-3xl text-gray-500">
-              ▰
+            <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-full bg-gray-100 text-gray-500">
+              <FolderOpen size={42} strokeWidth={1.8} aria-hidden="true" />
             </div>
             <h2 className="text-xl font-bold text-[#0D1B2A]">No Categories Yet</h2>
             <p className="mt-3 max-w-[640px] text-gray-600">
@@ -317,7 +318,7 @@ export default function CategoriesPage() {
                     onClick={() => openEditModal(category)}
                     className="inline-flex h-9 items-center gap-2 rounded-md px-2 text-sm font-semibold text-[#0D1B2A] hover:bg-gray-50"
                   >
-                    <span>✎</span>
+                    <Edit size={16} strokeWidth={1.9} aria-hidden="true" />
                     Edit
                   </button>
                   <button
@@ -325,7 +326,7 @@ export default function CategoriesPage() {
                     onClick={() => handleDeleteCategory(category.id)}
                     className="inline-flex h-9 items-center gap-2 rounded-md bg-red-600 px-4 text-sm font-semibold text-white hover:bg-red-700"
                   >
-                    <span>▥</span>
+                    <Trash2 size={16} strokeWidth={1.9} aria-hidden="true" />
                     Delete
                   </button>
                 </div>
@@ -344,7 +345,7 @@ export default function CategoriesPage() {
               className="absolute right-4 top-4 text-2xl leading-none text-gray-500 hover:text-gray-900"
               aria-label="Close modal"
             >
-              ×
+              <X size={20} strokeWidth={2} aria-hidden="true" />
             </button>
 
             <h2 className="text-xl font-bold text-[#0D1B2A]">

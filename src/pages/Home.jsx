@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { getInitials } from "../utils/auth.js";
 import {
   Trophy,
   Palette,
@@ -9,15 +10,14 @@ import {
   Share2,
   Clock,
   Sparkles,
-  Users,
   Target,
   Lock,
   Heart,
   ArrowRight,
   Check,
-  Download,
   LogOut,
   LayoutDashboard,
+  Menu,
 } from "lucide-react";
 
 export default function Home() {
@@ -62,41 +62,12 @@ export default function Home() {
     navigate("/dashboard");
   };
 
-  // Demo state for "See It in Action"
-  const [programData, setProgramData] = useState({
-    template: "program-1",
-    eventName: "Tech Summit 2026",
-    category: "Web Development",
-    winner: "Alice Johnson",
-  });
-
-  const [teamData, setTeamData] = useState({
-    template: "team-1",
-    eventName: "Sports Championship",
-    team1: "Dragons",
-    score1: 95,
-    team2: "Phoenix",
-    score2: 87,
-  });
-
-  const [framedData, setFramedData] = useState({
-    template: "framed-1",
-    title: "🎉 Congratulations!",
-    name: "Bob Smith",
-    achievement: "Champion of the Year",
-  });
-
   const handleGetStarted = () => {
     if (isLoggedIn) {
       navigate("/dashboard");
     } else {
       navigate("/signup");
     }
-  };
-
-  const handleDownload = (type) => {
-    // Placeholder: In real app, would trigger actual download
-    alert(`Download ${type} poster - coming soon!`);
   };
 
   return (
@@ -121,7 +92,7 @@ export default function Home() {
                     className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer"
                   >
                     <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gray-200 text-sm font-bold text-gray-700">
-                      {user.name?.charAt(0) || "U"}
+                      {getInitials(user)}
                     </div>
                     <span className="hidden text-sm font-medium text-gray-900 sm:inline max-w-[120px] truncate">
                       {user.name}
@@ -176,7 +147,7 @@ export default function Home() {
                     className="text-3xl text-gray-900 sm:hidden"
                     aria-label="Open menu"
                   >
-                    ≡
+                    <Menu size={26} strokeWidth={2} aria-hidden="true" />
                   </button>
                 </>
               )}
@@ -219,342 +190,6 @@ export default function Home() {
           <p className="mt-4 text-sm text-gray-500">
             {isLoggedIn ? "No credit card required" : "No credit card required • Free forever to get started"}
           </p>
-        </div>
-      </section>
-
-      {/* See It in Action Section */}
-      <section className="px-4 py-16 sm:py-24">
-        <div className="mx-auto max-w-7xl">
-          <div className="mb-16 text-center">
-            <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-4">
-              See It in Action
-            </h2>
-            <p className="text-lg text-gray-600">
-              Try it out! Edit the data below and watch the posters update in real-time.
-            </p>
-          </div>
-
-          <div className="grid gap-12 lg:gap-16">
-            {/* Program Result Poster Demo */}
-            <div className="rounded-xl border border-gray-200 bg-white p-6 sm:p-8 shadow-sm hover:shadow-md transition-shadow">
-              <h3 className="mb-6 text-xl font-bold text-gray-900 flex items-center gap-2">
-                <Trophy className="h-5 w-5 text-green-600" />
-                Program Result Poster Demo
-              </h3>
-              <div className="grid gap-6 md:grid-cols-2">
-                {/* Input */}
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Template
-                    </label>
-                    <select
-                      value={programData.template}
-                      onChange={(e) =>
-                        setProgramData({ ...programData, template: e.target.value })
-                      }
-                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-green-600"
-                    >
-                      <option value="program-1">Template 1 - Modern Blue</option>
-                      <option value="program-2">Template 2 - Bold Green</option>
-                      <option value="program-3">Template 3 - Minimalist</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Event Name
-                    </label>
-                    <input
-                      type="text"
-                      value={programData.eventName}
-                      onChange={(e) =>
-                        setProgramData({ ...programData, eventName: e.target.value })
-                      }
-                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-green-600"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Category
-                    </label>
-                    <input
-                      type="text"
-                      value={programData.category}
-                      onChange={(e) =>
-                        setProgramData({ ...programData, category: e.target.value })
-                      }
-                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-green-600"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Winner
-                    </label>
-                    <input
-                      type="text"
-                      value={programData.winner}
-                      onChange={(e) =>
-                        setProgramData({ ...programData, winner: e.target.value })
-                      }
-                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-green-600"
-                    />
-                  </div>
-                </div>
-
-                {/* Preview */}
-                <div className="flex flex-col">
-                  <div className="rounded-lg border border-gray-200 bg-gradient-to-br from-blue-500 to-blue-600 p-8 text-white flex-1 flex items-center justify-center min-h-64">
-                    <div className="text-center">
-                      <Trophy className="h-16 w-16 mx-auto mb-4 opacity-80" />
-                      <p className="text-sm opacity-75">{programData.eventName}</p>
-                      <p className="text-2xl font-bold my-3">{programData.category}</p>
-                      <p className="text-lg font-semibold">{programData.winner}</p>
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => handleDownload("Program Result")}
-                    className="mt-4 inline-flex items-center justify-center gap-2 rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700 transition-colors"
-                  >
-                    <Download className="h-4 w-4" />
-                    Download Poster
-                  </button>
-                  <p className="mt-3 text-xs text-gray-500">
-                    💡 Ready to share? Download and post on social media instantly.
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* Team Standings Poster Demo */}
-            <div className="rounded-xl border border-gray-200 bg-white p-6 sm:p-8 shadow-sm hover:shadow-md transition-shadow">
-              <h3 className="mb-6 text-xl font-bold text-gray-900 flex items-center gap-2">
-                <Users className="h-5 w-5 text-green-600" />
-                Team Standings Poster Demo
-              </h3>
-              <div className="grid gap-6 md:grid-cols-2">
-                {/* Input */}
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Template
-                    </label>
-                    <select
-                      value={teamData.template}
-                      onChange={(e) =>
-                        setTeamData({ ...teamData, template: e.target.value })
-                      }
-                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-green-600"
-                    >
-                      <option value="team-1">Template 1 - Leaderboard</option>
-                      <option value="team-2">Template 2 - Versus</option>
-                      <option value="team-3">Template 3 - Rankings</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Event Name
-                    </label>
-                    <input
-                      type="text"
-                      value={teamData.eventName}
-                      onChange={(e) =>
-                        setTeamData({ ...teamData, eventName: e.target.value })
-                      }
-                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-green-600"
-                    />
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Team 1
-                      </label>
-                      <input
-                        type="text"
-                        value={teamData.team1}
-                        onChange={(e) =>
-                          setTeamData({ ...teamData, team1: e.target.value })
-                        }
-                        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-green-600"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Score
-                      </label>
-                      <input
-                        type="number"
-                        value={teamData.score1}
-                        onChange={(e) =>
-                          setTeamData({
-                            ...teamData,
-                            score1: parseInt(e.target.value),
-                          })
-                        }
-                        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-green-600"
-                      />
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Team 2
-                      </label>
-                      <input
-                        type="text"
-                        value={teamData.team2}
-                        onChange={(e) =>
-                          setTeamData({ ...teamData, team2: e.target.value })
-                        }
-                        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-green-600"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Score
-                      </label>
-                      <input
-                        type="number"
-                        value={teamData.score2}
-                        onChange={(e) =>
-                          setTeamData({
-                            ...teamData,
-                            score2: parseInt(e.target.value),
-                          })
-                        }
-                        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-green-600"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                {/* Preview */}
-                <div className="flex flex-col">
-                  <div className="rounded-lg border border-gray-200 bg-gradient-to-br from-purple-500 to-purple-600 p-8 text-white flex-1 flex items-center justify-center min-h-64">
-                    <div className="w-full">
-                      <p className="text-sm opacity-75 text-center mb-4">
-                        {teamData.eventName}
-                      </p>
-                      <div className="space-y-3">
-                        <div className="flex justify-between items-center bg-white bg-opacity-20 rounded px-3 py-2">
-                          <span className="font-semibold">{teamData.team1}</span>
-                          <span className="text-2xl font-bold">
-                            {teamData.score1}
-                          </span>
-                        </div>
-                        <div className="flex justify-between items-center bg-white bg-opacity-20 rounded px-3 py-2">
-                          <span className="font-semibold">{teamData.team2}</span>
-                          <span className="text-2xl font-bold">
-                            {teamData.score2}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => handleDownload("Team Standings")}
-                    className="mt-4 inline-flex items-center justify-center gap-2 rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700 transition-colors"
-                  >
-                    <Download className="h-4 w-4" />
-                    Download Poster
-                  </button>
-                  <p className="mt-3 text-xs text-gray-500">
-                    💡 Perfect for displaying live scores and final rankings!
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* Framed Post Demo */}
-            <div className="rounded-xl border border-gray-200 bg-white p-6 sm:p-8 shadow-sm hover:shadow-md transition-shadow">
-              <h3 className="mb-6 text-xl font-bold text-gray-900 flex items-center gap-2">
-                <Sparkles className="h-5 w-5 text-green-600" />
-                Framed Post Demo
-              </h3>
-              <div className="grid gap-6 md:grid-cols-2">
-                {/* Input */}
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Template
-                    </label>
-                    <select
-                      value={framedData.template}
-                      onChange={(e) =>
-                        setFramedData({ ...framedData, template: e.target.value })
-                      }
-                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-green-600"
-                    >
-                      <option value="framed-1">Template 1 - Celebration</option>
-                      <option value="framed-2">Template 2 - Elegant</option>
-                      <option value="framed-3">Template 3 - Modern</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Title
-                    </label>
-                    <input
-                      type="text"
-                      value={framedData.title}
-                      onChange={(e) =>
-                        setFramedData({ ...framedData, title: e.target.value })
-                      }
-                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-green-600"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Name
-                    </label>
-                    <input
-                      type="text"
-                      value={framedData.name}
-                      onChange={(e) =>
-                        setFramedData({ ...framedData, name: e.target.value })
-                      }
-                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-green-600"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Achievement
-                    </label>
-                    <input
-                      type="text"
-                      value={framedData.achievement}
-                      onChange={(e) =>
-                        setFramedData({ ...framedData, achievement: e.target.value })
-                      }
-                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-green-600"
-                    />
-                  </div>
-                </div>
-
-                {/* Preview */}
-                <div className="flex flex-col">
-                  <div className="rounded-lg border-8 border-yellow-400 bg-gradient-to-br from-yellow-50 to-yellow-100 p-8 flex-1 flex items-center justify-center min-h-64">
-                    <div className="text-center">
-                      <p className="text-4xl mb-4">{framedData.title}</p>
-                      <p className="text-2xl font-bold text-gray-900 mb-3">
-                        {framedData.name}
-                      </p>
-                      <p className="text-lg text-gray-600">{framedData.achievement}</p>
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => handleDownload("Framed Post")}
-                    className="mt-4 inline-flex items-center justify-center gap-2 rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700 transition-colors"
-                  >
-                    <Download className="h-4 w-4" />
-                    Download Poster
-                  </button>
-                  <p className="mt-3 text-xs text-gray-500">
-                    💡 Great for personalized achievement certificates and recognition posts.
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
         </div>
       </section>
 

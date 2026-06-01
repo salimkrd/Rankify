@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, Copy, Save, Trash2 } from "lucide-react";
+import { ArrowLeft, ChevronDown, ChevronUp, Copy, ListOrdered, PlusCircle, Save, Trash2 } from "lucide-react";
 import FontFamilySelect from "../components/FontFamilySelect";
 import TeamStatusTemplatePreview from "../components/TeamStatusTemplatePreview";
 import { getUserStorageKey } from "../utils/storage.js";
@@ -664,12 +664,12 @@ export default function TeamStatusTemplateEditorPage() {
   function renderToolbar() {
     if (!selected.element) {
       return (
-        <div className="toolbar empty-toolbar">
+        <div className="toolbar team-status-editor-toolbar empty-toolbar">
           <strong className="empty-message">No element selected.</strong>
           <div className="toolbar-group">
             <span>Add New Elements:</span>
-            <button type="button" onClick={addTitle}>+ Title Part</button>
-            <button type="button" onClick={addSlot}>+ Team Score Slot</button>
+            <button type="button" onClick={addTitle}><PlusCircle size={16} strokeWidth={1.9} aria-hidden="true" /> Title Part</button>
+            <button type="button" onClick={addSlot}><ListOrdered size={16} strokeWidth={1.9} aria-hidden="true" /> Team Score Slot</button>
           </div>
           <div className="toolbar-group existing-group">
             <span>Existing Elements:</span>
@@ -686,7 +686,7 @@ export default function TeamStatusTemplateEditorPage() {
 
     if (selected.element.kind === "teamSlot" && !selected.child) {
       return (
-        <div className="toolbar">
+        <div className="toolbar team-status-editor-toolbar">
           {numberControl("X (Slot)", selected.element.x, (value) => updateElement(selected.element.id, { x: value }))}
           {numberControl("Y (Slot)", selected.element.y, (value) => updateElement(selected.element.id, { y: value }))}
           {numberControl("Width", selected.element.width, (value) => updateElement(selected.element.id, { width: value }))}
@@ -703,7 +703,7 @@ export default function TeamStatusTemplateEditorPage() {
       : (patch) => updateElement(selected.element.id, patch);
 
     return (
-      <div className="toolbar">
+      <div className="toolbar team-status-editor-toolbar">
         {numberControl("X Position", target.x, (value) => update({ x: value }))}
         {numberControl("Y Position", target.y, (value) => update({ y: value }))}
         {!selected.child && selectControl("Data Source", target.dataSource, ["manual", "eventName", "organizerName", "eventDate", "eventLocation"], (value) => update({ dataSource: value }))}
@@ -721,7 +721,7 @@ export default function TeamStatusTemplateEditorPage() {
   }
 
   return (
-    <section className="team-editor-page">
+    <section className="team-editor-page team-status-editor-page w-full max-w-full overflow-x-hidden">
       <style>{styles}</style>
       <header className="sticky top-0 z-30 border-b border-gray-200 bg-[#F8FAFC] px-5 py-4">
         <div className="flex flex-wrap items-center justify-between gap-4">
@@ -731,7 +731,7 @@ export default function TeamStatusTemplateEditorPage() {
               onClick={() => navigate("/dashboard/team-status-templates")}
               className="rounded-md px-2 py-1 text-2xl text-gray-600 hover:bg-gray-100"
             >
-              &larr;
+              <ArrowLeft size={22} strokeWidth={1.9} aria-hidden="true" />
             </button>
             <div className="min-w-0">
               <p className="text-sm text-gray-500">Team Point Status Templates</p>
@@ -749,8 +749,8 @@ export default function TeamStatusTemplateEditorPage() {
         </div>
       </header>
 
-      <main className="grid w-full max-w-full grid-cols-[260px_minmax(0,1fr)_360px] gap-4 overflow-x-hidden p-4 max-[1180px]:grid-cols-1">
-        <aside className="layers-panel min-w-0 rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
+      <main className="team-status-editor-grid grid w-full max-w-full min-w-0 grid-cols-1 gap-4 overflow-x-hidden p-4 min-[1181px]:grid-cols-[260px_minmax(0,1fr)_360px]">
+        <aside className="team-status-editor-panel layers-panel w-full max-w-full min-w-0 rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
           <h2>LAYERS</h2>
           {titles.map((title) => (
             <LayerRow
@@ -767,7 +767,7 @@ export default function TeamStatusTemplateEditorPage() {
             <div key={slot.id} className="slot-layer">
               <LayerRow
                 active={selectedId === slot.id}
-                label={`▦ Slot ${index + 1}`}
+                label={<><ListOrdered size={14} strokeWidth={1.9} aria-hidden="true" /> Slot {index + 1}</>}
                 onSelect={() => setSelectedId(slot.id)}
                 onDuplicate={() => duplicateSlot(slot)}
                 onDelete={() => deleteSlot(slot.id)}
@@ -781,13 +781,13 @@ export default function TeamStatusTemplateEditorPage() {
             </div>
           ))}
           <div className="layer-actions">
-            <button type="button" onClick={addTitle}>+ Add title part</button>
-            <button type="button" onClick={addSlot}>+ Add team score slot</button>
+            <button type="button" onClick={addTitle}><PlusCircle size={15} strokeWidth={1.9} aria-hidden="true" /> Add title part</button>
+            <button type="button" onClick={addSlot}><ListOrdered size={15} strokeWidth={1.9} aria-hidden="true" /> Add team score slot</button>
           </div>
           <p className="hint">↑↓ Arrow keys nudge selected element (Shift = 10 px)</p>
         </aside>
 
-        <section className="preview-panel min-w-0 rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
+        <section className="team-status-editor-panel preview-panel w-full max-w-full min-w-0 rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
             <h2 className="whitespace-nowrap text-2xl font-bold">Live Preview</h2>
             <div className="flex min-w-0 flex-wrap items-center justify-end gap-3 text-sm">
@@ -825,7 +825,7 @@ export default function TeamStatusTemplateEditorPage() {
 
           <section className="mt-6 rounded-lg bg-white/70 p-4">
             <button type="button" onClick={() => setExampleOpen((open) => !open)} className="flex w-full items-center justify-between text-left text-lg font-semibold">
-              Example Data for Preview <span>{exampleOpen ? "⌃" : "⌄"}</span>
+              Example Data for Preview <span>{exampleOpen ? <ChevronUp size={18} strokeWidth={1.9} aria-hidden="true" /> : <ChevronDown size={18} strokeWidth={1.9} aria-hidden="true" />}</span>
             </button>
             {exampleOpen && (
               <div className="example-fields">
@@ -872,14 +872,14 @@ export default function TeamStatusTemplateEditorPage() {
                   );
                 })}
                 <button type="button" className="add-example" onClick={() => addSlot()}>
-                  + Add Team Score Slot
+                  <ListOrdered size={16} strokeWidth={1.9} aria-hidden="true" /> Add Team Score Slot
                 </button>
               </div>
             )}
           </section>
         </section>
 
-        <aside className="config-panel min-w-0 rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
+        <aside className="team-status-editor-panel config-panel w-full max-w-full min-w-0 rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
           <h2 className="mb-8 text-2xl font-bold">Template Configuration</h2>
           {textInput("Template Name", template.name, (value) => updateTemplate({ name: value }))}
           <label>
@@ -983,19 +983,29 @@ function checkboxControl(label, value, onChange) {
 
 const styles = `
 .team-editor-page{min-height:100vh;background:#F8FAFC;color:#020817;padding-bottom:112px;font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;overflow-x:hidden}
+.team-editor-page>main,.team-editor-page>main>*{width:100%;max-width:100%;min-width:0;box-sizing:border-box}
 .team-editor-page header>div>div:first-child{flex:1 1 0;min-width:0}.team-editor-page header h1{min-width:0;margin:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:24px;line-height:32px;font-weight:700}.team-editor-page header p{margin:0;color:#6B7280;font-size:14px;line-height:20px}
 .editor-header{min-height:76px;border-bottom:1px solid #D9DEE6;display:flex;align-items:center;gap:14px;padding:12px 20px 12px 28px;background:#F8FAFC;flex-wrap:wrap}
 .back-btn{border:0;background:transparent;color:#4B5563;display:flex;cursor:pointer}.editor-header p{margin:0;color:#667085;font-size:13px}.editor-header h1{margin:2px 0 0;font-size:21px;line-height:1.2;font-weight:800}.save-btn{margin-left:auto;height:40px;border:0;border-radius:7px;background:#26752C;color:#fff;padding:0 14px;display:flex;align-items:center;gap:8px;font-weight:800;cursor:pointer}
-.editor-grid{display:grid;grid-template-columns:260px minmax(0,1fr) 360px;gap:16px;padding:16px;align-items:start;width:100%;max-width:100%;overflow-x:hidden}
-.layers-panel,.preview-panel,.config-panel{border:1px solid #D9DEE6;border-radius:8px;background:#fff;box-shadow:0 1px 3px rgba(15,23,42,.06);min-width:0;max-width:100%;overflow-x:hidden}
+.layers-panel,.preview-panel,.config-panel{border:1px solid #D9DEE6;border-radius:8px;background:#fff;box-shadow:0 1px 3px rgba(15,23,42,.06);min-width:0;max-width:100%;justify-self:stretch;overflow-x:hidden}
 .layers-panel{padding:16px;min-height:620px;max-height:calc(100vh - 196px);overflow:auto}.layers-panel h2,.layers-panel h3{margin:0 0 10px;color:#667085;font-size:12px;font-weight:800;letter-spacing:.02em}.layers-panel h3{margin-top:26px}.layers-panel button{width:100%;min-height:32px;border:0;border-radius:6px;background:transparent;display:flex;align-items:center;justify-content:space-between;text-align:left;padding:0 10px;cursor:pointer}.layers-panel button.active{background:#26752C!important;color:#fff!important;font-weight:700}.layers-panel button:focus-visible{outline:2px solid #26752C;outline-offset:2px}.layers-panel button.active:focus-visible{outline-color:#1f6425}.layers-panel button.child{padding-left:22px}.layer-row{gap:8px}.layer-label{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.layer-icons{margin-left:auto;display:flex;align-items:center;justify-content:flex-end;gap:10px;flex:0 0 auto}.layer-icons svg{display:block;border-radius:4px}.layer-icons svg:hover{background:rgba(15,23,42,.08)}.active .layer-icons svg:hover{background:rgba(255,255,255,.18)}.layer-actions{border-top:1px solid #D9DEE6;margin-top:18px;padding-top:12px;display:grid;gap:4px}.layer-actions button{color:#475467}.hint{margin:14px 0 0;color:#98A2B3;font-size:12px;line-height:1.35}
 .preview-panel{padding:16px;min-height:620px;overflow:hidden}.panel-title{display:flex;align-items:flex-start;justify-content:space-between;gap:16px}.panel-title h2{margin:0;font-size:22px;line-height:1.2}.panel-title p{margin:2px 0 0;color:#344054;font-size:13px;white-space:nowrap}.panel-title span{border:1px solid #D9DEE6;border-radius:6px;padding:4px 9px;background:#fff}
 .preview-scroll{width:100%;max-width:100%;overflow:auto}.canvas-scroll-inner{display:flex;width:max-content;min-width:100%;justify-content:center}.canvas-outer{margin:22px 0 34px;position:relative;overflow:hidden;flex:0 0 auto}.canvas-inner{position:relative;overflow:hidden;background-size:cover;background-position:center;transform-origin:top left;border:1px solid #D9DEE6;border-radius:6px}
 .canvas-element,.slot-element,.slot-child{position:absolute;box-sizing:border-box;cursor:move;user-select:none;white-space:pre-wrap}.canvas-element.selected,.slot-element.selected,.slot-child.selected{outline:2px solid #26752C;outline-offset:0}.slot-element{height:42px;display:flex;position:absolute}.slot-child{min-height:24px;padding:0 4px}
 .example-panel{background:#fff;border-top:1px solid #F1F3F6}.example-panel>button{width:100%;height:56px;border:0;background:#fff;display:flex;align-items:center;justify-content:space-between;padding:0 18px;font-size:18px;cursor:pointer}.example-fields{padding:0 18px 18px;max-width:100%;overflow-x:hidden}.example-fields p{color:#344054}.example-fields h3{font-size:16px}.two-col{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;width:100%;max-width:100%}.team-row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-bottom:8px;width:100%;max-width:100%}.two-col label,.team-row label,.example-fields label{min-width:0}.two-col input,.two-col select,.team-row input,.team-row select,.example-fields input,.example-fields select{width:100%;max-width:100%;box-sizing:border-box}.add-example{height:36px;border:1px solid #D9DEE6;border-radius:6px;background:#fff;padding:0 14px;font-size:16px;cursor:pointer}
 .config-panel{padding:20px 16px;display:flex;flex-direction:column;gap:12px;min-height:620px;max-height:calc(100vh - 196px);overflow:auto}.config-panel h2{margin:0 0 18px;font-size:24px;font-weight:500}label{display:grid;gap:6px;font-size:15px;min-width:0}input,select{width:100%;min-width:0;height:38px;border:1px solid #D9DEE6;border-radius:6px;background:#fff;padding:0 12px;font-size:15px;outline:none;box-sizing:border-box}input:focus,select:focus{border-color:#26752C;box-shadow:0 0 0 3px rgba(38,117,44,.16)}.bg-preview{width:100%;max-height:360px;object-fit:contain;border-radius:6px;background:#F3F4F6}.clear-btn{align-self:flex-start;height:36px;border:0;border-radius:6px;background:#DC2626;color:#fff;padding:0 14px;font-weight:700;cursor:pointer}.big-save-btn{margin-top:auto;height:52px;min-height:52px;border:0;border-radius:7px;background:#26752C;color:#fff;font-size:20px;font-weight:800;cursor:pointer}
-.toolbar{position:fixed;left:260px;right:0;bottom:0;z-index:30;min-height:82px;border-top:1px solid #D9DEE6;background:#F8FAFC;display:flex;align-items:center;gap:10px;padding:10px 14px;box-shadow:0 -2px 10px rgba(15,23,42,.06);overflow-x:auto;overflow-y:hidden;white-space:nowrap;max-width:100vw}.toolbar label{min-width:90px;display:grid;gap:6px;color:#344054;font-size:13px;font-weight:600}.toolbar input,.toolbar select{height:38px;border-radius:7px;max-width:100%;box-sizing:border-box}.toolbar button{height:38px;border:1px solid #D9DEE6;border-radius:7px;background:#fff;padding:0 14px;font-size:16px;cursor:pointer;box-shadow:0 1px 2px rgba(15,23,42,.06);max-width:100%}.toolbar.empty-toolbar{gap:16px}.empty-message{color:#667085;white-space:nowrap;font-size:15px}.toolbar-group{display:flex;align-items:center;gap:10px;white-space:nowrap}.toolbar-group span{color:#667085;font-size:15px;font-weight:500}.existing-group button{background:#EAF5EA;border-color:#DDEBDD;color:#176B22;box-shadow:none}.check-control{min-width:70px;display:flex!important;align-items:center;gap:8px}.check-control input{width:18px;height:18px;min-width:18px;padding:0}.toolbar label:has(input[type="color"]){min-width:86px}.toolbar input[type="color"]{width:56px;padding:4px}.toolbar label:has(select){min-width:120px}.toolbar label:nth-child(4){min-width:230px}.toolbar label:nth-child(5){min-width:200px}
-@media(max-width:1320px){.editor-grid{grid-template-columns:minmax(210px,230px) minmax(0,1fr) minmax(300px,340px)}}
+.toolbar{position:fixed;left:260px;right:0;bottom:0;z-index:30;min-height:82px;border-top:1px solid #D9DEE6;background:#F8FAFC;display:flex;align-items:center;gap:10px;padding:10px 14px;box-shadow:0 -2px 10px rgba(15,23,42,.06);overflow-x:auto;overflow-y:hidden;white-space:nowrap;max-width:100%}.toolbar label{min-width:90px;display:grid;gap:6px;color:#344054;font-size:13px;font-weight:600}.toolbar input,.toolbar select{height:38px;border-radius:7px;max-width:100%;box-sizing:border-box}.toolbar button{height:38px;border:1px solid #D9DEE6;border-radius:7px;background:#fff;padding:0 14px;font-size:16px;cursor:pointer;box-shadow:0 1px 2px rgba(15,23,42,.06);max-width:100%}.toolbar.empty-toolbar{gap:16px}.empty-message{color:#667085;white-space:nowrap;font-size:15px}.toolbar-group{display:flex;align-items:center;gap:10px;white-space:nowrap}.toolbar-group span{color:#667085;font-size:15px;font-weight:500}.existing-group button{background:#EAF5EA;border-color:#DDEBDD;color:#176B22;box-shadow:none}.check-control{min-width:70px;display:flex!important;align-items:center;gap:8px}.check-control input{width:18px;height:18px;min-width:18px;padding:0}.toolbar label:has(input[type="color"]){min-width:86px}.toolbar input[type="color"]{width:56px;padding:4px}.toolbar label:has(select){min-width:120px}.toolbar label:nth-child(4){min-width:230px}.toolbar label:nth-child(5){min-width:200px}
 @media(max-width:1180px){.toolbar{left:0}.layers-panel,.preview-panel,.config-panel{width:100%;max-width:100%;max-height:none;min-height:auto}.config-panel{min-height:420px}.save-btn{margin-left:0}.editor-header h1{white-space:normal}}
 @media(max-width:900px){.two-col,.team-row{grid-template-columns:1fr}.toolbar{left:0;right:0}.preview-panel{padding:12px}.preview-scroll{padding:12px}.canvas-scroll-inner{justify-content:flex-start}.config-panel{padding:16px}.big-save-btn{font-size:17px}.toolbar-group{gap:8px}.toolbar.empty-toolbar{align-items:flex-start}}
+@media(max-width:767px){
+  .team-status-editor-page,
+  .team-status-editor-page *{box-sizing:border-box}
+  .team-status-editor-page{width:100%;max-width:100%;min-width:0;overflow-x:hidden}
+  .team-status-editor-grid{display:grid!important;grid-template-columns:minmax(0,1fr)!important;width:100%!important;max-width:100%!important;min-width:0!important;overflow-x:hidden!important}
+  .team-status-editor-panel{width:100%!important;max-width:100%!important;min-width:0!important;justify-self:stretch!important}
+  .team-status-editor-toolbar{left:0!important;right:0!important;width:auto!important;max-width:100%!important;overflow-x:auto!important}
+  .team-status-editor-panel input,
+  .team-status-editor-panel select,
+  .team-status-editor-panel button{max-width:100%;box-sizing:border-box}
+}
 `;

@@ -1,6 +1,25 @@
 import React, { useEffect, useState } from "react";
 import { NavLink, useLocation, Link, useNavigate } from "react-router-dom";
+import {
+  BarChart3,
+  CalendarDays,
+  FolderOpen,
+  Globe,
+  Grid3X3,
+  Image,
+  Layers,
+  LayoutDashboard,
+  LogOut,
+  Medal,
+  Plug,
+  ScrollText,
+  TrendingUp,
+  Trophy,
+  Users,
+  X,
+} from "lucide-react";
 import { getUserStorageKey } from "../utils/storage.js";
+import { getInitials } from "../utils/auth.js";
 
 const EVENTS_KEY = "rankify_events";
 const ACTIVE_EVENT_KEY = "rankify_active_event_id";
@@ -33,11 +52,11 @@ const sections = [
   {
     label: "EVENT",
     links: [
-      { label: "Dashboard", to: "/dashboard", icon: "▥", end: true },
-      { label: "Events", to: "/dashboard/events", icon: "▣", countKey: "events" },
-      { label: "Integrations", to: "/dashboard/integrations", icon: "⌁" },
-      { label: "Public Page", to: "/dashboard/public-page", icon: "◎" },
-      { label: "Images", to: "/dashboard/images", icon: "▧" },
+      { label: "Dashboard", to: "/dashboard", icon: LayoutDashboard, end: true },
+      { label: "Events", to: "/dashboard/events", icon: CalendarDays, countKey: "events" },
+      { label: "Integrations", to: "/dashboard/integrations", icon: Plug },
+      { label: "Public Page", to: "/dashboard/public-page", icon: Globe },
+      { label: "Images", to: "/dashboard/images", icon: Image },
     ],
   },
   {
@@ -46,17 +65,17 @@ const sections = [
       {
         label: "Templates",
         to: "/dashboard/program-templates",
-        icon: "▤",
+        icon: ScrollText,
         countKey: "programTemplates",
       },
-      { label: "Results", to: "/dashboard/program-results", icon: "▥" },
+      { label: "Results", to: "/dashboard/program-results", icon: BarChart3 },
     ],
   },
   {
     label: "TEAM STATUS",
     links: [
-      { label: "Templates", to: "/dashboard/team-status-templates", icon: "♕", countKey: "teamStatusTemplates" },
-      { label: "Results", to: "/dashboard/team-status-results", icon: "↗", countKey: "teamStatusResults" },
+      { label: "Templates", to: "/dashboard/team-status-templates", icon: Trophy, countKey: "teamStatusTemplates" },
+      { label: "Results", to: "/dashboard/team-status-results", icon: TrendingUp, countKey: "teamStatusResults" },
     ],
   },
   {
@@ -65,12 +84,12 @@ const sections = [
       {
         label: "Templates",
         to: "/dashboard/framed-posts",
-        icon: "#",
+        icon: Grid3X3,
         activePrefix: "/dashboard/framed-posts",
         activeExcludePrefixes: ["/dashboard/framed-posts/my-posts"],
         countKey: "framedPostTemplates",
       },
-      { label: "My Posts", to: "/dashboard/framed-posts/my-posts", icon: "▱" },
+      { label: "My Posts", to: "/dashboard/framed-posts/my-posts", icon: Layers },
     ],
   },
   {
@@ -79,14 +98,14 @@ const sections = [
       {
         label: "Templates",
         to: "/dashboard/certificate-templates",
-        icon: "▤",
+        icon: ScrollText,
         activePrefix: "/dashboard/certificate-templates",
         countKey: "certificateTemplates",
       },
       {
         label: "Results",
         to: "/dashboard/certificate-results",
-        icon: "⌾",
+        icon: Medal,
         activePrefix: "/dashboard/certificate-results",
         countKey: "certificateResults",
       },
@@ -95,8 +114,8 @@ const sections = [
   {
     label: "DATA",
     links: [
-      { label: "Teams", to: "/dashboard/teams", icon: "♙", countKey: "teams" },
-      { label: "Categories", to: "/dashboard/categories", icon: "▰", countKey: "categories" },
+      { label: "Teams", to: "/dashboard/teams", icon: Users, countKey: "teams" },
+      { label: "Categories", to: "/dashboard/categories", icon: FolderOpen, countKey: "categories" },
     ],
   },
 ];
@@ -148,17 +167,6 @@ function getStoredUser() {
   return { name: "User", email: "" };
 }
 
-function getUserInitials(name) {
-  const cleaned = String(name || "").trim();
-  if (!cleaned) return "US";
-  const parts = cleaned.split(/\s+/).filter(Boolean);
-  if (parts.length === 1) {
-    const initials = parts[0].slice(0, 2).toUpperCase();
-    return initials.padEnd(2, parts[0][0].toUpperCase());
-  }
-  return (parts[0][0] + parts[1][0]).toUpperCase();
-}
-
 function getGroupedCount(storageKey, activeEventId) {
   if (!activeEventId) return 0;
 
@@ -188,6 +196,7 @@ function getCertificateResultsCount(activeEventId) {
 
 function SidebarLink({ link, counts, onNavigate }) {
   const location = useLocation();
+  const Icon = link.icon;
   const count =
     link.countKey && Object.prototype.hasOwnProperty.call(counts, link.countKey)
       ? counts[link.countKey]
@@ -211,12 +220,12 @@ function SidebarLink({ link, counts, onNavigate }) {
           "flex h-9 items-center gap-3 rounded-md px-3 text-sm font-medium transition-colors",
           active || isActive
             ? "bg-[#E8F3EA] text-[#26752C]"
-            : "text-gray-700 hover:bg-gray-100 hover:text-[#0D1B2A]",
+            : "text-gray-700 hover:bg-gray-100 hover:text-[#26752C]",
         ].join(" ")
       }
     >
-      <span className="w-4 shrink-0 text-center text-base leading-none">
-        {link.icon}
+      <span className="flex h-5 w-5 shrink-0 items-center justify-center text-current">
+        <Icon size={18} strokeWidth={1.9} aria-hidden="true" />
       </span>
       <span className="min-w-0 flex-1 truncate">{link.label}</span>
       {typeof count === "number" && (
@@ -334,10 +343,10 @@ export default function Sidebar({ mobile = false, onNavigate, onClose }) {
               event.stopPropagation();
               onClose?.();
             }}
-            className="ml-auto flex h-9 w-9 items-center justify-center rounded-md text-2xl text-gray-500 hover:bg-gray-100"
+            className="ml-auto flex h-9 w-9 items-center justify-center rounded-md text-gray-500 transition-colors hover:bg-gray-100 hover:text-[#26752C]"
             aria-label="Close sidebar"
           >
-            ×
+            <X size={22} strokeWidth={2} aria-hidden="true" />
           </button>
         )}
       </Link>
@@ -380,7 +389,7 @@ export default function Sidebar({ mobile = false, onNavigate, onClose }) {
       <div className="shrink-0 border-t border-gray-200 p-3">
         <div className="flex items-center gap-3">
           <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#DCEFD9] text-sm font-bold text-[#26752C]">
-            {getUserInitials(user.name)}
+            {getInitials(user)}
           </div>
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-semibold text-[#0D1B2A]">
@@ -391,10 +400,10 @@ export default function Sidebar({ mobile = false, onNavigate, onClose }) {
           <button
             type="button"
             onClick={handleLogout}
-            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-gray-500 hover:bg-gray-100 hover:text-[#0D1B2A]"
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-gray-500 transition-colors hover:bg-gray-100 hover:text-[#26752C]"
             aria-label="Logout"
           >
-            ↪
+            <LogOut size={18} strokeWidth={1.9} aria-hidden="true" />
           </button>
         </div>
       </div>

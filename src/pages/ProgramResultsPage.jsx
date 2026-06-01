@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { createRoot } from "react-dom/client";
+import { BarChart3, Download, Edit, Eye, Plus, Trash2, X } from "lucide-react";
 import { getUserStorageKey } from "../utils/storage.js";
 
 const STORAGE_KEY = "rankify_program_results";
@@ -725,19 +726,6 @@ const renderTemplateWithResult = (template, result) => {
   );
 };
 
-function Icon({ name, size = 18 }) {
-  const common = { width: size, height: size, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2", strokeLinecap: "round", strokeLinejoin: "round", "aria-hidden": "true" };
-  const paths = {
-    plus: <><path d="M12 5v14" /><path d="M5 12h14" /></>,
-    eye: <><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z" /><circle cx="12" cy="12" r="3" /></>,
-    edit: <><path d="m18 2 4 4-13 13-5 1 1-5L18 2Z" /><path d="m14 6 4 4" /></>,
-    trash: <><path d="M3 6h18" /><path d="M8 6V4h8v2" /><path d="M19 6l-1 14H6L5 6" /><path d="M10 11v6" /><path d="M14 11v6" /></>,
-    chart: <><path d="M4 19V5" /><path d="M4 19h16" /><path d="M8 17v-6" /><path d="M12 17V8" /><path d="M16 17v-3" /></>,
-    close: <><path d="M18 6 6 18" /><path d="m6 6 12 12" /></>,
-  };
-  return <svg {...common}>{paths[name]}</svg>;
-}
-
 function ProgramResultsPage() {
   const [results, setResults] = useState([]);
   const [activeEvent, setActiveEvent] = useState({ id: "default", name: "Active Event" });
@@ -1053,7 +1041,7 @@ function ProgramResultsPage() {
           <h1>Manage Results</h1>
           <p>View, create, edit, and generate posters for event: {activeEvent.name}</p>
         </div>
-        <button className="primary-btn header-btn" onClick={openCreate}><Icon name="plus" />Create New Result Poster</button>
+        <button className="primary-btn header-btn" onClick={openCreate}><Plus size={18} strokeWidth={2} aria-hidden="true" />Create New Result Poster</button>
       </div>
 
       <section className="filter-card">
@@ -1074,17 +1062,17 @@ function ProgramResultsPage() {
               <button type="button" className="publish-toggle" onClick={() => togglePublished(result.id)} aria-pressed={result.published}><span className={`switch ${result.published ? "on" : ""}`} />{result.published ? "Published" : "Unpublished"}</button>
               <div className="card-actions">
                 <div className="left-actions">
-                  <button className="secondary-btn view-btn" onClick={() => openView(result)}><Icon name="eye" />View</button>
-                  <button className="secondary-btn" onClick={() => openEdit(result)}><Icon name="edit" />Edit</button>
+                  <button className="secondary-btn view-btn" onClick={() => openView(result)}><Eye size={18} strokeWidth={1.9} aria-hidden="true" />View</button>
+                  <button className="secondary-btn" onClick={() => openEdit(result)}><Edit size={18} strokeWidth={1.9} aria-hidden="true" />Edit</button>
                 </div>
-                <button className="delete-icon" onClick={() => setDeleting(result)} aria-label="Delete result poster"><Icon name="trash" /></button>
+                <button className="delete-icon" onClick={() => setDeleting(result)} aria-label="Delete result poster"><Trash2 size={18} strokeWidth={1.9} aria-hidden="true" /></button>
               </div>
             </article>
           ))}
         </section>
       ) : (
         <section className="empty-state">
-          <div className="empty-icon"><Icon name="chart" size={34} /></div>
+          <div className="empty-icon"><BarChart3 size={34} strokeWidth={1.8} aria-hidden="true" /></div>
           <h2>No Results Yet</h2>
           <p>You haven't created any result posters yet. Get started by creating your first one!</p>
           <button className="primary-btn" onClick={openCreate}>Create Your First Result Poster</button>
@@ -1094,7 +1082,7 @@ function ProgramResultsPage() {
       {modalMode && (
         <div className="modal-overlay">
           <form className="editor-modal" onSubmit={submitResult}>
-            <button type="button" className="close-btn" onClick={closeEditor} aria-label="Close"><Icon name="close" /></button>
+            <button type="button" className="close-btn" onClick={closeEditor} aria-label="Close"><X size={20} strokeWidth={2} aria-hidden="true" /></button>
             <h2>{modalMode === "edit" ? "Edit Result Poster" : "Create New Result Poster"}</h2>
             <p className="modal-subtitle">{modalMode === "edit" ? "Make changes to your result poster here." : "Create a new result poster by filling in the details below."}</p>
             <div className="form-grid">
@@ -1135,7 +1123,7 @@ function ProgramResultsPage() {
       {viewing && (
         <div className="modal-overlay">
           <div className="view-modal">
-            <button type="button" className="close-btn" onClick={() => setViewing(null)} aria-label="Close"><Icon name="close" /></button>
+            <button type="button" className="close-btn" onClick={() => setViewing(null)} aria-label="Close"><X size={20} strokeWidth={2} aria-hidden="true" /></button>
             <h2>Posters for: {viewing.programName}</h2>
             <p className="modal-subtitle">View and download generated posters for this result using available templates.</p>
             {templates.length ? (
@@ -1144,7 +1132,7 @@ function ProgramResultsPage() {
                   <article className="template-card" key={template.id}>
                     <h3>{template.name}</h3>
                     <div className="template-preview" id={`poster-preview-${template.id}`}>{renderTemplateWithResult(template, viewing)}</div>
-                    <button className="primary-btn" onClick={() => downloadPoster(template, viewing)}>Download Poster</button>
+                    <button className="primary-btn" onClick={() => downloadPoster(template, viewing)}><Download size={18} strokeWidth={1.9} aria-hidden="true" />Download Poster</button>
                   </article>
                 ))}
               </div>

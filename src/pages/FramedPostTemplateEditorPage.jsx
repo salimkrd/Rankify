@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState, useRef } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, Save, Copy, Trash2 } from "lucide-react";
+import { ArrowLeft, ChevronDown, ChevronUp, Copy, Image, PlusCircle, Save, Trash2, X } from "lucide-react";
 import FontFamilySelect from "../components/FontFamilySelect.jsx";
 import { getUserStorageKey } from "../utils/storage.js";
 
@@ -432,7 +432,7 @@ export default function FramedPostTemplateEditorPage() {
               onClick={() => navigate("/dashboard/framed-posts")}
               className="rounded-md px-2 py-1 text-2xl text-gray-600 hover:bg-gray-100"
             >
-              ← 
+              <ArrowLeft size={22} strokeWidth={1.9} aria-hidden="true" />
             </button>
             <div className="min-w-0">
               <p className="text-sm text-gray-500">Framed Post Templates</p>
@@ -510,14 +510,16 @@ export default function FramedPostTemplateEditorPage() {
               onClick={addCustomField}
               className="block w-full rounded-md px-3 py-2 text-left text-sm hover:bg-gray-50 text-gray-700"
             >
-              + Add custom text field
+              <PlusCircle className="mr-2 inline-block align-[-2px]" size={15} strokeWidth={1.9} aria-hidden="true" />
+              Add custom text field
             </button>
             <button
               type="button"
               onClick={addImageElement}
               className="mt-2 block w-full rounded-md px-3 py-2 text-left text-sm hover:bg-gray-50 text-gray-700"
             >
-              + Add image element
+              <Image className="mr-2 inline-block align-[-2px]" size={15} strokeWidth={1.9} aria-hidden="true" />
+              Add image element
             </button>
           </div>
 
@@ -689,7 +691,7 @@ export default function FramedPostTemplateEditorPage() {
               onClick={() => setExampleOpen(!exampleOpen)}
               className="flex w-full items-center justify-between text-left text-lg font-semibold"
             >
-              Example Framed Post Data for Preview <span>{exampleOpen ? "⌃" : "⌄"}</span>
+              Example Framed Post Data for Preview <span>{exampleOpen ? <ChevronUp size={18} strokeWidth={1.9} aria-hidden="true" /> : <ChevronDown size={18} strokeWidth={1.9} aria-hidden="true" />}</span>
             </button>
             {exampleOpen && (
               <div className="mt-4 space-y-3">
@@ -845,7 +847,7 @@ export default function FramedPostTemplateEditorPage() {
                   onClick={() => deleteField(selectedField.id)}
                   className="flex h-6 w-6 items-center justify-center rounded-full bg-red-600 text-xs text-white hover:bg-red-700"
                 >
-                  ×
+                  <X size={16} strokeWidth={2} aria-hidden="true" />
                 </button>
               </div>
 

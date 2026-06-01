@@ -1,4 +1,5 @@
 import React from 'react';
+import { ChevronDown, ChevronUp, PlusCircle, X } from 'lucide-react';
 
 export default function PreviewDataPanel({ previewData, setPreviewData, open, setOpen }) {
   const updateWinner = (index, patch) => {
@@ -15,7 +16,10 @@ export default function PreviewDataPanel({ previewData, setPreviewData, open, se
 
   return (
     <div className="preview-data-panel">
-      <button className="preview-data-toggle" onClick={() => setOpen(!open)}>Example Poster Data for Preview <span>{open ? '⌃' : '⌄'}</span></button>
+      <button className="preview-data-toggle" onClick={() => setOpen(!open)}>
+        Example Poster Data for Preview
+        <span>{open ? <ChevronUp size={18} strokeWidth={1.9} aria-hidden="true" /> : <ChevronDown size={18} strokeWidth={1.9} aria-hidden="true" />}</span>
+      </button>
       {open && (
         <div className="preview-data-body">
           <p>Adjust these values to see how your template elements will look with real data. These values are NOT saved with the template.</p>
@@ -36,7 +40,9 @@ export default function PreviewDataPanel({ previewData, setPreviewData, open, se
           <h3>Example Winners</h3>
           {previewData.winners.map((winner, index) => (
             <div key={index} className="winner-data-row">
-              <button className="remove-winner" onClick={() => setPreviewData({ ...previewData, winners: previewData.winners.filter((_, i) => i !== index) })}>×</button>
+              <button className="remove-winner" onClick={() => setPreviewData({ ...previewData, winners: previewData.winners.filter((_, i) => i !== index) })}>
+                <X size={16} strokeWidth={2} aria-hidden="true" />
+              </button>
               <strong>Winner {index + 1} Example Data</strong>
               <div className="grid gap-2 md:grid-cols-4">
                 <label>Position<input className="event-input" value={winner.position} onChange={(event) => updateWinner(index, { position: event.target.value })} /></label>
@@ -46,7 +52,10 @@ export default function PreviewDataPanel({ previewData, setPreviewData, open, se
               </div>
             </div>
           ))}
-          <button className="btn-secondary" onClick={() => setPreviewData({ ...previewData, winners: [...previewData.winners, { position: String(previewData.winners.length + 1), name: 'New Winner', team: 'Team', photo: '' }] })}>+ Add Example Winner</button>
+          <button className="btn-secondary" onClick={() => setPreviewData({ ...previewData, winners: [...previewData.winners, { position: String(previewData.winners.length + 1), name: 'New Winner', team: 'Team', photo: '' }] })}>
+            <PlusCircle size={16} strokeWidth={1.9} aria-hidden="true" />
+            Add Example Winner
+          </button>
         </div>
       )}
     </div>

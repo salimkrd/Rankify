@@ -1,4 +1,5 @@
 import React from 'react';
+import { Image, PlusCircle, Trash2 } from 'lucide-react';
 
 const requiredElementIds = new Set(['programName', 'category', 'resultNumber', 'winnerContainer', 'winnerPosition', 'winnerName', 'winnerTeam', 'winnerPhoto']);
 
@@ -33,8 +34,8 @@ function GeneralToolbar({ setSelectedId, addCustomText, addImageElement }) {
       <div>
         <strong>ADD NEW</strong>
         <div className="flex gap-2">
-          <button className="btn-secondary" onClick={addCustomText}>+ Custom Field</button>
-          <button className="btn-secondary" onClick={addImageElement}>+ Image Element</button>
+          <button className="btn-secondary" onClick={addCustomText}><PlusCircle size={16} strokeWidth={1.9} aria-hidden="true" /> Custom Field</button>
+          <button className="btn-secondary" onClick={addImageElement}><Image size={16} strokeWidth={1.9} aria-hidden="true" /> Image Element</button>
         </div>
       </div>
       <div>
@@ -73,7 +74,7 @@ function ElementSettingsToolbar({ element, updateElement, uploadElementImage, re
           <label>Object Fit<select className="event-input" value={element.objectFit || 'Fill'} onChange={(event) => updateElement({ objectFit: event.target.value })}><option>Fill</option><option>Contain</option><option>Cover</option></select></label>
           <label>Image Source<select className="event-input" value={element.imageSource || 'Manual Upload'} onChange={(event) => updateElement({ imageSource: event.target.value })}><option>Manual Upload</option><option>Winner Photo</option><option>Event Logo</option></select></label>
           <label>Upload Image<input className="event-input" type="file" accept="image/*" onChange={uploadElementImage} /></label>
-          {canRemove && <button className="remove-element-btn" onClick={removeElement}>× Remove Element</button>}
+          {canRemove && <button className="remove-element-btn" onClick={removeElement}><Trash2 size={16} strokeWidth={1.9} aria-hidden="true" /> Remove Element</button>}
         </>
       ) : (
         <>
@@ -100,7 +101,7 @@ function ElementSettingsToolbar({ element, updateElement, uploadElementImage, re
               <ToolbarNumber label="Stroke Width" value={element.strokeWidth || 1} onChange={(value) => updateElement({ strokeWidth: value })} />
             </>
           )}
-          {canRemove && <button className="remove-element-btn" onClick={removeElement}>× Remove Element</button>}
+          {canRemove && <button className="remove-element-btn" onClick={removeElement}><Trash2 size={16} strokeWidth={1.9} aria-hidden="true" /> Remove Element</button>}
         </>
       )}
     </div>

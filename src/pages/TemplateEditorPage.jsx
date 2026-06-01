@@ -1,5 +1,21 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import {
+  AlignCenter,
+  AlignLeft,
+  AlignRight,
+  ArrowLeft,
+  ChevronDown,
+  ChevronUp,
+  Copy,
+  Image,
+  PlusCircle,
+  Save,
+  Trash2,
+  Trophy,
+  Type,
+  X,
+} from "lucide-react";
 import FontFamilySelect from "../components/FontFamilySelect";
 import { getUserStorageKey } from "../utils/storage.js";
 
@@ -667,7 +683,7 @@ export default function TemplateEditorPage() {
               onClick={() => navigate("/dashboard/program-templates")}
               className="rounded-md px-2 py-1 text-2xl text-gray-600 hover:bg-gray-100"
             >
-              &larr;
+              <ArrowLeft size={22} strokeWidth={1.9} aria-hidden="true" />
             </button>
             <div className="min-w-0">
               <p className="text-sm text-gray-500">Poster Templates</p>
@@ -679,7 +695,8 @@ export default function TemplateEditorPage() {
             onClick={saveTemplate}
             className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-md bg-[#26752C] px-4 text-sm font-semibold text-white shadow-sm hover:bg-[#1f6425]"
           >
-            &#9635; {templateId ? "Save changes" : "Create template"}
+            <Save size={16} strokeWidth={1.9} aria-hidden="true" />
+            {templateId ? "Save changes" : "Create template"}
           </button>
         </div>
       </header>
@@ -690,13 +707,13 @@ export default function TemplateEditorPage() {
           <LayerButton element={elements.find((item) => item.id === "programName")} selected={selectedElementId} onSelect={setSelectedElementId} />
           <LayerButton element={elements.find((item) => item.id === "category")} selected={selectedElementId} onSelect={setSelectedElementId} />
           <LayerButton element={elements.find((item) => item.id === "resultNumber")} selected={selectedElementId} onSelect={setSelectedElementId} />
-          <LayerButton element={winnerContainer} selected={selectedElementId} onSelect={setSelectedElementId} icon="⌘" />
+          <LayerButton element={winnerContainer} selected={selectedElementId} onSelect={setSelectedElementId} icon={<Trophy size={15} strokeWidth={1.9} aria-hidden="true" />} />
 
           <p className="mb-2 mt-5 text-xs font-bold uppercase tracking-wide text-gray-400">Winner Item (All)</p>
           <LayerButton element={elements.find((item) => item.id === "winnerPosition")} selected={selectedElementId} onSelect={setSelectedElementId} />
           <LayerButton element={elements.find((item) => item.id === "winnerName")} selected={selectedElementId} onSelect={setSelectedElementId} />
           <LayerButton element={elements.find((item) => item.id === "winnerTeam")} selected={selectedElementId} onSelect={setSelectedElementId} />
-          <LayerButton element={elements.find((item) => item.id === "winnerPhoto")} selected={selectedElementId} onSelect={setSelectedElementId} icon="▧" />
+          <LayerButton element={elements.find((item) => item.id === "winnerPhoto")} selected={selectedElementId} onSelect={setSelectedElementId} icon={<Image size={15} strokeWidth={1.9} aria-hidden="true" />} />
 
           {elements.some((item) => item.custom) && <div className="my-4 border-t border-gray-200" />}
           {elements
@@ -709,23 +726,25 @@ export default function TemplateEditorPage() {
                 }`}
               >
                 <button type="button" onClick={() => setSelectedElementId(element.id)} className="min-w-0 flex-1 truncate text-left">
-                  {element.type === "image" ? "▧" : "T"} {element.label}
+                  {element.type === "image" ? <Image size={15} strokeWidth={1.9} aria-hidden="true" /> : <Type size={15} strokeWidth={1.9} aria-hidden="true" />} {element.label}
                 </button>
                 <button type="button" title="Duplicate" onClick={() => duplicateElement(element)} className="rounded px-1 hover:bg-white/20">
-                  □
+                  <Copy size={15} strokeWidth={1.9} aria-hidden="true" />
                 </button>
                 <button type="button" title="Remove" onClick={() => setRemoveTarget(element)} className="rounded px-1 hover:bg-white/20">
-                  ×
+                  <Trash2 size={15} strokeWidth={1.9} aria-hidden="true" />
                 </button>
               </div>
             ))}
 
           <div className="mt-4 border-t border-gray-200 pt-4">
             <button type="button" onClick={addCustomTextField} className="block w-full rounded-md px-3 py-2 text-left text-sm hover:bg-gray-50">
-              + Add custom text field
+              <PlusCircle className="mr-2 inline-block align-[-2px]" size={15} strokeWidth={1.9} aria-hidden="true" />
+              Add custom text field
             </button>
             <button type="button" onClick={addImageElement} className="block w-full rounded-md px-3 py-2 text-left text-sm hover:bg-gray-50">
-              + Add image element
+              <Image className="mr-2 inline-block align-[-2px]" size={15} strokeWidth={1.9} aria-hidden="true" />
+              Add image element
             </button>
           </div>
 
@@ -817,7 +836,7 @@ export default function TemplateEditorPage() {
               onClick={() => setPreviewOpen((open) => !open)}
               className="flex w-full items-center justify-between text-left text-lg font-semibold"
             >
-              Example Poster Data for Preview <span>{previewOpen ? "⌃" : "⌄"}</span>
+              Example Poster Data for Preview <span>{previewOpen ? <ChevronUp size={18} strokeWidth={1.9} aria-hidden="true" /> : <ChevronDown size={18} strokeWidth={1.9} aria-hidden="true" />}</span>
             </button>
             {previewOpen && (
               <PreviewDataPanel previewData={previewData} setPreviewData={setPreviewData} />
@@ -901,7 +920,7 @@ export default function TemplateEditorPage() {
   );
 }
 
-function LayerButton({ element, selected, onSelect, icon = "T" }) {
+function LayerButton({ element, selected, onSelect, icon = <Type size={15} strokeWidth={1.9} aria-hidden="true" /> }) {
   if (!element) return null;
   return (
     <button
@@ -911,7 +930,7 @@ function LayerButton({ element, selected, onSelect, icon = "T" }) {
         selected === element.id ? "bg-[#26752C] text-white" : "hover:bg-gray-50"
       }`}
     >
-      <span className="mr-2">{icon}</span>{element.label}
+      <span className="mr-2 inline-flex align-[-2px]">{icon}</span>{element.label}
     </button>
   );
 }
@@ -937,7 +956,13 @@ function AlignButtons({ value, onChange }) {
           onClick={() => onChange(align)}
           className={`w-10 ${value === align ? "bg-green-100" : "bg-white"}`}
         >
-          {align === "left" ? "≡" : align === "center" ? "≣" : "≡"}
+          {align === "left" ? (
+            <AlignLeft className="mx-auto" size={16} strokeWidth={1.9} aria-hidden="true" />
+          ) : align === "center" ? (
+            <AlignCenter className="mx-auto" size={16} strokeWidth={1.9} aria-hidden="true" />
+          ) : (
+            <AlignRight className="mx-auto" size={16} strokeWidth={1.9} aria-hidden="true" />
+          )}
         </button>
       ))}
     </div>
@@ -971,10 +996,12 @@ function ElementToolbar({
             <p className="text-xs font-bold uppercase text-gray-500">Add New</p>
             <div className="flex gap-2">
               <button type="button" onClick={addCustomTextField} className="h-10 rounded-md border border-gray-300 bg-white px-4 hover:bg-gray-50">
-                + Custom Field
+                <PlusCircle className="mr-2 inline-block align-[-2px]" size={16} strokeWidth={1.9} aria-hidden="true" />
+                Custom Field
               </button>
               <button type="button" onClick={addImageElement} className="h-10 rounded-md border border-gray-300 bg-white px-4 hover:bg-gray-50">
-                + Image Element
+                <Image className="mr-2 inline-block align-[-2px]" size={16} strokeWidth={1.9} aria-hidden="true" />
+                Image Element
               </button>
             </div>
           </div>
@@ -1044,7 +1071,8 @@ function ElementToolbar({
                   <input type="file" accept="image/*" onChange={(event) => handleImageUpload(event, selectedElement.id)} className={inputClass("w-96")} />
                 </ToolbarField>
                 <button type="button" onClick={() => setRemoveTarget(selectedElement)} className="h-10 rounded-md bg-red-600 px-4 font-semibold text-white hover:bg-red-700">
-                  × Remove Element
+                  <Trash2 className="mr-2 inline-block align-[-2px]" size={16} strokeWidth={1.9} aria-hidden="true" />
+                  Remove Element
                 </button>
               </>
             )}
@@ -1098,7 +1126,8 @@ function ElementToolbar({
                 <ToolbarField label="Data Source"><select className={inputClass("w-40")}><option>Manual Input</option></select></ToolbarField>
                 <ToolbarField label="Content"><input value={selectedElement.content || ""} onChange={(event) => updateSelected({ content: event.target.value })} className={inputClass("w-64")} /></ToolbarField>
                 <button type="button" onClick={() => setRemoveTarget(selectedElement)} className="h-10 rounded-md bg-red-600 px-4 font-semibold text-white hover:bg-red-700">
-                  × Remove Element
+                  <Trash2 className="mr-2 inline-block align-[-2px]" size={16} strokeWidth={1.9} aria-hidden="true" />
+                  Remove Element
                 </button>
               </>
             )}
@@ -1159,7 +1188,7 @@ function PreviewDataPanel({ previewData, setPreviewData }) {
                 onClick={() => setPreviewData((current) => ({ ...current, winners: current.winners.filter((_, itemIndex) => itemIndex !== index) }))}
                 className="h-7 w-7 rounded-full bg-red-600 text-white"
               >
-                ×
+                <X size={16} strokeWidth={2} aria-hidden="true" />
               </button>
             </div>
             <div className="grid w-full grid-cols-1 gap-2 min-[900px]:grid-cols-[120px_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)]">
@@ -1181,7 +1210,8 @@ function PreviewDataPanel({ previewData, setPreviewData }) {
         }
         className="mt-4 h-10 rounded-md border border-gray-300 bg-white px-4 hover:bg-gray-50"
       >
-        + Add Example Winner
+        <PlusCircle className="mr-2 inline-block align-[-2px]" size={16} strokeWidth={1.9} aria-hidden="true" />
+        Add Example Winner
       </button>
     </div>
   );

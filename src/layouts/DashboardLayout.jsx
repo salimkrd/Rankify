@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { Outlet } from "react-router-dom";
+import { Menu } from "lucide-react";
 import Sidebar from "../components/Sidebar.jsx";
+import { getInitials } from "../utils/auth.js";
 
 function safeJsonParse(value, fallback) {
   try {
@@ -13,12 +15,6 @@ function safeJsonParse(value, fallback) {
 function getStoredUser() {
   const user = safeJsonParse(localStorage.getItem("rankify_user"), null);
   return user && typeof user === "object" ? user : { name: "User", email: "" };
-}
-
-function getUserInitials(name) {
-  const parts = String(name || "User").trim().split(/\s+/).filter(Boolean);
-  if (parts.length > 1) return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
-  return (parts[0] || "US").slice(0, 2).toUpperCase();
 }
 
 export default function DashboardLayout() {
@@ -40,7 +36,7 @@ export default function DashboardLayout() {
           className="flex h-11 w-11 items-center justify-center rounded-md text-3xl text-[#0D1B2A] hover:bg-gray-100"
           aria-label="Open sidebar"
         >
-          ≡
+          <Menu size={26} strokeWidth={2} aria-hidden="true" />
         </button>
         <div className="flex items-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#26752C] text-base font-bold text-white">
@@ -49,7 +45,7 @@ export default function DashboardLayout() {
           <div className="text-xl font-extrabold text-[#0D1B2A]">PosterGen</div>
         </div>
         <div className="flex h-11 w-11 items-center justify-center rounded-full bg-[#DCEFD9] text-sm font-bold text-[#26752C]">
-          {getUserInitials(user.name)}
+          {getInitials(user)}
         </div>
       </header>
 

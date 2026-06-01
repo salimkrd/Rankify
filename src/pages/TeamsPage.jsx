@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { Edit, MoreVertical, Plus, Trash2, X } from "lucide-react";
 import { getUserStorageKey } from "../utils/storage.js";
 
 const EVENTS_KEY = "rankify_events";
@@ -217,7 +218,7 @@ export default function TeamsPage() {
             onClick={openCreateModal}
             className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-[#26752C] px-4 text-sm font-semibold text-white shadow-sm hover:bg-[#1f6425]"
           >
-            <span className="text-lg leading-none">+</span>
+            <Plus size={18} strokeWidth={2} aria-hidden="true" />
             Create New Team
           </button>
         </div>
@@ -236,7 +237,7 @@ export default function TeamsPage() {
                 className="absolute right-6 top-6 flex h-8 w-8 items-center justify-center rounded-md text-xl leading-none text-[#0D1B2A] hover:bg-gray-100"
                 aria-label="Team actions"
               >
-                ⋮
+                <MoreVertical size={18} strokeWidth={1.9} aria-hidden="true" />
               </button>
 
               {openMenuId === team.id && (
@@ -249,6 +250,7 @@ export default function TeamsPage() {
                     onClick={() => openEditModal(team)}
                     className="block w-full px-4 py-3 text-left text-sm text-gray-700 hover:bg-[#E8F3EA] hover:text-[#26752C]"
                   >
+                    <Edit className="mr-2 inline-block align-[-2px]" size={15} strokeWidth={1.9} aria-hidden="true" />
                     Edit
                   </button>
                   <button
@@ -256,6 +258,7 @@ export default function TeamsPage() {
                     onClick={() => handleDeleteTeam(team.id)}
                     className="block w-full border-t border-gray-100 px-4 py-3 text-left text-sm text-red-600 hover:bg-red-50"
                   >
+                    <Trash2 className="mr-2 inline-block align-[-2px]" size={15} strokeWidth={1.9} aria-hidden="true" />
                     Delete
                   </button>
                 </div>
@@ -281,7 +284,7 @@ export default function TeamsPage() {
               className="absolute right-4 top-4 text-2xl leading-none text-gray-500 hover:text-gray-900"
               aria-label="Close modal"
             >
-              ×
+              <X size={20} strokeWidth={2} aria-hidden="true" />
             </button>
 
             <h2 className="text-xl font-bold text-[#0D1B2A]">

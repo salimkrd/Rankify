@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { Copy, Edit, FilePlus2, ImageIcon, Plus, Trash2, X } from "lucide-react";
 import { getUserStorageKey } from "../utils/storage.js";
 
 const EVENTS_KEY = "rankify_events";
@@ -585,7 +586,7 @@ export default function ProgramTemplatesPage() {
               onClick={handleCreateTemplate}
               className="inline-flex min-h-10 max-w-full items-center justify-center gap-2 rounded-md bg-[#26752C] px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-[#1f6425]"
             >
-              <span className="text-lg leading-none">+</span>
+              <Plus size={18} strokeWidth={2} aria-hidden="true" />
               Create New Template
             </button>
             <button
@@ -600,8 +601,8 @@ export default function ProgramTemplatesPage() {
 
         {visibleTemplates.length === 0 ? (
           <div className="flex min-h-[520px] flex-col items-center justify-center text-center">
-            <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-lg text-6xl text-gray-500">
-              ▧
+            <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-full bg-gray-100 text-gray-500">
+              <FilePlus2 size={42} strokeWidth={1.8} aria-hidden="true" />
             </div>
             <h2 className="text-xl font-medium text-gray-600">
               No templates found.
@@ -625,8 +626,8 @@ export default function ProgramTemplatesPage() {
                       className="h-full w-full object-contain"
                     />
                   ) : (
-                    <div className="flex h-full w-full items-center justify-center text-5xl text-gray-400">
-                      ▧
+                    <div className="flex h-full w-full items-center justify-center text-gray-400">
+                      <ImageIcon size={52} strokeWidth={1.8} aria-hidden="true" />
                     </div>
                   )}
                 </div>
@@ -642,7 +643,8 @@ export default function ProgramTemplatesPage() {
                       onClick={() => handleDuplicateTemplate(template)}
                       className="inline-flex h-9 items-center gap-2 rounded-md border border-gray-200 bg-white px-3 text-sm font-semibold hover:bg-gray-50"
                     >
-                      ▣ Duplicate
+                      <Copy size={16} strokeWidth={1.9} aria-hidden="true" />
+                      Duplicate
                     </button>
                     <button
                       type="button"
@@ -651,14 +653,16 @@ export default function ProgramTemplatesPage() {
                       }
                       className="inline-flex h-9 items-center gap-2 rounded-md border border-gray-200 bg-white px-3 text-sm font-semibold hover:bg-gray-50"
                     >
-                      ✎ Edit
+                      <Edit size={16} strokeWidth={1.9} aria-hidden="true" />
+                      Edit
                     </button>
                     <button
                       type="button"
                       onClick={() => handleDeleteTemplate(template.id)}
                       className="inline-flex h-9 items-center gap-2 rounded-md bg-red-600 px-3 text-sm font-semibold text-white hover:bg-red-700"
                     >
-                      ▥ Delete
+                      <Trash2 size={16} strokeWidth={1.9} aria-hidden="true" />
+                      Delete
                     </button>
                   </div>
                 </div>
@@ -681,7 +685,7 @@ export default function ProgramTemplatesPage() {
               className="absolute right-4 top-4 flex h-8 w-8 items-center justify-center rounded-md border border-[#26752C] text-2xl leading-none text-gray-600 hover:bg-[#E8F3EA]"
               aria-label="Close modal"
             >
-              ×
+              <X size={20} strokeWidth={2} aria-hidden="true" />
             </button>
 
             <h2 className="text-xl font-bold text-[#0D1B2A]">
