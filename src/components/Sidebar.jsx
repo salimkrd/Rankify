@@ -186,7 +186,7 @@ function getCertificateResultsCount(activeEventId) {
   return getGroupedCount(getUserStorageKey(CERTIFICATE_RESULTS_KEY), activeEventId);
 }
 
-function SidebarLink({ link, counts }) {
+function SidebarLink({ link, counts, onNavigate }) {
   const location = useLocation();
   const count =
     link.countKey && Object.prototype.hasOwnProperty.call(counts, link.countKey)
@@ -205,6 +205,7 @@ function SidebarLink({ link, counts }) {
     <NavLink
       to={link.to}
       end={link.end}
+      onClick={onNavigate}
       className={({ isActive }) =>
         [
           "flex h-9 items-center gap-3 rounded-md px-3 text-sm font-medium transition-colors",
@@ -227,7 +228,7 @@ function SidebarLink({ link, counts }) {
   );
 }
 
-export default function Sidebar() {
+export default function Sidebar({ mobile = false, onNavigate, onClose }) {
   const navigate = useNavigate();
   const [events, setEvents] = useState([]);
   const [activeEventId, setActiveEventId] = useState("");
@@ -310,15 +311,35 @@ export default function Sidebar() {
   }
 
   return (
-    <aside className="fixed bottom-0 left-0 top-0 z-40 flex w-[260px] flex-col border-r border-gray-200 bg-white">
+    <aside
+      className={[
+        "bottom-0 left-0 top-0 z-40 flex w-[260px] flex-col border-r border-gray-200 bg-white",
+        mobile ? "fixed w-[min(330px,82vw)] shadow-2xl" : "fixed max-lg:hidden",
+      ].join(" ")}
+    >
       <Link
         to="/"
+        onClick={onNavigate}
         className="flex h-[62px] shrink-0 items-center gap-3 border-b border-gray-200 px-4 transition-colors hover:bg-gray-50 cursor-pointer"
       >
         <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#26752C] text-sm font-bold text-white">
           P
         </div>
         <div className="text-lg font-bold text-[#0D1B2A]">PosterGen</div>
+        {mobile && (
+          <button
+            type="button"
+            onClick={(event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              onClose?.();
+            }}
+            className="ml-auto flex h-9 w-9 items-center justify-center rounded-md text-2xl text-gray-500 hover:bg-gray-100"
+            aria-label="Close sidebar"
+          >
+            ×
+          </button>
+        )}
       </Link>
 
       <div className="shrink-0 border-b border-gray-100 px-3 py-4">
@@ -349,7 +370,7 @@ export default function Sidebar() {
             </p>
             <nav className="space-y-1">
               {section.links.map((link) => (
-                <SidebarLink key={link.to} link={link} counts={counts} />
+                <SidebarLink key={link.to} link={link} counts={counts} onNavigate={onNavigate} />
               ))}
             </nav>
           </div>

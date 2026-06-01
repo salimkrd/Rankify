@@ -107,8 +107,8 @@ export default function Home() {
           <div className="flex items-center justify-between h-[72px]">
             {/* Left: Logo */}
             <Link to="/" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
-              <Trophy className="h-8 w-8 text-green-600" />
-              <span className="text-xl font-bold text-gray-900">PosterGen</span>
+              <Sparkles className="h-8 w-8 text-green-600" />
+              <span className="text-xl font-bold text-gray-900 sm:text-2xl">PosterGen</span>
             </Link>
 
             {/* Right: User Menu */}
@@ -170,6 +170,14 @@ export default function Home() {
                   >
                     Get Started
                   </button>
+                  <button
+                    type="button"
+                    onClick={handleGetStarted}
+                    className="text-3xl text-gray-900 sm:hidden"
+                    aria-label="Open menu"
+                  >
+                    ≡
+                  </button>
                 </>
               )}
             </div>
@@ -178,23 +186,23 @@ export default function Home() {
       </nav>
 
       {/* Hero Section */}
-      <section className="bg-gradient-to-br from-green-50 to-white px-4 py-20 sm:py-24 lg:py-32">
+      <section className="bg-gradient-to-br from-green-50 to-white px-4 py-20 text-center sm:py-24 lg:py-32">
         <div className="mx-auto max-w-4xl text-center">
-          <div className="inline-flex items-center gap-2 rounded-full bg-green-100 px-4 py-1 text-sm font-medium text-green-700 mb-6">
+          <div className="mb-8 inline-flex max-w-full items-center gap-2 rounded-lg border border-green-200 bg-white/70 px-4 py-2 text-sm font-medium text-green-700 shadow-sm sm:mb-6 sm:rounded-full sm:bg-green-100 sm:py-1">
             <Sparkles className="h-4 w-4" />
             Organize Everything by Event!
           </div>
 
-          <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight text-gray-900 mb-6">
+          <h1 className="mb-6 break-words text-[42px] font-extrabold leading-tight tracking-tight text-gray-900 sm:text-5xl lg:text-6xl">
             Create Striking{" "}
             <span className="text-green-600">Result Posters.</span>
           </h1>
 
-          <p className="text-xl sm:text-2xl text-gray-600 font-medium mb-4">
+          <p className="mb-8 break-words text-3xl font-extrabold leading-tight text-gray-900 sm:mb-4 sm:text-2xl">
             Effortlessly. Instantly. Beautifully.
           </p>
 
-          <p className="text-lg text-gray-600 mb-10 max-w-3xl mx-auto">
+          <p className="mx-auto mb-10 max-w-3xl text-xl leading-relaxed text-gray-600 sm:text-lg">
             PosterGen is your ultimate platform for crafting professional posters
             for program winners and team standings. Convert data into captivating
             visuals with our intuitive, event-driven workflow.
@@ -202,7 +210,7 @@ export default function Home() {
 
           <button
             onClick={handleGetStarted}
-            className="inline-flex items-center gap-2 rounded-lg bg-green-600 px-8 py-4 text-lg font-semibold text-white hover:bg-green-700 transition-colors shadow-lg hover:shadow-xl"
+            className="inline-flex max-w-full items-center justify-center gap-3 rounded-xl bg-green-600 px-8 py-4 text-lg font-semibold text-white shadow-lg transition-colors hover:bg-green-700 hover:shadow-xl sm:text-lg"
           >
             {isLoggedIn ? "Go to Dashboard →" : "Get Started For Free →"}
             <ArrowRight className="h-5 w-5" />

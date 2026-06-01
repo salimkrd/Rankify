@@ -110,10 +110,10 @@ export default function FramedPostTemplatesPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] px-6 py-6 text-[#0D1B2A]">
+    <div className="min-h-screen overflow-x-hidden bg-[#F8FAFC] px-6 py-6 text-[#0D1B2A] max-sm:px-4">
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">Framed Post Templates</h1>
+        <div className="min-w-0">
+          <h1 className="break-words text-3xl font-bold">Framed Post Templates</h1>
           <p className="mt-2 text-sm text-gray-600">Manage templates for the current active event.</p>
         </div>
         <button
@@ -129,10 +129,10 @@ export default function FramedPostTemplatesPage() {
         {hasTemplates ? (
           <div className="grid gap-4 xl:grid-cols-2">
             {templates.map((template) => (
-              <div key={template.id} className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+              <div key={template.id} className="min-w-0 rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                  <div>
-                    <h2 className="text-xl font-semibold text-[#0D1B2A]">{template.name || "Untitled Template"}</h2>
+                  <div className="min-w-0">
+                    <h2 className="break-words text-xl font-semibold text-[#0D1B2A]">{template.name || "Untitled Template"}</h2>
                     <p className="mt-2 text-sm text-gray-500">
                       Created: {formatDate(template.createdAt || template.updatedAt || new Date().toISOString())}
                     </p>

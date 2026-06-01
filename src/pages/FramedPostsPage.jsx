@@ -685,11 +685,11 @@ export default function FramedPostsPage() {
   const hasPosts = filteredPosts.length > 0;
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] pb-24 text-[#0D1B2A]">
-      <div className="mx-auto max-w-[1360px] px-6 py-6">
+    <div className="min-h-screen overflow-x-hidden bg-[#F8FAFC] pb-24 text-[#0D1B2A]">
+      <div className="mx-auto max-w-[1360px] px-6 py-6 max-sm:px-4">
         <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-          <div>
-            <h1 className="text-3xl font-bold">Manage Framed Posts</h1>
+          <div className="min-w-0">
+            <h1 className="break-words text-3xl font-bold">Manage Framed Posts</h1>
             <p className="mt-2 text-sm text-gray-600">
               View, create, edit, and generate framed posts for event: {activeEventName}
             </p>
@@ -747,11 +747,11 @@ export default function FramedPostsPage() {
         </div>
 
         {hasPosts ? (
-          <div className="grid gap-6 xl:grid-cols-2">
+          <div className="grid min-w-0 gap-6 xl:grid-cols-2">
             {filteredPosts.map((post) => {
               const template = getTemplateById(templates, post.templateId);
               return (
-                <div key={post.id} className="overflow-hidden rounded-[28px] border border-gray-200 bg-white shadow-sm">
+                <div key={post.id} className="min-w-0 overflow-hidden rounded-[28px] border border-gray-200 bg-white shadow-sm">
                   <div className="rounded-t-[28px] bg-gradient-to-br from-[#f4e5ff] via-[#f7dcff] to-[#fef7ff] px-6 py-8 text-center">
                     <div className="mx-auto mb-3 flex h-24 w-full max-w-[520px] items-center justify-center rounded-[24px] bg-white/80 px-4 text-center text-lg font-semibold text-[#5b2ee1]">
                       <div>

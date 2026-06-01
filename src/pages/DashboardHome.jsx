@@ -143,17 +143,17 @@ function StatCard({ card }) {
   const Icon = card.icon;
 
   return (
-    <article className="rounded-xl border border-[#E5E7EB] bg-white p-6 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
+    <article className="min-w-0 rounded-xl border border-[#E5E7EB] bg-white p-6 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md max-sm:p-8">
       <div className="mb-8 flex items-start justify-between gap-4">
-        <h2 className="text-base font-semibold text-[#0D1B2A]">{card.title}</h2>
+        <h2 className="min-w-0 break-words text-base font-semibold text-[#0D1B2A] max-sm:text-xl">{card.title}</h2>
         <Icon size={18} className="text-slate-500" />
       </div>
 
       <div className={card.textCount ? "text-2xl font-bold text-[#0D1B2A]" : "text-3xl font-bold text-[#0D1B2A]"}>
         {card.count}
       </div>
-      <p className="mt-1 text-sm text-slate-500">{card.description}</p>
-      <Link to={card.linkTo} className="mt-4 inline-block text-sm font-semibold text-[#2563EB] hover:text-[#0D1B2A]">
+      <p className="mt-1 break-words text-sm text-slate-500 max-sm:text-base">{card.description}</p>
+      <Link to={card.linkTo} className="mt-4 inline-block text-sm font-semibold text-[#26752C] hover:text-[#0D1B2A] max-sm:text-lg">
         {card.linkText}
       </Link>
     </article>
@@ -204,17 +204,17 @@ export default function DashboardHome() {
   );
 
   return (
-    <section className="min-h-screen bg-[#F8FAFC] p-6">
+    <section className="min-h-screen overflow-x-hidden bg-[#F8FAFC] p-6 max-sm:px-5 max-sm:py-7">
       <div className="mb-8">
-        <h1 className="text-2xl font-bold text-[#0D1B2A]">Welcome, {userName}!</h1>
-        <h2 className="mt-4 text-2xl font-bold text-[#0D1B2A]">
+        <h1 className="break-words text-2xl font-bold text-[#0D1B2A] max-sm:text-[30px] max-sm:leading-tight">Welcome, {userName}!</h1>
+        <h2 className="mt-4 break-words text-2xl font-bold text-[#0D1B2A] max-sm:text-[28px] max-sm:leading-tight">
           Current Event:{" "}
-          <span className="text-[#2563EB]">{dashboardData.activeEventName}</span>
+          <span className="text-[#26752C]">{dashboardData.activeEventName}</span>
         </h2>
-        <p className="mt-2 text-base text-slate-600">Overview for the selected event.</p>
+        <p className="mt-4 text-base text-slate-600 max-sm:text-xl">Overview for the selected event.</p>
       </div>
 
-      <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+      <div className="grid min-w-0 gap-5 md:grid-cols-2 xl:grid-cols-3">
         {cards.map((card) => (
           <StatCard key={card.title} card={card} />
         ))}

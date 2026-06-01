@@ -32,8 +32,8 @@ export default function Login() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
-      <div className="w-full max-w-md">
+    <div className="flex min-h-screen items-center justify-center overflow-x-hidden bg-gray-50 px-4 py-8">
+      <div className="w-full max-w-md min-w-0">
         <div className="flex justify-center mb-6">
           <Link to="/" className="flex items-center gap-2">
             <Trophy className="h-8 w-8 text-green-600" />
@@ -41,7 +41,7 @@ export default function Login() {
           </Link>
         </div>
 
-        <form onSubmit={handleLogin} className="rounded-xl bg-white p-6 shadow-sm">
+        <form onSubmit={handleLogin} className="rounded-xl bg-white p-6 shadow-sm max-sm:p-5">
           <h1 className="text-2xl font-bold text-[#0D1B2A]">Welcome back</h1>
           <p className="mt-1 text-sm text-gray-500">Sign in to your account to continue</p>
 

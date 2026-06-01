@@ -545,7 +545,7 @@ export default function CertificateTemplateEditorPage() {
         </aside>
       </div>
 
-      <div className="fixed bottom-0 left-[260px] right-0 z-40 overflow-x-auto border-t border-gray-200 bg-[#F8FAFC]/95 px-3 py-2 shadow-[0_-8px_20px_rgba(15,23,42,0.04)] backdrop-blur">
+      <div className="fixed bottom-0 left-[260px] right-0 z-40 overflow-x-auto border-t border-gray-200 bg-[#F8FAFC]/95 px-3 py-2 shadow-[0_-8px_20px_rgba(15,23,42,0.04)] backdrop-blur max-[900px]:left-0">
         {selectedElement ? (
           <div className="flex min-w-max items-end gap-2">
             <ToolbarField label="Font Family">

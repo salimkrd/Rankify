@@ -89,20 +89,20 @@ export default function CertificateResultsPage() {
   }
 
   return (
-    <section className="min-h-screen w-full overflow-x-hidden bg-[#F8FAFC] px-6 py-9 text-[#020817]">
+    <section className="min-h-screen w-full overflow-x-hidden bg-[#F8FAFC] px-6 py-9 text-[#020817] max-sm:px-4">
       <div className="w-full max-w-full">
-        <h1 className="text-[30px] font-extrabold leading-tight text-[#020817]">Certificate Results</h1>
-        <p className="mt-4 text-2xl leading-snug text-[#4B5563]">
+        <h1 className="break-words text-[30px] font-extrabold leading-tight text-[#020817] max-sm:text-2xl">Certificate Results</h1>
+        <p className="mt-4 break-words text-2xl leading-snug text-[#4B5563] max-sm:text-lg">
           {activeEvent?.name
             ? `View generated certificates for ${activeEvent.name}`
             : "View generated certificates"}
         </p>
 
         {eventResults.length === 0 ? (
-          <div className="mt-12 flex min-h-[220px] w-full items-center justify-center rounded-xl border border-dashed border-gray-300 bg-[#F8FAFC] px-6 text-center">
+          <div className="mt-12 flex min-h-[220px] w-full items-center justify-center rounded-xl border border-dashed border-gray-300 bg-[#F8FAFC] px-6 text-center max-sm:px-4">
             <div>
-              <h2 className="text-2xl font-extrabold leading-tight text-[#020817]">No Certificates Found</h2>
-              <p className="mt-3 text-xl text-[#020817]">
+              <h2 className="text-2xl font-extrabold leading-tight text-[#020817] max-sm:text-xl">No Certificates Found</h2>
+              <p className="mt-3 text-xl text-[#020817] max-sm:text-base">
                 No certificates have been generated for this event yet.
               </p>
             </div>

@@ -225,7 +225,7 @@ export default function CertificateTemplatesPage() {
   }
 
   return (
-    <section className="min-h-screen w-full overflow-x-hidden bg-[#F8FAFC] px-6 py-7 text-[#020817]">
+    <section className="min-h-screen w-full overflow-x-hidden bg-[#F8FAFC] px-6 py-7 text-[#020817] max-sm:px-4">
       <div className="mb-10 flex w-full max-w-full min-w-0 flex-wrap items-start justify-between gap-4 overflow-hidden">
         <h1 className="min-w-0 flex-1 break-words text-[30px] font-extrabold leading-tight text-[#020817]">
           {activeEvent?.name ? `Certificate Templates for ${activeEvent.name}` : "Certificate Templates"}
@@ -235,7 +235,7 @@ export default function CertificateTemplatesPage() {
           <button
             type="button"
             onClick={handleCreate}
-            className="inline-flex min-h-[46px] max-w-full items-center justify-center gap-3 rounded-md bg-[#26752C] px-5 text-base font-bold text-white shadow-sm transition hover:bg-[#1f6425]"
+            className="inline-flex min-h-[46px] max-w-full items-center justify-center gap-3 rounded-md bg-[#26752C] px-5 py-2 text-base font-bold text-white shadow-sm transition hover:bg-[#1f6425]"
           >
             <Plus size={20} />
             Create New Template
@@ -243,7 +243,7 @@ export default function CertificateTemplatesPage() {
           <button
             type="button"
             onClick={() => setPublicModalOpen(true)}
-            className="inline-flex min-h-[46px] max-w-full items-center justify-center rounded-md bg-[#26752C] px-6 text-base font-bold text-white shadow-sm transition hover:bg-[#1f6425]"
+            className="inline-flex min-h-[46px] max-w-full items-center justify-center rounded-md bg-[#26752C] px-6 py-2 text-base font-bold text-white shadow-sm transition hover:bg-[#1f6425]"
           >
             Explore Public Templates
           </button>
@@ -293,7 +293,7 @@ export default function CertificateTemplatesPage() {
           </div>
         </div>
       ) : (
-        <div className="grid max-w-full grid-cols-[repeat(auto-fill,minmax(320px,482px))] gap-6">
+        <div className="grid max-w-full grid-cols-[repeat(auto-fill,minmax(min(100%,320px),482px))] gap-6">
           {eventTemplates.map((template) => {
             const elementCount = getElementCount(template);
 
@@ -302,7 +302,7 @@ export default function CertificateTemplatesPage() {
                 key={template.id}
                 className="min-w-0 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-lg shadow-gray-200/60"
               >
-                <div className="h-[512px] border-b border-gray-100 bg-[#F1F3F5] p-3">
+                <div className="h-[512px] max-h-[70vh] border-b border-gray-100 bg-[#F1F3F5] p-3">
                   <CertificatePreview template={template} />
                 </div>
                 <div className="p-5">
@@ -314,7 +314,7 @@ export default function CertificateTemplatesPage() {
                   </p>
                   <p className="mt-7 text-sm text-gray-400">Created: {formatDate(template.createdAt)}</p>
 
-                  <div className="mt-16 flex flex-wrap items-center justify-end gap-3">
+                  <div className="mt-16 flex flex-wrap items-center justify-end gap-3 max-sm:mt-8">
                     <button
                       type="button"
                       onClick={() => handleDuplicate(template)}
@@ -348,8 +348,8 @@ export default function CertificateTemplatesPage() {
       )}
 
       {publicModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4 py-8">
-          <div className="relative flex min-h-[70vh] w-full max-w-[730px] flex-col rounded-lg border border-gray-200 bg-[#F8FAFC] p-8 shadow-2xl">
+        <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/50 px-4 py-8">
+          <div className="relative flex min-h-[70vh] w-full max-w-[730px] flex-col rounded-lg border border-gray-200 bg-[#F8FAFC] p-8 shadow-2xl max-sm:min-h-[60vh] max-sm:p-5">
             <button
               type="button"
               onClick={() => setPublicModalOpen(false)}

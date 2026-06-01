@@ -275,26 +275,26 @@ export default function TeamStatusResultsPage() {
   }, [eventResults, search, statusFilter, sort]);
 
   return (
-    <section className="p-6">
-      <header className="flex items-start gap-4">
-        <div>
+    <section className="overflow-x-hidden p-6 max-sm:p-4">
+      <header className="flex flex-wrap items-start gap-4">
+        <div className="min-w-0">
           <h1 className="text-2xl font-bold">Team Point Statuses for {activeEvent.name}</h1>
           <p className="text-gray-600">Manage and generate point status posters.</p>
         </div>
-        <div className="ml-auto">
+        <div className="ml-auto max-sm:ml-0">
           <button onClick={openCreate} className="bg-[#26752C] text-white px-4 py-2 rounded">Create New Status</button>
         </div>
       </header>
 
       <div className="mt-6 bg-white border rounded p-4">
-        <div className="flex gap-3">
-          <input placeholder="Search your statuses..." value={search} onChange={(e) => setSearch(e.target.value)} className="flex-1 border rounded px-3 py-2" />
-          <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="border rounded px-3 py-2">
+        <div className="flex flex-wrap gap-3">
+          <input placeholder="Search your statuses..." value={search} onChange={(e) => setSearch(e.target.value)} className="min-w-[220px] flex-1 border rounded px-3 py-2 max-sm:min-w-0 max-sm:basis-full" />
+          <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="min-w-[150px] border rounded px-3 py-2 max-sm:basis-full">
             <option>All Status</option>
             <option>Published</option>
             <option>Draft</option>
           </select>
-          <select value={sort} onChange={(e) => setSort(e.target.value)} className="border rounded px-3 py-2">
+          <select value={sort} onChange={(e) => setSort(e.target.value)} className="min-w-[150px] border rounded px-3 py-2 max-sm:basis-full">
             <option>Sort by Date</option>
             <option>Oldest First</option>
           </select>
@@ -312,7 +312,7 @@ export default function TeamStatusResultsPage() {
             </div>
           </div>
         ) : (
-          <div className="grid gap-6" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(360px, 1fr))' }}>
+          <div className="grid gap-6" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 360px), 1fr))' }}>
             {filtered.map((item) => {
               return (
                 <div key={item.id} className="relative border rounded bg-white p-4 shadow-sm" style={{ minHeight: 360 }}>
@@ -352,8 +352,8 @@ export default function TeamStatusResultsPage() {
 
       {/* Create/Edit Modal */}
       {modalMode && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-6" style={{ background: 'rgba(0,0,0,0.5)' }}>
-          <div className="relative overflow-y-auto shadow-lg" style={{ position: 'relative', background: '#ffffff', borderRadius: '10px', width: 'min(760px, calc(100vw - 48px))', maxWidth: '760px', maxHeight: 'calc(100vh - 48px)' }}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto p-6 max-sm:p-3" style={{ background: 'rgba(0,0,0,0.5)' }}>
+          <div className="relative overflow-y-auto shadow-lg" style={{ position: 'relative', background: '#ffffff', borderRadius: '10px', width: 'min(760px, calc(100vw - 24px))', maxWidth: '760px', maxHeight: 'calc(100vh - 24px)' }}>
             <button type="button" onClick={closeEditor} aria-label="Close" style={{ position: 'absolute', top: 16, right: 16, left: 'auto' }} className="text-gray-600 hover:text-gray-800 bg-transparent rounded-md p-2">✕</button>
             <form onSubmit={submit} className="p-6">
               <header>
@@ -390,11 +390,11 @@ export default function TeamStatusResultsPage() {
                   <p className="text-sm text-gray-500 mt-1">Enter the names and scores for each team.</p>
                   <div className="mt-3 space-y-2">
                     {(form.teams || []).map((t, idx) => (
-                      <div key={t.id} className="flex items-center gap-3">
-                        <select value={t.teamName} onChange={(e) => setForm((c) => ({ ...c, teams: c.teams.map((x, i) => i === idx ? { ...x, teamName: e.target.value } : x) }))} className="border border-gray-200 rounded-md px-3 py-2 bg-white flex-1">
+                      <div key={t.id} className="flex flex-wrap items-center gap-3">
+                        <select value={t.teamName} onChange={(e) => setForm((c) => ({ ...c, teams: c.teams.map((x, i) => i === idx ? { ...x, teamName: e.target.value } : x) }))} className="min-w-[180px] flex-1 border border-gray-200 rounded-md px-3 py-2 bg-white max-sm:min-w-0 max-sm:basis-full">
                           {teams.map((tm) => <option key={tm.id} value={tm.name}>{tm.name}</option>)}
                         </select>
-                        <input value={t.score} onChange={(e) => setForm((c) => ({ ...c, teams: c.teams.map((x, i) => i === idx ? { ...x, score: e.target.value } : x) }))} className="border border-gray-200 rounded-md px-3 py-2 w-24 bg-white" />
+                        <input value={t.score} onChange={(e) => setForm((c) => ({ ...c, teams: c.teams.map((x, i) => i === idx ? { ...x, score: e.target.value } : x) }))} className="border border-gray-200 rounded-md px-3 py-2 w-24 bg-white max-sm:w-full" />
                         <button type="button" onClick={() => setForm((c) => ({ ...c, teams: c.teams.filter((_, i) => i !== idx) }))} className="text-red-600 px-3 py-1">Remove</button>
                       </div>
                     ))}
@@ -422,7 +422,7 @@ export default function TeamStatusResultsPage() {
                   </div>
                 </div>
 
-                <div className="flex justify-end gap-3 mt-4">
+                <div className="flex flex-wrap justify-end gap-3 mt-4">
                   <button type="button" onClick={closeEditor} className="px-4 py-2 border rounded-md">Cancel</button>
                   <button type="submit" className="px-4 py-2 bg-[#26752C] text-white rounded-md">{modalMode === "create" ? "Create Status" : "Update Status"}</button>
                 </div>
@@ -434,8 +434,8 @@ export default function TeamStatusResultsPage() {
 
       {/* View Posters Modal */}
       {viewing && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-6" style={{ background: 'rgba(0,0,0,0.5)' }}>
-          <div className="relative overflow-y-auto" style={{ background: '#ffffff', borderRadius: 10, width: 'min(720px, calc(100vw - 48px))', maxHeight: 'calc(100vh - 48px)', boxShadow: '0 8px 24px rgba(0,0,0,0.12)', padding: 24 }}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto p-6 max-sm:p-3" style={{ background: 'rgba(0,0,0,0.5)' }}>
+          <div className="relative overflow-y-auto" style={{ background: '#ffffff', borderRadius: 10, width: 'min(720px, calc(100vw - 24px))', maxHeight: 'calc(100vh - 24px)', boxShadow: '0 8px 24px rgba(0,0,0,0.12)', padding: 24 }}>
             <button type="button" onClick={closeViewPosters} aria-label="Close" style={{ position: 'absolute', top: 16, right: 16, left: 'auto' }} className="text-gray-600 hover:text-gray-800 bg-transparent rounded-md p-2">✕</button>
             <header>
               <h2 className="text-lg font-bold">Posters for: {viewing.statusName}</h2>

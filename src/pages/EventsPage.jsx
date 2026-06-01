@@ -248,9 +248,9 @@ export default function EventsPage() {
   }
 
   return (
-    <div className="px-6 py-6">
+    <div className="overflow-x-hidden px-6 py-6 max-sm:px-4">
       <div className="max-w-[1080px] space-y-5">
-        <div className="flex items-start justify-between gap-4">
+        <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <h1 className="text-2xl font-bold tracking-tight text-[#0D1B2A]">
               Manage Events
@@ -270,7 +270,7 @@ export default function EventsPage() {
           </button>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <input
             value={search}
             onChange={(event) => setSearch(event.target.value)}
@@ -397,8 +397,8 @@ export default function EventsPage() {
       </div>
 
       {modalOpen && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 p-4">
-          <div className="relative w-full max-w-[520px] rounded-xl bg-white p-6 shadow-2xl">
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center overflow-y-auto bg-black/50 p-4">
+          <div className="relative w-full max-w-[520px] rounded-xl bg-white p-6 shadow-2xl max-sm:max-w-[calc(100vw-24px)] max-sm:p-5">
             <button
               type="button"
               onClick={closeModal}
@@ -418,7 +418,7 @@ export default function EventsPage() {
             </p>
 
             <form onSubmit={handleSubmitEvent} className="mt-8 space-y-4">
-              <div className="grid grid-cols-[110px_1fr] items-center gap-4">
+              <div className="grid grid-cols-[110px_1fr] items-center gap-4 max-sm:grid-cols-1 max-sm:gap-2">
                 <label className="text-sm font-medium text-[#0D1B2A]">
                   Name
                 </label>
@@ -431,7 +431,7 @@ export default function EventsPage() {
                 />
               </div>
 
-              <div className="grid grid-cols-[110px_1fr] items-center gap-4">
+              <div className="grid grid-cols-[110px_1fr] items-center gap-4 max-sm:grid-cols-1 max-sm:gap-2">
                 <label className="text-sm font-medium text-[#0D1B2A]">
                   Organizer
                 </label>
@@ -443,7 +443,7 @@ export default function EventsPage() {
                 />
               </div>
 
-              <div className="grid grid-cols-[110px_1fr] items-center gap-4">
+              <div className="grid grid-cols-[110px_1fr] items-center gap-4 max-sm:grid-cols-1 max-sm:gap-2">
                 <label className="text-sm font-medium text-[#0D1B2A]">
                   Date(s)
                 </label>
@@ -455,7 +455,7 @@ export default function EventsPage() {
                 />
               </div>
 
-              <div className="grid grid-cols-[110px_1fr] items-center gap-4">
+              <div className="grid grid-cols-[110px_1fr] items-center gap-4 max-sm:grid-cols-1 max-sm:gap-2">
                 <label className="text-sm font-medium text-[#0D1B2A]">
                   Location
                 </label>
@@ -467,7 +467,7 @@ export default function EventsPage() {
                 />
               </div>
 
-              <div className="grid grid-cols-[110px_1fr] items-center gap-4">
+              <div className="grid grid-cols-[110px_1fr] items-center gap-4 max-sm:grid-cols-1 max-sm:gap-2">
                 <label className="text-sm font-medium text-[#0D1B2A]">
                   Event Logo
                 </label>
@@ -485,7 +485,7 @@ export default function EventsPage() {
                 </div>
               </div>
 
-              <div className="flex justify-end gap-2 pt-4">
+              <div className="flex flex-wrap justify-end gap-2 pt-4">
                 <button
                   type="button"
                   onClick={closeModal}

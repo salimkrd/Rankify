@@ -16,16 +16,50 @@ body {
   margin: 0;
   min-width: 320px;
   background: #f8fafc;
+  overflow-x: hidden;
+}
+
+html,
+#root {
+  overflow-x: hidden;
+}
+
+img,
+canvas,
+svg,
+video {
+  max-width: 100%;
 }
 
 button,
 input,
-select {
+select,
+textarea {
   font: inherit;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 button {
   cursor: pointer;
+}
+
+@media (max-width: 767px) {
+  body {
+    width: 100%;
+  }
+
+  input,
+  select,
+  textarea,
+  button {
+    max-width: 100%;
+  }
+
+  .fixed.inset-0 > [class*="max-w"],
+  [role="dialog"] {
+    max-width: calc(100vw - 24px);
+  }
 }
 
 @layer components {

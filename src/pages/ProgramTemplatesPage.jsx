@@ -567,10 +567,10 @@ export default function ProgramTemplatesPage() {
   }
 
   return (
-    <div className="px-6 py-6">
+    <div className="overflow-x-hidden px-6 py-6 max-sm:px-4">
       <div className="space-y-8">
-        <div className="flex items-start justify-between gap-4">
-          <div>
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div className="min-w-0">
             <h1 className="text-2xl font-bold tracking-tight text-[#0D1B2A]">
               Poster Templates
             </h1>
@@ -579,11 +579,11 @@ export default function ProgramTemplatesPage() {
             </p>
           </div>
 
-          <div className="flex shrink-0 items-center gap-2">
+          <div className="flex min-w-0 flex-wrap items-center gap-2">
             <button
               type="button"
               onClick={handleCreateTemplate}
-              className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-[#26752C] px-4 text-sm font-semibold text-white shadow-sm hover:bg-[#1f6425]"
+              className="inline-flex min-h-10 max-w-full items-center justify-center gap-2 rounded-md bg-[#26752C] px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-[#1f6425]"
             >
               <span className="text-lg leading-none">+</span>
               Create New Template
@@ -591,7 +591,7 @@ export default function ProgramTemplatesPage() {
             <button
               type="button"
               onClick={() => setPublicModalOpen(true)}
-              className="inline-flex h-10 items-center justify-center rounded-md bg-[#26752C] px-4 text-sm font-semibold text-white shadow-sm hover:bg-[#1f6425]"
+              className="inline-flex min-h-10 max-w-full items-center justify-center rounded-md bg-[#26752C] px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-[#1f6425]"
             >
               Explore Public Templates
             </button>
@@ -636,7 +636,7 @@ export default function ProgramTemplatesPage() {
                     {template.name}
                   </h2>
 
-                  <div className="mt-5 flex justify-end gap-2">
+                  <div className="mt-5 flex flex-wrap justify-end gap-2">
                     <button
                       type="button"
                       onClick={() => handleDuplicateTemplate(template)}

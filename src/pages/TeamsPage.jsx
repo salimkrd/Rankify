@@ -197,10 +197,10 @@ export default function TeamsPage() {
   }
 
   return (
-    <div className="px-6 py-6">
+    <div className="overflow-x-hidden px-6 py-6 max-sm:px-4">
       <div className="max-w-[1080px] space-y-5">
-        <div className="flex items-start justify-between gap-4">
-          <div>
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div className="min-w-0">
             <h1 className="text-2xl font-bold tracking-tight text-[#0D1B2A]">
               Manage Teams
             </h1>
@@ -273,8 +273,8 @@ export default function TeamsPage() {
       </div>
 
       {modalOpen && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 p-4">
-          <div className="relative w-full max-w-[520px] rounded-xl bg-white p-6 shadow-2xl">
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center overflow-y-auto bg-black/50 p-4">
+          <div className="relative w-full max-w-[520px] rounded-xl bg-white p-6 shadow-2xl max-sm:max-w-[calc(100vw-24px)] max-sm:p-5">
             <button
               type="button"
               onClick={closeModal}
@@ -294,8 +294,8 @@ export default function TeamsPage() {
             </p>
 
             <form onSubmit={handleSubmit} className="mt-8 space-y-4">
-              <div className="grid grid-cols-[110px_1fr] items-center gap-4">
-                <label className="text-sm font-medium leading-tight text-[#0D1B2A]">
+              <div className="grid grid-cols-[110px_minmax(0,1fr)] items-center gap-4 max-sm:grid-cols-1 max-sm:gap-2">
+                <label className="min-w-0 text-sm font-medium leading-tight text-[#0D1B2A]">
                   Team
                   <br />
                   Name
@@ -305,11 +305,11 @@ export default function TeamsPage() {
                   onChange={(event) => setTeamName(event.target.value)}
                   placeholder="e.g., Alpha Team"
                   autoFocus
-                  className="h-10 w-full rounded-md border border-gray-300 px-3 text-sm outline-none focus:border-[#26752C] focus:ring-2 focus:ring-green-100"
+                  className="h-10 w-full max-w-full rounded-md border border-gray-300 px-3 text-sm outline-none focus:border-[#26752C] focus:ring-2 focus:ring-green-100"
                 />
               </div>
 
-              <div className="flex justify-end gap-2 pt-2">
+              <div className="flex flex-wrap justify-end gap-2 pt-2">
                 <button
                   type="submit"
                   className="h-10 rounded-md bg-[#26752C] px-4 text-sm font-semibold text-white hover:bg-[#1f6425]"
