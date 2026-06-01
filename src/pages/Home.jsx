@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { getInitials } from "../utils/auth.js";
+import ThemeToggle from "../components/ThemeToggle.jsx";
 import {
   Trophy,
   Palette,
@@ -31,6 +32,21 @@ export default function Home() {
     return stored ? JSON.parse(stored) : null;
   });
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+
+  useEffect(() => {
+    const root = document.documentElement;
+
+    if (!isLoggedIn) {
+      root.classList.remove("dark");
+      root.dataset.theme = "light";
+      return;
+    }
+
+    const storedTheme = localStorage.getItem("rankify-theme");
+    const theme = storedTheme === "dark" ? "dark" : "light";
+    root.classList.toggle("dark", theme === "dark");
+    root.dataset.theme = theme;
+  }, [isLoggedIn]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -71,15 +87,28 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen bg-white overflow-x-hidden pt-[72px]">
+    <div className="min-h-screen overflow-x-hidden bg-[#F8FAFC] pt-[76px] font-sans dark:bg-[#07111F] sm:pt-[104px]">
       {/* Navbar */}
-      <nav className="fixed top-0 left-0 right-0 z-[9999] bg-white border-b border-gray-200 shadow-sm">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-[72px]">
+      <nav className="fixed left-0 right-0 top-0 z-[9999] border-b border-slate-200/80 bg-white/95 shadow-sm backdrop-blur dark:border-white/10 dark:bg-[#0D1B2A]/95">
+        <div className="mx-auto max-w-none px-5 sm:px-10 lg:px-14">
+          <div className="flex h-[76px] items-center justify-between sm:h-[104px]">
             {/* Left: Logo */}
-            <Link to="/" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
-              <Sparkles className="h-8 w-8 text-green-600" />
-              <span className="text-xl font-bold text-gray-900 sm:text-2xl">PosterGen</span>
+            <Link to="/" className="flex items-center gap-3 transition-opacity hover:opacity-85">
+              <span className="relative flex h-12 w-12 items-center justify-center sm:h-16 sm:w-16">
+                <span className="text-[42px] font-black leading-none tracking-[-0.08em] text-[#0D1B2A] dark:text-white sm:text-[58px]">
+                  R
+                </span>
+                <Trophy
+                  className="absolute bottom-1 left-0 h-5 w-5 text-[#FFC107] sm:h-7 sm:w-7"
+                  fill="#FFC107"
+                  strokeWidth={2}
+                  aria-hidden="true"
+                />
+                <span className="absolute right-0 top-2 h-3 w-2 rounded-sm bg-[#FFC107] sm:right-1 sm:h-4 sm:w-2.5" />
+              </span>
+              <span className="text-3xl font-black tracking-tight text-[#0D1B2A] dark:text-white sm:text-5xl">
+                Rankify
+              </span>
             </Link>
 
             {/* Right: User Menu */}
@@ -89,37 +118,44 @@ export default function Home() {
                   {/* User Button */}
                   <button
                     onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                    className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer"
+                    className="flex cursor-pointer items-center gap-3 rounded-full px-2 py-2 text-[#0D1B2A] transition-colors hover:bg-slate-100 dark:text-white dark:hover:bg-white/10 sm:px-3"
                   >
-                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gray-200 text-sm font-bold text-gray-700">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-200 text-sm font-bold text-slate-700 dark:bg-slate-700 dark:text-white sm:h-12 sm:w-12 sm:text-base">
                       {getInitials(user)}
                     </div>
-                    <span className="hidden text-sm font-medium text-gray-900 sm:inline max-w-[120px] truncate">
+                    <span className="hidden max-w-[190px] truncate text-base font-semibold sm:inline lg:text-xl">
                       {user.name}
                     </span>
                   </button>
 
                   {/* Dropdown Menu */}
                   {isDropdownOpen && (
-                    <div className="absolute right-0 mt-2 w-48 rounded-lg border border-gray-200 bg-white shadow-lg z-[10000]">
+                    <div className="absolute right-0 z-[10000] mt-3 w-64 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl dark:border-white/10 dark:bg-[#132D46]">
                       {/* My Account Label */}
-                      <div className="px-4 py-3 border-b border-gray-100">
-                        <p className="text-sm font-semibold text-gray-900">My Account</p>
+                      <div className="border-b border-slate-100 px-4 py-3 dark:border-white/10">
+                        <p className="text-sm font-semibold text-[#0D1B2A] dark:text-white">My Account</p>
                       </div>
 
                       {/* Dashboard Link */}
                       <button
                         onClick={handleDashboard}
-                        className="w-full flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                        className="flex w-full items-center gap-3 px-4 py-3 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-white/10"
                       >
                         <LayoutDashboard className="h-4 w-4" />
                         <span>Dashboard</span>
                       </button>
 
+                      <div className="border-t border-slate-100 px-4 py-3 dark:border-white/10">
+                        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                          Theme
+                        </p>
+                        <ThemeToggle className="w-full" />
+                      </div>
+
                       {/* Logout Link */}
                       <button
                         onClick={handleLogout}
-                        className="w-full flex items-center gap-3 px-4 py-3 text-sm text-red-600 hover:bg-red-50 transition-colors border-t border-gray-100"
+                        className="flex w-full items-center gap-3 border-t border-slate-100 px-4 py-3 text-sm font-medium text-red-600 transition-colors hover:bg-red-50 dark:border-white/10 dark:text-red-300 dark:hover:bg-red-500/10"
                       >
                         <LogOut className="h-4 w-4" />
                         <span>Logout</span>
@@ -131,20 +167,20 @@ export default function Home() {
                 <>
                   <Link
                     to="/login"
-                    className="hidden text-sm font-medium text-gray-600 hover:text-gray-900 sm:inline"
+                    className="hidden text-sm font-semibold text-slate-600 transition-colors hover:text-[#0D1B2A] dark:text-slate-300 dark:hover:text-white sm:inline"
                   >
                     Login
                   </Link>
                   <button
                     onClick={() => navigate("/register")}
-                    className="rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700 transition-colors"
+                    className="rounded-xl bg-[#2563EB] px-4 py-2 text-sm font-bold text-white transition-colors hover:bg-blue-700"
                   >
                     Get Started
                   </button>
                   <button
                     type="button"
                     onClick={handleGetStarted}
-                    className="text-3xl text-gray-900 sm:hidden"
+                    className="text-3xl text-[#0D1B2A] dark:text-white sm:hidden"
                     aria-label="Open menu"
                   >
                     <Menu size={26} strokeWidth={2} aria-hidden="true" />
@@ -157,38 +193,80 @@ export default function Home() {
       </nav>
 
       {/* Hero Section */}
-      <section className="bg-gradient-to-br from-green-50 to-white px-4 py-20 text-center sm:py-24 lg:py-32">
-        <div className="mx-auto max-w-4xl text-center">
-          <div className="mb-8 inline-flex max-w-full items-center gap-2 rounded-lg border border-green-200 bg-white/70 px-4 py-2 text-sm font-medium text-green-700 shadow-sm sm:mb-6 sm:rounded-full sm:bg-green-100 sm:py-1">
-            <Sparkles className="h-4 w-4" />
-            Organize Everything by Event!
+      <section className="relative isolate flex min-h-[calc(100vh-76px)] items-center overflow-hidden bg-[#F8FAFC] px-4 py-16 text-center dark:bg-[#07111F] sm:min-h-[calc(100vh-104px)] sm:px-6 sm:py-20 lg:px-8">
+        <div className="pointer-events-none absolute inset-0 -z-20 bg-[radial-gradient(circle_at_50%_18%,rgba(37,99,235,0.12),transparent_34%),linear-gradient(180deg,#ffffff_0%,#F8FAFC_68%,#EFF6FF_100%)] dark:bg-[radial-gradient(circle_at_50%_20%,rgba(37,99,235,0.22),transparent_34%),linear-gradient(180deg,#07111F_0%,#06101D_58%,#0B3A91_130%)]" />
+        <div
+          className="pointer-events-none absolute left-8 top-24 -z-10 hidden h-52 w-64 opacity-60 dark:opacity-70 lg:block"
+          style={{
+            backgroundImage:
+              "radial-gradient(circle, rgba(37,99,235,0.22) 2px, transparent 2.5px)",
+            backgroundSize: "26px 26px",
+            maskImage: "linear-gradient(to bottom, black, transparent)",
+          }}
+        />
+        <div className="pointer-events-none absolute -right-56 top-20 -z-10 hidden h-[620px] w-[620px] rounded-full border border-blue-200/45 dark:border-white/10 lg:block" />
+        <div className="pointer-events-none absolute -right-44 top-32 -z-10 hidden h-[500px] w-[500px] rounded-full border border-blue-200/45 dark:border-white/10 lg:block" />
+        <div className="pointer-events-none absolute -right-32 top-44 -z-10 hidden h-[380px] w-[380px] rounded-full border border-blue-200/45 dark:border-white/10 lg:block" />
+        <div className="pointer-events-none absolute -right-24 top-56 -z-20 hidden h-72 w-72 rounded-full bg-[#FFC107]/25 blur-3xl dark:bg-[#FFC107]/30 lg:block" />
+
+        <div className="relative z-10 mx-auto w-full max-w-6xl">
+          <div className="mb-9 inline-flex max-w-full items-center gap-3 rounded-full border border-blue-200 bg-white/70 px-5 py-2 text-sm font-semibold text-[#2563EB] shadow-sm backdrop-blur dark:border-[#14B8A6]/70 dark:bg-[#07111F]/60 dark:text-[#14B8A6] sm:text-base">
+            <Trophy className="h-5 w-5" strokeWidth={2} aria-hidden="true" />
+            <span>Organize Everything by Event!</span>
           </div>
 
-          <h1 className="mb-6 break-words text-[42px] font-extrabold leading-tight tracking-tight text-gray-900 sm:text-5xl lg:text-6xl">
-            Create Striking{" "}
-            <span className="text-green-600">Result Posters.</span>
+          <h1
+            className="mx-auto mb-7 max-w-6xl font-black leading-[0.96] tracking-tight text-[#0D1B2A] dark:text-[#F8FAFC]"
+            style={{ fontSize: "clamp(3.4rem, 7.2vw, 6.5rem)" }}
+          >
+            <span className="block">Create Striking</span>
+            <span className="block text-[#2563EB] dark:text-[#FFC107]">
+              Result Posters.
+            </span>
           </h1>
 
-          <p className="mb-8 break-words text-3xl font-extrabold leading-tight text-gray-900 sm:mb-4 sm:text-2xl">
+          <p className="mb-6 text-2xl font-extrabold leading-tight text-[#0D1B2A] dark:text-slate-100 sm:text-[2rem]">
             Effortlessly. Instantly. Beautifully.
           </p>
 
-          <p className="mx-auto mb-10 max-w-3xl text-xl leading-relaxed text-gray-600 sm:text-lg">
-            PosterGen is your ultimate platform for crafting professional posters
+          <p className="mx-auto mb-11 max-w-3xl text-lg font-medium leading-relaxed text-slate-600 dark:text-slate-300 sm:text-xl">
+            Rankify is your ultimate platform for crafting professional result posters
             for program winners and team standings. Convert data into captivating
             visuals with our intuitive, event-driven workflow.
           </p>
 
           <button
+            type="button"
             onClick={handleGetStarted}
-            className="inline-flex max-w-full items-center justify-center gap-3 rounded-xl bg-green-600 px-8 py-4 text-lg font-semibold text-white shadow-lg transition-colors hover:bg-green-700 hover:shadow-xl sm:text-lg"
+            className="inline-flex items-center justify-center gap-4 transition hover:shadow-[0_22px_44px_rgba(37,99,235,0.38)]"
+            style={{
+              minHeight: "66px",
+              width: "min(100%, 460px)",
+              padding: "18px 42px",
+              borderRadius: "14px",
+              backgroundColor: "#2563EB",
+              color: "#FFFFFF",
+              fontSize: "18px",
+              fontWeight: 700,
+              lineHeight: 1.2,
+              border: "none",
+              cursor: "pointer",
+              pointerEvents: "auto",
+              boxShadow: "0 18px 36px rgba(37, 99, 235, 0.32)",
+            }}
+            onMouseEnter={(event) => {
+              event.currentTarget.style.backgroundColor = "#1D4ED8";
+            }}
+            onMouseLeave={(event) => {
+              event.currentTarget.style.backgroundColor = "#2563EB";
+            }}
           >
-            {isLoggedIn ? "Go to Dashboard →" : "Get Started For Free →"}
-            <ArrowRight className="h-5 w-5" />
+            {isLoggedIn ? "Go to Dashboard" : "Get Started For Free"}
+            <ArrowRight className="h-6 w-6 text-white" strokeWidth={2.2} aria-hidden="true" />
           </button>
 
-          <p className="mt-4 text-sm text-gray-500">
-            {isLoggedIn ? "No credit card required" : "No credit card required • Free forever to get started"}
+          <p className="mt-5 text-base font-medium text-slate-500 dark:text-slate-400">
+            No credit card required
           </p>
         </div>
       </section>

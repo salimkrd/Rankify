@@ -423,20 +423,21 @@ export default function FramedPostTemplateEditorPage() {
   }
 
   return (
-    <div className="min-h-screen overflow-x-hidden bg-[#F8FAFC] pb-28 font-[Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,Segoe_UI,sans-serif] [&_input]:box-border [&_input]:max-w-full [&_label]:min-w-0 [&_select]:box-border [&_select]:max-w-full">
-      <header className="sticky top-0 z-30 border-b border-gray-200 bg-[#F8FAFC] px-5 py-4">
+    <div className="framed-editor-page app-page min-h-screen overflow-x-hidden pb-28 font-[Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,Segoe_UI,sans-serif] [&_input]:box-border [&_input]:max-w-full [&_label]:min-w-0 [&_select]:box-border [&_select]:max-w-full">
+      <style>{framedEditorThemeStyles}</style>
+      <header className="app-header sticky top-0 z-30 border-b px-5 py-4">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="flex min-w-0 items-center gap-4">
             <button
               type="button"
               onClick={() => navigate("/dashboard/framed-posts")}
-              className="rounded-md px-2 py-1 text-2xl text-gray-600 hover:bg-gray-100"
+              className="rounded-md px-2 py-1 text-2xl text-[var(--app-muted)] hover:bg-[var(--app-surface-elevated)]"
             >
               <ArrowLeft size={22} strokeWidth={1.9} aria-hidden="true" />
             </button>
             <div className="min-w-0">
-              <p className="text-sm text-gray-500">Framed Post Templates</p>
-              <h1 className="truncate text-2xl font-bold">
+              <p className="app-muted text-sm">Framed Post Templates</p>
+              <h1 className="app-heading truncate text-2xl font-bold">
                 {isEdit ? `Edit — ${templateName}` : "Create framed post template"}
               </h1>
             </div>
@@ -444,7 +445,7 @@ export default function FramedPostTemplateEditorPage() {
           <button
             type="button"
             onClick={handleSave}
-            className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-md bg-[#26752C] px-4 text-sm font-semibold text-white shadow-sm hover:bg-[#1f6425]"
+            className="app-success-btn inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-md px-4 text-sm font-semibold shadow-sm hover:opacity-90"
           >
             <Save size={16} />
             {isEdit ? "Save changes" : "Create template"}
@@ -453,8 +454,8 @@ export default function FramedPostTemplateEditorPage() {
       </header>
 
       <main className="grid w-full max-w-full grid-cols-[260px_minmax(0,1fr)_360px] gap-4 overflow-x-hidden p-4 max-[1180px]:grid-cols-1">
-        <aside className="min-w-0 rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
-          <h2 className="mb-4 text-xs font-bold uppercase tracking-wide text-gray-600">Layers</h2>
+        <aside className="app-card min-w-0 rounded-lg border p-4 shadow-sm">
+          <h2 className="app-muted mb-4 text-xs font-bold uppercase tracking-wide">Layers</h2>
           
           <div className="space-y-1">
             {customFields.map((field) => (
@@ -463,8 +464,8 @@ export default function FramedPostTemplateEditorPage() {
                   onClick={() => setSelectedFieldId(field.id)}
                   className={`w-full flex items-center gap-3 rounded-md px-3 py-2 text-sm cursor-pointer ${
                     selectedFieldId === field.id
-                      ? "bg-[#26752C] text-white font-medium"
-                      : "hover:bg-gray-50 text-gray-700"
+                      ? "bg-[var(--app-success)] text-[var(--app-success-text)] font-medium"
+                      : "app-text hover:bg-[var(--app-surface-elevated)]"
                   }`}
                 >
                   <span className="shrink-0">{field.type === "image" ? "🖼" : "T"}</span>
@@ -478,7 +479,7 @@ export default function FramedPostTemplateEditorPage() {
                         duplicateField(field);
                       }}
                       title="Duplicate"
-                      className={`flex h-8 w-8 items-center justify-center rounded-md ${selectedFieldId === field.id ? 'text-white/90 hover:bg-white/10' : 'text-gray-600 hover:bg-gray-100'}`}
+                      className={`flex h-8 w-8 items-center justify-center rounded-md ${selectedFieldId === field.id ? 'text-[var(--app-success-text)] hover:bg-white/10' : 'text-[var(--app-muted)] hover:bg-[var(--app-surface-elevated)] hover:text-[var(--app-heading)]'}`}
                     >
                       <Copy size={14} />
                     </button>
@@ -490,7 +491,7 @@ export default function FramedPostTemplateEditorPage() {
                         if (window.confirm(field.type === "image" ? 'Delete this image?' : 'Delete this custom field?')) deleteField(field.id);
                       }}
                       title="Delete"
-                      className={`flex h-8 w-8 items-center justify-center rounded-md ${selectedFieldId === field.id ? 'text-white/90 hover:bg-white/10' : 'text-gray-600 hover:bg-gray-100'}`}
+                      className={`flex h-8 w-8 items-center justify-center rounded-md ${selectedFieldId === field.id ? 'text-[var(--app-success-text)] hover:bg-white/10' : 'text-[var(--app-muted)] hover:bg-[var(--app-surface-elevated)] hover:text-[var(--app-heading)]'}`}
                     >
                       <Trash2 size={14} />
                     </button>
@@ -500,15 +501,15 @@ export default function FramedPostTemplateEditorPage() {
             ))}
           </div>
 
-          <div className="mt-4 border-t border-gray-200 pt-4">
-            <div className="mb-2 rounded-md bg-gray-50 px-3 py-2 text-sm text-gray-700">
+          <div className="mt-4 border-t border-[var(--app-border)] pt-4">
+            <div className="app-surface-elevated mb-2 rounded-md px-3 py-2 text-sm">
               <div className="font-semibold">Frame Image</div>
-              <div className="text-xs text-gray-500">Overlay saved with the template</div>
+              <div className="app-muted text-xs">Overlay saved with the template</div>
             </div>
             <button
               type="button"
               onClick={addCustomField}
-              className="block w-full rounded-md px-3 py-2 text-left text-sm hover:bg-gray-50 text-gray-700"
+              className="app-text block w-full rounded-md px-3 py-2 text-left text-sm hover:bg-[var(--app-surface-elevated)]"
             >
               <PlusCircle className="mr-2 inline-block align-[-2px]" size={15} strokeWidth={1.9} aria-hidden="true" />
               Add custom text field
@@ -516,7 +517,7 @@ export default function FramedPostTemplateEditorPage() {
             <button
               type="button"
               onClick={addImageElement}
-              className="mt-2 block w-full rounded-md px-3 py-2 text-left text-sm hover:bg-gray-50 text-gray-700"
+              className="app-text mt-2 block w-full rounded-md px-3 py-2 text-left text-sm hover:bg-[var(--app-surface-elevated)]"
             >
               <Image className="mr-2 inline-block align-[-2px]" size={15} strokeWidth={1.9} aria-hidden="true" />
               Add image element
@@ -526,7 +527,7 @@ export default function FramedPostTemplateEditorPage() {
           <p className="mt-6 text-xs text-gray-400">↑↓ Arrow keys nudge selected element (Shift = 10 px)</p>
         </aside>
 
-        <section className="min-w-0 max-w-full overflow-hidden rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
+        <section className="app-card min-w-0 max-w-full overflow-hidden rounded-lg border p-4 shadow-sm">
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
             <h2 className="whitespace-nowrap text-2xl font-bold">Live Preview</h2>
             <div className="flex items-center gap-3 text-sm">
@@ -535,7 +536,7 @@ export default function FramedPostTemplateEditorPage() {
             </div>
           </div>
 
-          <div className="max-h-[520px] w-full max-w-full overflow-auto rounded-lg bg-white p-4">
+          <div className="max-h-[520px] w-full max-w-full overflow-auto rounded-lg bg-[var(--app-surface)] p-4">
             <div className="flex w-max min-w-full justify-center" ref={previewWrapperRef}>
               <div
                 className="canvas-outer"
@@ -685,7 +686,7 @@ export default function FramedPostTemplateEditorPage() {
             </div>
           </div>
 
-          <section className="mt-6 rounded-lg bg-white/70 p-4">
+          <section className="app-surface-elevated mt-6 rounded-lg p-4">
             <button
               type="button"
               onClick={() => setExampleOpen(!exampleOpen)}
@@ -695,60 +696,60 @@ export default function FramedPostTemplateEditorPage() {
             </button>
             {exampleOpen && (
               <div className="mt-4 space-y-3">
-                <p className="text-sm text-gray-600">Adjust these values to see how your template will look with real data.</p>
+                <p className="app-muted text-sm">Adjust these values to see how your template will look with real data.</p>
                 <div className="grid w-full max-w-full grid-cols-1 gap-3 min-[900px]:grid-cols-[repeat(2,minmax(0,1fr))]">
                   <label className="flex flex-col gap-1 text-sm">
-                    <span className="font-medium text-gray-700">Event Name</span>
+                    <span className="app-text font-medium">Event Name</span>
                     <input
                       type="text"
                         value={exampleData.eventName || ""}
                         onChange={(e) => setExampleData({ ...exampleData, eventName: e.target.value })}
-                      className="rounded-md border border-gray-300 px-2 py-1 text-sm"
+                      className="app-input rounded-md border px-2 py-1 text-sm"
                     />
                   </label>
                   <label className="flex flex-col gap-1 text-sm">
-                    <span className="font-medium text-gray-700">Organizer</span>
+                    <span className="app-text font-medium">Organizer</span>
                     <input
                       type="text"
                         value={exampleData.organizerName || exampleData.organizer || ""}
                         onChange={(e) => setExampleData({ ...exampleData, organizerName: e.target.value, organizer: e.target.value })}
-                      className="rounded-md border border-gray-300 px-2 py-1 text-sm"
+                      className="app-input rounded-md border px-2 py-1 text-sm"
                     />
                   </label>
                     <label className="flex flex-col gap-1 text-sm">
-                      <span className="font-medium text-gray-700">Event Date</span>
+                      <span className="app-text font-medium">Event Date</span>
                       <input
                         type="text"
                         value={exampleData.eventDate || ""}
                         onChange={(e) => setExampleData({ ...exampleData, eventDate: e.target.value })}
-                        className="rounded-md border border-gray-300 px-2 py-1 text-sm"
+                        className="app-input rounded-md border px-2 py-1 text-sm"
                       />
                     </label>
                     <label className="flex flex-col gap-1 text-sm">
-                      <span className="font-medium text-gray-700">Event Location</span>
+                      <span className="app-text font-medium">Event Location</span>
                       <input
                         type="text"
                         value={exampleData.eventLocation || ""}
                         onChange={(e) => setExampleData({ ...exampleData, eventLocation: e.target.value })}
-                        className="rounded-md border border-gray-300 px-2 py-1 text-sm"
+                        className="app-input rounded-md border px-2 py-1 text-sm"
                       />
                     </label>
                 </div>
                 <div className="space-y-2">
-                  <p className="text-sm font-medium text-gray-700">Custom Fields</p>
+                  <p className="app-text text-sm font-medium">Custom Fields</p>
                   {customFields.map((field) => (
                     <div key={field.id}>
                       <label className="flex flex-col gap-1 text-sm">
-                        <span className="font-medium text-gray-700">{field.label}</span>
+                        <span className="app-text font-medium">{field.label}</span>
                         {field.dataSource === "manual" || !field.dataSource ? (
                           <input
                             type="text"
                             value={exampleData[field.id] || ""}
                             onChange={(e) => setExampleData({ ...exampleData, [field.id]: e.target.value })}
-                            className="rounded-md border border-gray-300 px-2 py-1 text-sm"
+                            className="app-input rounded-md border px-2 py-1 text-sm"
                           />
                         ) : (
-                          <div className="rounded-md border border-gray-100 bg-gray-50 px-2 py-2 text-sm text-gray-600">
+                          <div className="app-surface-elevated rounded-md border px-2 py-2 text-sm">
                             Using <strong>{field.dataSource}</strong>: {resolveFramedFieldText(field, normalizedPreview)}
                           </div>
                         )}
@@ -761,15 +762,15 @@ export default function FramedPostTemplateEditorPage() {
           </section>
         </section>
 
-        <aside className="min-w-0 overflow-x-hidden rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
-          <h2 className="mb-8 text-2xl font-bold">Template Configuration</h2>
+        <aside className="app-card min-w-0 overflow-x-hidden rounded-lg border p-6 shadow-sm">
+          <h2 className="app-heading mb-8 text-2xl font-bold">Template Configuration</h2>
 
           <label className="mb-5 block">
             <span className="mb-1 block text-sm font-semibold">Template Name</span>
             <input
               value={templateName}
               onChange={(e) => setTemplateName(e.target.value)}
-              className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-[#26752C] focus:ring-2 focus:ring-green-100"
+              className="app-input w-full rounded-md border px-3 py-2 text-sm outline-none transition focus:border-[var(--app-primary)] focus:ring-2 focus:ring-[var(--app-focus-ring)]"
             />
           </label>
 
@@ -799,7 +800,7 @@ export default function FramedPostTemplateEditorPage() {
                 };
                 reader.readAsDataURL(file);
               }}
-              className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm"
+              className="app-input w-full rounded-md border px-3 py-2 text-sm"
             />
           </label>
 
@@ -807,7 +808,7 @@ export default function FramedPostTemplateEditorPage() {
             <button
               type="button"
               onClick={() => setFrameImageUrl("")}
-              className="mb-5 inline-flex h-8 items-center rounded-md bg-red-600 px-3 text-xs font-semibold text-white hover:bg-red-700"
+              className="app-danger-btn mb-5 inline-flex h-8 items-center rounded-md px-3 text-xs font-semibold hover:opacity-90"
             >
               Clear Image
             </button>
@@ -817,31 +818,31 @@ export default function FramedPostTemplateEditorPage() {
             <h3 className="mb-3 text-sm font-bold">Canvas Dimensions</h3>
             <div className="grid w-full max-w-full grid-cols-1 gap-3 min-[900px]:grid-cols-[repeat(2,minmax(0,1fr))]">
               <label className="flex flex-col gap-1 text-sm">
-                <span className="font-medium text-gray-700">Width (px)</span>
+                <span className="app-text font-medium">Width (px)</span>
                 <input
                   type="number"
                   value={canvasWidth}
                   onChange={(e) => setCanvasWidth(Number(e.target.value) || 1)}
-                  className="rounded-md border border-gray-300 px-2 py-1 text-sm"
+                  className="app-input rounded-md border px-2 py-1 text-sm"
                 />
               </label>
               <label className="flex flex-col gap-1 text-sm">
-                <span className="font-medium text-gray-700">Height (px)</span>
+                <span className="app-text font-medium">Height (px)</span>
                 <input
                   type="number"
                   value={canvasHeight}
                   onChange={(e) => setCanvasHeight(Number(e.target.value) || 1)}
-                  className="rounded-md border border-gray-300 px-2 py-1 text-sm"
+                  className="app-input rounded-md border px-2 py-1 text-sm"
                 />
               </label>
             </div>
-            <p className="mt-2 text-xs text-gray-500">Canvas dimensions remain editable. Adjust width/height manually as needed.</p>
+            <p className="app-muted mt-2 text-xs">Canvas dimensions remain editable. Adjust width/height manually as needed.</p>
           </div>
 
           {selectedField && (
-            <div className="mb-6 rounded-lg border border-gray-200 bg-gray-50 p-4">
+            <div className="app-surface-elevated mb-6 rounded-lg border p-4">
               <div className="mb-4 flex items-center justify-between">
-                <h3 className="font-semibold text-gray-900">{selectedField.type === 'image' ? `Image ${selectedIndex + 1} Settings` : `Custom Field ${selectedIndex + 1} Settings`}</h3>
+                <h3 className="app-heading font-semibold">{selectedField.type === 'image' ? `Image ${selectedIndex + 1} Settings` : `Custom Field ${selectedIndex + 1} Settings`}</h3>
                 <button
                   type="button"
                   onClick={() => deleteField(selectedField.id)}
@@ -1128,3 +1129,34 @@ export default function FramedPostTemplateEditorPage() {
     </div>
   );
 }
+
+const framedEditorThemeStyles = `
+.framed-editor-page h2,
+.framed-editor-page h3{color:var(--app-heading)}
+.framed-editor-page .app-card{background:var(--app-surface);border-color:var(--app-border);color:var(--app-text)}
+.framed-editor-page .app-surface-elevated{background:var(--app-surface-elevated);border-color:var(--app-border);color:var(--app-text)}
+.framed-editor-page label,
+.framed-editor-page span.font-medium,
+.framed-editor-page .font-medium{color:var(--app-text)}
+.framed-editor-page input,
+.framed-editor-page select{background:var(--app-input-bg);color:var(--app-text);border-color:var(--app-border)}
+.framed-editor-page input::placeholder{color:var(--app-muted)}
+.framed-editor-page input[type=file]::file-selector-button{border:1px solid var(--app-border);border-radius:6px;background:var(--app-surface-elevated);color:var(--app-text);margin-right:10px;padding:5px 10px}
+.framed-editor-page input:focus,
+.framed-editor-page select:focus{border-color:var(--app-primary);box-shadow:0 0 0 3px var(--app-focus-ring);outline:none}
+.framed-editor-page main>aside,
+.framed-editor-page main>section{background:var(--app-surface);border-color:var(--app-border);color:var(--app-text)}
+.framed-editor-page .bg-gray-50,
+.framed-editor-page .bg-white{background:var(--app-surface-elevated)}
+.framed-editor-page .text-gray-400,
+.framed-editor-page .text-gray-500,
+.framed-editor-page .text-gray-600,
+.framed-editor-page .text-gray-700{color:var(--app-muted)}
+.framed-editor-page .border-gray-200,
+.framed-editor-page .border-gray-300,
+.framed-editor-page .border-gray-100{border-color:var(--app-border)}
+.framed-editor-page button.bg-\\[\\#26752C\\]{background:var(--app-success);color:var(--app-success-text)}
+.framed-editor-page button.hover\\:bg-\\[\\#1f6425\\]:hover{opacity:.9}
+.framed-editor-page button.bg-red-600{color:#fff}
+.framed-editor-page .rounded-sm.ring-2{--tw-ring-color:var(--app-success)}
+`;

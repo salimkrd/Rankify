@@ -244,14 +244,14 @@ export default function CategoriesPage() {
   }
 
   return (
-    <div className="overflow-x-hidden px-6 py-6 max-sm:px-4">
+    <div className="app-page overflow-x-hidden px-6 py-6 max-sm:px-4">
       <div className="space-y-8">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="min-w-0">
-            <h1 className="text-2xl font-bold tracking-tight text-[#0D1B2A]">
+            <h1 className="app-heading text-2xl font-bold tracking-tight">
               Manage Categories
             </h1>
-            <p className="mt-1 text-gray-600">
+            <p className="app-muted mt-1">
               View, create, edit, and delete categories for event:{" "}
               <span className="font-semibold">
                 {activeEvent?.name || "No active event"}
@@ -263,7 +263,7 @@ export default function CategoriesPage() {
             <button
               type="button"
               onClick={openCreateModal}
-              className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-[#26752C] px-4 text-sm font-semibold text-white shadow-sm hover:bg-[#1f6425]"
+              className="app-success-btn inline-flex h-10 items-center justify-center gap-2 rounded-md px-4 text-sm font-semibold shadow-sm hover:opacity-90"
             >
               <Plus size={18} strokeWidth={2} aria-hidden="true" />
               Create New Category
@@ -271,7 +271,7 @@ export default function CategoriesPage() {
             <button
               type="button"
               onClick={handleAddSahityolsavCategories}
-              className="h-10 max-w-full rounded-md border border-gray-200 bg-white px-5 text-sm font-semibold text-[#0D1B2A] shadow-sm hover:bg-gray-50"
+              className="app-card h-10 max-w-full rounded-md border px-5 text-sm font-semibold shadow-sm hover:bg-[var(--app-surface-elevated)]"
             >
               Add Sahityolsav Categories
             </button>
@@ -280,18 +280,18 @@ export default function CategoriesPage() {
 
         {visibleCategories.length === 0 ? (
           <div className="flex min-h-[520px] flex-col items-center justify-center text-center">
-            <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-full bg-gray-100 text-gray-500">
+            <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-full bg-[var(--app-surface-elevated)] text-[var(--app-muted)]">
               <FolderOpen size={42} strokeWidth={1.8} aria-hidden="true" />
             </div>
-            <h2 className="text-xl font-bold text-[#0D1B2A]">No Categories Yet</h2>
-            <p className="mt-3 max-w-[640px] text-gray-600">
+            <h2 className="app-heading text-xl font-bold">No Categories Yet</h2>
+            <p className="app-muted mt-3 max-w-[640px]">
               You haven't created any categories yet. Get started by creating
               your first one!
             </p>
             <button
               type="button"
               onClick={openCreateModal}
-              className="mt-8 inline-flex h-10 items-center justify-center rounded-md bg-[#26752C] px-5 text-sm font-semibold text-white shadow-sm hover:bg-[#1f6425]"
+              className="app-success-btn mt-8 inline-flex h-10 items-center justify-center rounded-md px-5 text-sm font-semibold shadow-sm hover:opacity-90"
             >
               Create Your First Category
             </button>
@@ -301,13 +301,13 @@ export default function CategoriesPage() {
             {visibleCategories.map((category) => (
               <div
                 key={category.id}
-                className="flex min-h-[160px] flex-col rounded-xl border border-gray-200 bg-white p-6 shadow-sm"
+                className="app-card flex min-h-[160px] flex-col rounded-xl border p-6 shadow-sm"
               >
                 <div>
-                  <h2 className="text-lg font-bold text-[#0D1B2A]">
+                  <h2 className="app-heading text-lg font-bold">
                     {category.name}
                   </h2>
-                  <p className="mt-2 text-sm text-gray-500">
+                  <p className="app-muted mt-2 text-sm">
                     Created: {category.createdAt}
                   </p>
                 </div>
@@ -316,7 +316,7 @@ export default function CategoriesPage() {
                   <button
                     type="button"
                     onClick={() => openEditModal(category)}
-                    className="inline-flex h-9 items-center gap-2 rounded-md px-2 text-sm font-semibold text-[#0D1B2A] hover:bg-gray-50"
+                    className="app-text inline-flex h-9 items-center gap-2 rounded-md px-2 text-sm font-semibold hover:bg-[var(--app-surface-elevated)]"
                   >
                     <Edit size={16} strokeWidth={1.9} aria-hidden="true" />
                     Edit
@@ -324,7 +324,7 @@ export default function CategoriesPage() {
                   <button
                     type="button"
                     onClick={() => handleDeleteCategory(category.id)}
-                    className="inline-flex h-9 items-center gap-2 rounded-md bg-red-600 px-4 text-sm font-semibold text-white hover:bg-red-700"
+                    className="app-danger-btn inline-flex h-9 items-center gap-2 rounded-md px-4 text-sm font-semibold hover:opacity-90"
                   >
                     <Trash2 size={16} strokeWidth={1.9} aria-hidden="true" />
                     Delete
@@ -338,20 +338,20 @@ export default function CategoriesPage() {
 
       {modalOpen && (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center overflow-y-auto bg-black/50 p-4">
-          <div className="relative w-full max-w-[520px] rounded-xl bg-white p-6 shadow-2xl max-sm:max-w-[calc(100vw-24px)] max-sm:p-5">
+          <div className="app-modal relative w-full max-w-[520px] rounded-xl p-6 shadow-2xl max-sm:max-w-[calc(100vw-24px)] max-sm:p-5">
             <button
               type="button"
               onClick={closeModal}
-              className="absolute right-4 top-4 text-2xl leading-none text-gray-500 hover:text-gray-900"
+              className="app-muted absolute right-4 top-4 text-2xl leading-none hover:text-[var(--app-heading)]"
               aria-label="Close modal"
             >
               <X size={20} strokeWidth={2} aria-hidden="true" />
             </button>
 
-            <h2 className="text-xl font-bold text-[#0D1B2A]">
+            <h2 className="app-heading text-xl font-bold">
               {editingCategory ? "Edit Category" : "Create New Category"}
             </h2>
-            <p className="mt-1 max-w-[410px] text-sm text-gray-500">
+            <p className="app-muted mt-1 max-w-[410px] text-sm">
               {editingCategory
                 ? "Make changes to your category here. Click save when you're done."
                 : "Create a new category to organize your templates."}
@@ -359,7 +359,7 @@ export default function CategoriesPage() {
 
             <form onSubmit={handleSubmit} className="mt-8 space-y-4">
               <div className="grid grid-cols-[110px_minmax(0,1fr)] items-center gap-4 max-sm:grid-cols-1 max-sm:gap-2">
-                <label className="min-w-0 text-sm font-medium text-[#0D1B2A]">
+                <label className="app-heading min-w-0 text-sm font-medium">
                   Name
                 </label>
                 <input
@@ -367,7 +367,7 @@ export default function CategoriesPage() {
                   onChange={(event) => setCategoryName(event.target.value)}
                   placeholder="eg., Junior"
                   autoFocus
-                  className="h-10 w-full max-w-full rounded-md border border-gray-300 px-3 text-sm outline-none focus:border-[#26752C] focus:ring-2 focus:ring-green-100"
+                  className="app-input h-10 w-full max-w-full rounded-md border px-3 text-sm outline-none focus:border-[var(--app-primary)] focus:ring-2 focus:ring-[var(--app-focus-ring)]"
                 />
               </div>
 
@@ -375,13 +375,13 @@ export default function CategoriesPage() {
                 <button
                   type="button"
                   onClick={closeModal}
-                  className="h-10 rounded-md border border-gray-300 bg-white px-4 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                  className="app-card h-10 rounded-md border px-4 text-sm font-medium hover:bg-[var(--app-surface-elevated)]"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="h-10 rounded-md bg-[#26752C] px-4 text-sm font-semibold text-white hover:bg-[#1f6425]"
+                  className="app-success-btn h-10 rounded-md px-4 text-sm font-semibold hover:opacity-90"
                 >
                   {editingCategory ? "Update Category" : "Create Category"}
                 </button>
@@ -392,8 +392,8 @@ export default function CategoriesPage() {
       )}
 
       {toast && (
-        <div className="fixed bottom-7 right-7 z-[9999] rounded-md border border-gray-200 bg-white px-5 py-4 text-sm font-semibold text-[#0D1B2A] shadow-xl">
-          <span className="mr-2 inline-flex h-5 w-5 items-center justify-center rounded-full bg-[#0D1B2A] text-xs text-white">
+        <div className="app-modal fixed bottom-7 right-7 z-[9999] rounded-md border px-5 py-4 text-sm font-semibold shadow-xl">
+          <span className="mr-2 inline-flex h-5 w-5 items-center justify-center rounded-full bg-[var(--app-heading)] text-xs text-[var(--app-bg)]">
             ✓
           </span>
           {toast}

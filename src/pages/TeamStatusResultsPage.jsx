@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { createRoot } from "react-dom/client";
-import { BarChart3, Edit, Eye, MoreVertical, Plus, Trash2, X } from "lucide-react";
+import { BarChart3, Download, Edit, Eye, MoreVertical, Plus, Trash2, X } from "lucide-react";
 import TeamStatusTemplatePreview from "../components/TeamStatusTemplatePreview";
 import { getUserStorageKey } from "../utils/storage.js";
 
@@ -276,26 +276,30 @@ export default function TeamStatusResultsPage() {
   }, [eventResults, search, statusFilter, sort]);
 
   return (
-    <section className="overflow-x-hidden p-6 max-sm:p-4">
+    <section className="app-page min-h-screen overflow-x-hidden p-6 max-sm:p-4">
+      <style>{teamStatusResultsStyles}</style>
       <header className="flex flex-wrap items-start gap-4">
         <div className="min-w-0">
-          <h1 className="text-2xl font-bold">Team Point Statuses for {activeEvent.name}</h1>
-          <p className="text-gray-600">Manage and generate point status posters.</p>
+          <h1 className="app-heading text-2xl font-bold">Team Point Statuses for {activeEvent.name}</h1>
+          <p className="app-muted">Manage and generate point status posters.</p>
         </div>
         <div className="ml-auto max-sm:ml-0">
-          <button onClick={openCreate} className="bg-[#26752C] text-white px-4 py-2 rounded">Create New Status</button>
+          <button onClick={openCreate} className="app-success-btn inline-flex items-center gap-2 rounded-md px-4 py-2 font-semibold shadow-sm hover:opacity-90">
+            <Plus size={16} strokeWidth={1.9} aria-hidden="true" />
+            Create New Status
+          </button>
         </div>
       </header>
 
-      <div className="mt-6 bg-white border rounded p-4">
+      <div className="app-card mt-6 rounded-lg border p-4 shadow-sm">
         <div className="flex flex-wrap gap-3">
-          <input placeholder="Search your statuses..." value={search} onChange={(e) => setSearch(e.target.value)} className="min-w-[220px] flex-1 border rounded px-3 py-2 max-sm:min-w-0 max-sm:basis-full" />
-          <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="min-w-[150px] border rounded px-3 py-2 max-sm:basis-full">
+          <input placeholder="Search your statuses..." value={search} onChange={(e) => setSearch(e.target.value)} className="app-input min-w-[220px] flex-1 rounded-md border px-3 py-2 max-sm:min-w-0 max-sm:basis-full" />
+          <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="app-select min-w-[150px] rounded-md border px-3 py-2 max-sm:basis-full">
             <option>All Status</option>
             <option>Published</option>
             <option>Draft</option>
           </select>
-          <select value={sort} onChange={(e) => setSort(e.target.value)} className="min-w-[150px] border rounded px-3 py-2 max-sm:basis-full">
+          <select value={sort} onChange={(e) => setSort(e.target.value)} className="app-select min-w-[150px] rounded-md border px-3 py-2 max-sm:basis-full">
             <option>Sort by Date</option>
             <option>Oldest First</option>
           </select>
@@ -304,31 +308,31 @@ export default function TeamStatusResultsPage() {
 
       <div className="mt-8">
         {filtered.length === 0 ? (
-          <div className="text-center py-20">
-            <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-gray-100 text-gray-500">
+          <div className="app-card rounded-xl border border-dashed px-4 py-20 text-center">
+            <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-[var(--app-surface-elevated)] text-[var(--app-muted)]">
               <BarChart3 size={44} strokeWidth={1.8} aria-hidden="true" />
             </div>
-            <h3 className="text-xl font-bold mt-4">No Team Point Statuses Yet</h3>
-            <p className="text-gray-600 mt-2">You haven't created any team point status posters yet. Get started by creating your first one!</p>
+            <h3 className="app-heading mt-4 text-xl font-bold">No Team Point Statuses Yet</h3>
+            <p className="app-muted mt-2">You haven't created any team point status posters yet. Get started by creating your first one!</p>
             <div className="mt-4">
-              <button className="bg-[#26752C] text-white px-4 py-2 rounded" onClick={openCreate}>Create Your First Team Point Status Poster</button>
+              <button className="app-success-btn rounded-md px-4 py-2 font-semibold hover:opacity-90" onClick={openCreate}>Create Your First Team Point Status Poster</button>
             </div>
           </div>
         ) : (
           <div className="grid gap-6" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 360px), 1fr))' }}>
             {filtered.map((item) => {
               return (
-                <div key={item.id} className="relative border rounded bg-white p-4 shadow-sm" style={{ minHeight: 360 }}>
-                  <div style={{ height: 160, width: '100%', background: '#f4fbf2', borderRadius: 8, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-                    <div className="text-green-700 font-bold text-lg">{item.statusName}</div>
-                    <div className="text-sm text-gray-600 mt-1">{(item.teams || []).length} teams listed</div>
+                <div key={item.id} className="app-card relative rounded-lg border p-4 shadow-sm" style={{ minHeight: 360 }}>
+                  <div className="flex h-40 w-full flex-col items-center justify-center rounded-lg border border-[var(--app-border)] bg-[var(--app-surface-elevated)]">
+                    <div className="text-lg font-bold text-[var(--app-heading)]">{item.statusName}</div>
+                    <div className="app-muted mt-1 text-sm">{(item.teams || []).length} teams listed</div>
                   </div>
 
-                  <div className="mt-4 text-sm text-gray-700">{(item.titleParts || []).join(" / ")}</div>
-                  <div className="text-sm text-gray-500 mt-2">Created: {new Date(item.createdAt || item.created || Date.now()).toLocaleDateString()}</div>
+                  <div className="app-text mt-4 text-sm">{(item.titleParts || []).join(" / ")}</div>
+                  <div className="app-muted mt-2 text-sm">Created: {new Date(item.createdAt || item.created || Date.now()).toLocaleDateString()}</div>
 
                   <div className="mt-4 flex items-center">
-                    <button onClick={() => openViewPosters(item)} className="flex items-center gap-2 text-sm text-gray-700 border rounded px-3 py-1">
+                    <button onClick={() => openViewPosters(item)} className="app-card flex items-center gap-2 rounded-md border px-3 py-1 text-sm hover:bg-[var(--app-surface-elevated)]">
                       <Eye size={16} strokeWidth={1.9} aria-hidden="true" />
                       <span>View Posters</span>
                     </button>
@@ -336,17 +340,17 @@ export default function TeamStatusResultsPage() {
                     <div className="flex-1" />
 
                     <div style={{ position: 'relative' }}>
-                      <button onClick={() => setMenuOpenId(menuOpenId === item.id ? null : item.id)} className="px-2 py-1 rounded-full hover:bg-gray-100" aria-label="Status actions">
+                      <button onClick={() => setMenuOpenId(menuOpenId === item.id ? null : item.id)} className="rounded-full px-2 py-1 text-[var(--app-muted)] hover:bg-[var(--app-surface-elevated)] hover:text-[var(--app-heading)]" aria-label="Status actions">
                         <MoreVertical size={18} strokeWidth={1.9} aria-hidden="true" />
                       </button>
                       {menuOpenId === item.id && (
-                        <div className="absolute right-0 mt-2 w-40 bg-white border rounded shadow-md z-20">
-                          <div className="px-3 py-2 text-xs text-gray-500 border-b">Actions</div>
-                          <button onClick={() => { setMenuOpenId(null); openEdit(item); }} className="w-full text-left px-3 py-2 hover:bg-gray-50">
+                        <div className="app-dropdown absolute right-0 z-20 mt-2 w-40 overflow-hidden rounded-md border shadow-lg">
+                          <div className="app-muted border-b border-[var(--app-border)] px-3 py-2 text-xs">Actions</div>
+                          <button onClick={() => { setMenuOpenId(null); openEdit(item); }} className="w-full px-3 py-2 text-left hover:bg-[var(--app-surface-elevated)]">
                             <Edit className="mr-2 inline-block align-[-2px]" size={15} strokeWidth={1.9} aria-hidden="true" />
                             Edit
                           </button>
-                          <button onClick={() => { setMenuOpenId(null); remove(item.id); }} className="w-full text-left px-3 py-2 hover:bg-gray-50 text-red-600">
+                          <button onClick={() => { setMenuOpenId(null); remove(item.id); }} className="w-full px-3 py-2 text-left text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30">
                             <Trash2 className="mr-2 inline-block align-[-2px]" size={15} strokeWidth={1.9} aria-hidden="true" />
                             Delete
                           </button>
@@ -363,55 +367,55 @@ export default function TeamStatusResultsPage() {
 
       {/* Create/Edit Modal */}
       {modalMode && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto p-6 max-sm:p-3" style={{ background: 'rgba(0,0,0,0.5)' }}>
-          <div className="relative overflow-y-auto shadow-lg" style={{ position: 'relative', background: '#ffffff', borderRadius: '10px', width: 'min(760px, calc(100vw - 24px))', maxWidth: '760px', maxHeight: 'calc(100vh - 24px)' }}>
-            <button type="button" onClick={closeEditor} aria-label="Close" style={{ position: 'absolute', top: 16, right: 16, left: 'auto' }} className="text-gray-600 hover:text-gray-800 bg-transparent rounded-md p-2">
+        <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/60 p-6 max-sm:p-3">
+          <div className="app-modal relative w-full max-w-[760px] overflow-y-auto rounded-xl border p-0 shadow-2xl" style={{ maxHeight: 'calc(100vh - 24px)' }}>
+            <button type="button" onClick={closeEditor} aria-label="Close" style={{ position: 'absolute', top: 16, right: 16, left: 'auto' }} className="rounded-md bg-transparent p-2 text-[var(--app-muted)] hover:bg-[var(--app-surface-elevated)] hover:text-[var(--app-heading)]">
               <X size={20} strokeWidth={2} aria-hidden="true" />
             </button>
             <form onSubmit={submit} className="p-6">
               <header>
-                <h2 className="text-2xl font-bold">{modalMode === "create" ? "Create New Team Point Status" : "Edit Team Point Status"}</h2>
-                <p className="text-gray-600 mt-1">Create a new team point status to generate posters.</p>
+                <h2 className="app-heading text-2xl font-bold">{modalMode === "create" ? "Create New Team Point Status" : "Edit Team Point Status"}</h2>
+                <p className="app-muted mt-1">Create a new team point status to generate posters.</p>
               </header>
 
               <div className="mt-6 space-y-4">
                 <div className="grid grid-cols-1 gap-3">
                   <label className="block">
-                    <div className="text-sm font-semibold mb-1">Status Entry Name</div>
-                    <input value={form.statusName} onChange={(e) => setForm((c) => ({ ...c, statusName: e.target.value }))} className="w-full border border-gray-200 rounded-md px-3 py-2 bg-white" />
+                    <div className="app-text mb-1 text-sm font-semibold">Status Entry Name</div>
+                    <input value={form.statusName} onChange={(e) => setForm((c) => ({ ...c, statusName: e.target.value }))} className="app-input w-full rounded-md border px-3 py-2" />
                   </label>
                   <label className="block">
-                    <div className="text-sm font-semibold mb-1">Select Template</div>
-                    <select value={form.templateId} onChange={(e) => setForm((c) => ({ ...c, templateId: e.target.value }))} className="w-full border border-gray-200 rounded-md px-3 py-2 bg-white">
+                    <div className="app-text mb-1 text-sm font-semibold">Select Template</div>
+                    <select value={form.templateId} onChange={(e) => setForm((c) => ({ ...c, templateId: e.target.value }))} className="app-select w-full rounded-md border px-3 py-2">
                       {templates.map((t) => <option key={t.id} value={t.id}>{t.name || t.id}</option>)}
                     </select>
                   </label>
                 </div>
 
-                <div className="bg-white border border-gray-100 rounded-md p-4">
-                  <h3 className="font-bold">Title Parts</h3>
-                  <p className="text-sm text-gray-500 mt-1">Customize the text for each title line.</p>
+                <div className="app-surface-elevated rounded-md border border-[var(--app-border)] p-4">
+                  <h3 className="app-heading font-bold">Title Parts</h3>
+                  <p className="app-muted mt-1 text-sm">Customize the text for each title line.</p>
                   <div className="mt-3 space-y-2">
                     {(form.titleParts || []).map((part, idx) => (
-                      <input key={idx} value={part} onChange={(e) => setForm((c) => ({ ...c, titleParts: c.titleParts.map((p, i) => i === idx ? e.target.value : p) }))} className="w-full border border-gray-200 rounded-md px-3 py-2 bg-white" />
+                      <input key={idx} value={part} onChange={(e) => setForm((c) => ({ ...c, titleParts: c.titleParts.map((p, i) => i === idx ? e.target.value : p) }))} className="app-input w-full rounded-md border px-3 py-2" />
                     ))}
                   </div>
                 </div>
 
-                <div className="bg-white border border-gray-100 rounded-md p-4">
-                  <h3 className="font-bold">Teams & Scores</h3>
-                  <p className="text-sm text-gray-500 mt-1">Enter the names and scores for each team.</p>
+                <div className="app-surface-elevated rounded-md border border-[var(--app-border)] p-4">
+                  <h3 className="app-heading font-bold">Teams & Scores</h3>
+                  <p className="app-muted mt-1 text-sm">Enter the names and scores for each team.</p>
                   <div className="mt-3 space-y-2">
                     {(form.teams || []).map((t, idx) => (
                       <div key={t.id} className="flex flex-wrap items-center gap-3">
-                        <select value={t.teamName} onChange={(e) => setForm((c) => ({ ...c, teams: c.teams.map((x, i) => i === idx ? { ...x, teamName: e.target.value } : x) }))} className="min-w-[180px] flex-1 border border-gray-200 rounded-md px-3 py-2 bg-white max-sm:min-w-0 max-sm:basis-full">
+                        <select value={t.teamName} onChange={(e) => setForm((c) => ({ ...c, teams: c.teams.map((x, i) => i === idx ? { ...x, teamName: e.target.value } : x) }))} className="app-select min-w-[180px] flex-1 rounded-md border px-3 py-2 max-sm:min-w-0 max-sm:basis-full">
                           {teams.map((tm) => <option key={tm.id} value={tm.name}>{tm.name}</option>)}
                         </select>
-                        <input value={t.score} onChange={(e) => setForm((c) => ({ ...c, teams: c.teams.map((x, i) => i === idx ? { ...x, score: e.target.value } : x) }))} className="border border-gray-200 rounded-md px-3 py-2 w-24 bg-white max-sm:w-full" />
-                        <button type="button" onClick={() => setForm((c) => ({ ...c, teams: c.teams.filter((_, i) => i !== idx) }))} className="text-red-600 px-3 py-1">Remove</button>
+                        <input value={t.score} onChange={(e) => setForm((c) => ({ ...c, teams: c.teams.map((x, i) => i === idx ? { ...x, score: e.target.value } : x) }))} className="app-input w-24 rounded-md border px-3 py-2 max-sm:w-full" />
+                        <button type="button" onClick={() => setForm((c) => ({ ...c, teams: c.teams.filter((_, i) => i !== idx) }))} className="px-3 py-1 text-red-600 hover:text-red-700">Remove</button>
                       </div>
                     ))}
-                    <button type="button" onClick={() => setForm((c) => ({ ...c, teams: [...(c.teams||[]), { id: uid(), teamName: teams[0]?.name || "Alpha", score: "0" }] }))} className="mt-2 inline-flex w-full items-center justify-center gap-2 rounded-md bg-[#26752C] px-3 py-2 text-white">
+                    <button type="button" onClick={() => setForm((c) => ({ ...c, teams: [...(c.teams||[]), { id: uid(), teamName: teams[0]?.name || "Alpha", score: "0" }] }))} className="app-success-btn mt-2 inline-flex w-full items-center justify-center gap-2 rounded-md px-3 py-2 font-semibold hover:opacity-90">
                       <Plus size={16} strokeWidth={2} aria-hidden="true" />
                       Add Team Slot
                     </button>
@@ -419,10 +423,10 @@ export default function TeamStatusResultsPage() {
                 </div>
 
                 <div>
-                  <h3 className="font-bold">Live Preview</h3>
-                  <p className="text-sm text-gray-500 mt-1">Preview uses the selected template and example data.</p>
+                  <h3 className="app-heading font-bold">Live Preview</h3>
+                  <p className="app-muted mt-1 text-sm">Preview uses the selected template and example data.</p>
                   <div className="mt-3">
-                    <div style={{ width: 280, maxWidth: '100%', margin: '0 auto', border: '1px solid #eee', padding: 12, background: '#fff', borderRadius: 8 }}>
+                    <div className="poster-preview-frame" style={{ width: 280, maxWidth: '100%', margin: '0 auto' }}>
                       {(() => {
                         const tpl = templates.find((t) => String(t.id) === String(form.templateId)) || templates[0] || {};
                         const resultPreviewData = {
@@ -439,8 +443,8 @@ export default function TeamStatusResultsPage() {
                 </div>
 
                 <div className="flex flex-wrap justify-end gap-3 mt-4">
-                  <button type="button" onClick={closeEditor} className="px-4 py-2 border rounded-md">Cancel</button>
-                  <button type="submit" className="px-4 py-2 bg-[#26752C] text-white rounded-md">{modalMode === "create" ? "Create Status" : "Update Status"}</button>
+                  <button type="button" onClick={closeEditor} className="app-card rounded-md border px-4 py-2 hover:bg-[var(--app-surface-elevated)]">Cancel</button>
+                  <button type="submit" className="app-success-btn rounded-md px-4 py-2 font-semibold hover:opacity-90">{modalMode === "create" ? "Create Status" : "Update Status"}</button>
                 </div>
               </div>
             </form>
@@ -450,29 +454,32 @@ export default function TeamStatusResultsPage() {
 
       {/* View Posters Modal */}
       {viewing && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto p-6 max-sm:p-3" style={{ background: 'rgba(0,0,0,0.5)' }}>
-          <div className="relative overflow-y-auto" style={{ background: '#ffffff', borderRadius: 10, width: 'min(720px, calc(100vw - 24px))', maxHeight: 'calc(100vh - 24px)', boxShadow: '0 8px 24px rgba(0,0,0,0.12)', padding: 24 }}>
-            <button type="button" onClick={closeViewPosters} aria-label="Close" style={{ position: 'absolute', top: 16, right: 16, left: 'auto' }} className="text-gray-600 hover:text-gray-800 bg-transparent rounded-md p-2">
+        <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/60 p-6 max-sm:p-3">
+          <div className="app-modal relative w-full max-w-[720px] overflow-y-auto rounded-xl border p-6 shadow-2xl" style={{ maxHeight: 'calc(100vh - 24px)' }}>
+            <button type="button" onClick={closeViewPosters} aria-label="Close" style={{ position: 'absolute', top: 16, right: 16, left: 'auto' }} className="rounded-md bg-transparent p-2 text-[var(--app-muted)] hover:bg-[var(--app-surface-elevated)] hover:text-[var(--app-heading)]">
               <X size={20} strokeWidth={2} aria-hidden="true" />
             </button>
             <header>
-              <h2 className="text-lg font-bold">Posters for: {viewing.statusName}</h2>
-              <p className="text-sm text-gray-500 mt-1">View and download posters for this team point status.</p>
+              <h2 className="app-heading text-lg font-bold">Posters for: {viewing.statusName}</h2>
+              <p className="app-muted mt-1 text-sm">View and download posters for this team point status.</p>
             </header>
 
             <div className="mt-4 space-y-4" style={{ maxHeight: 'calc(100vh - 200px)', overflow: 'auto' }}>
               {(flattenTemplatesStorage(TEMPLATES_KEY) || []).map((template) => {
                 const tpl = injectResultIntoTemplate(template, viewing);
                 return (
-                  <div key={template.id} style={{ width: '100%', padding: 24, background: '#ffffff', border: '1px solid #eef2f6', borderRadius: 10, boxShadow: '0 4px 12px rgba(0,0,0,0.04)' }}>
-                    <div className="font-bold mb-4">{template.name || template.id}</div>
-                    <div style={{ display: 'flex', justifyContent: 'center' }}>
-                      <div style={{ maxWidth: 340, width: '100%', border: '1px solid #f1f5f9', padding: 12, borderRadius: 8, background: '#fff' }}>
+                  <div key={template.id} className="app-card w-full rounded-lg border p-6 shadow-sm">
+                    <div className="app-heading mb-4 font-bold">{template.name || template.id}</div>
+                    <div className="flex justify-center">
+                      <div className="poster-preview-frame" style={{ maxWidth: 340, width: '100%' }}>
                         <TeamStatusTemplatePreview template={tpl} scale={320 / (tpl.canvas?.width || 1080)} editable={false} />
                       </div>
                     </div>
-                    <div style={{ display: 'flex', justifyContent: 'center', marginTop: 16 }}>
-                      <button onClick={() => downloadPoster(template, viewing)} className="bg-[#26752C] text-white px-4 py-2 rounded">Download Poster</button>
+                    <div className="mt-4 flex justify-center">
+                      <button onClick={() => downloadPoster(template, viewing)} className="app-trophy-btn inline-flex items-center gap-2 rounded-md px-4 py-2 font-semibold hover:opacity-90">
+                        <Download size={16} strokeWidth={1.9} aria-hidden="true" />
+                        Download Poster
+                      </button>
                     </div>
                   </div>
                 );
@@ -484,3 +491,17 @@ export default function TeamStatusResultsPage() {
     </section>
   );
 }
+
+const teamStatusResultsStyles = `
+.poster-preview-frame{
+  overflow:auto;
+  border:1px solid #e2e8f0;
+  padding:12px;
+  border-radius:8px;
+  background:#ffffff;
+  color-scheme:light;
+}
+.poster-preview-frame .team-status-template-canvas{
+  color-scheme:light;
+}
+`;

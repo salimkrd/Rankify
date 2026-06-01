@@ -198,14 +198,14 @@ export default function TeamsPage() {
   }
 
   return (
-    <div className="overflow-x-hidden px-6 py-6 max-sm:px-4">
+    <div className="app-page overflow-x-hidden px-6 py-6 max-sm:px-4">
       <div className="max-w-[1080px] space-y-5">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="min-w-0">
-            <h1 className="text-2xl font-bold tracking-tight text-[#0D1B2A]">
+            <h1 className="app-heading text-2xl font-bold tracking-tight">
               Manage Teams
             </h1>
-            <p className="mt-1 text-gray-600">
+            <p className="app-muted mt-1">
               View, create, edit, and delete teams for event:{" "}
               <span className="font-semibold">
                 {activeEvent?.name || "No active event"}
@@ -216,7 +216,7 @@ export default function TeamsPage() {
           <button
             type="button"
             onClick={openCreateModal}
-            className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-[#26752C] px-4 text-sm font-semibold text-white shadow-sm hover:bg-[#1f6425]"
+            className="app-success-btn inline-flex h-10 items-center justify-center gap-2 rounded-md px-4 text-sm font-semibold shadow-sm hover:opacity-90"
           >
             <Plus size={18} strokeWidth={2} aria-hidden="true" />
             Create New Team
@@ -227,28 +227,28 @@ export default function TeamsPage() {
           {visibleTeams.map((team) => (
             <div
               key={team.id}
-              className="relative flex min-h-[140px] flex-col rounded-xl border border-gray-200 bg-white p-6 shadow-sm"
+              className="app-card relative flex min-h-[140px] flex-col rounded-xl border p-6 shadow-sm"
             >
               <button
                 type="button"
                 onClick={() =>
                   setOpenMenuId((current) => (current === team.id ? "" : team.id))
                 }
-                className="absolute right-6 top-6 flex h-8 w-8 items-center justify-center rounded-md text-xl leading-none text-[#0D1B2A] hover:bg-gray-100"
+                className="absolute right-6 top-6 flex h-8 w-8 items-center justify-center rounded-md text-xl leading-none text-[var(--app-heading)] hover:bg-[var(--app-surface-elevated)]"
                 aria-label="Team actions"
               >
                 <MoreVertical size={18} strokeWidth={1.9} aria-hidden="true" />
               </button>
 
               {openMenuId === team.id && (
-                <div className="absolute right-6 top-14 z-50 w-[150px] rounded-md border border-gray-200 bg-white py-2 shadow-lg">
-                  <p className="px-4 pb-2 text-sm font-semibold text-[#0D1B2A]">
+                <div className="app-dropdown absolute right-6 top-14 z-50 w-[150px] rounded-md border py-2 shadow-lg">
+                  <p className="app-heading px-4 pb-2 text-sm font-semibold">
                     Actions
                   </p>
                   <button
                     type="button"
                     onClick={() => openEditModal(team)}
-                    className="block w-full px-4 py-3 text-left text-sm text-gray-700 hover:bg-[#E8F3EA] hover:text-[#26752C]"
+                    className="app-text block w-full px-4 py-3 text-left text-sm hover:bg-[var(--app-sidebar-active-bg)] hover:text-[var(--app-sidebar-active-text)]"
                   >
                     <Edit className="mr-2 inline-block align-[-2px]" size={15} strokeWidth={1.9} aria-hidden="true" />
                     Edit
@@ -256,7 +256,7 @@ export default function TeamsPage() {
                   <button
                     type="button"
                     onClick={() => handleDeleteTeam(team.id)}
-                    className="block w-full border-t border-gray-100 px-4 py-3 text-left text-sm text-red-600 hover:bg-red-50"
+                    className="block w-full border-t border-[var(--app-border)] px-4 py-3 text-left text-sm text-[var(--app-danger)] hover:bg-[var(--app-danger-bg-soft)]"
                   >
                     <Trash2 className="mr-2 inline-block align-[-2px]" size={15} strokeWidth={1.9} aria-hidden="true" />
                     Delete
@@ -265,8 +265,8 @@ export default function TeamsPage() {
               )}
 
               <div className="pr-10">
-                <h2 className="text-lg font-bold text-[#0D1B2A]">{team.name}</h2>
-                <p className="mt-1 text-sm text-gray-500">
+                <h2 className="app-heading text-lg font-bold">{team.name}</h2>
+                <p className="app-muted mt-1 text-sm">
                   Created: {team.created}
                 </p>
               </div>
@@ -277,20 +277,20 @@ export default function TeamsPage() {
 
       {modalOpen && (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center overflow-y-auto bg-black/50 p-4">
-          <div className="relative w-full max-w-[520px] rounded-xl bg-white p-6 shadow-2xl max-sm:max-w-[calc(100vw-24px)] max-sm:p-5">
+          <div className="app-modal relative w-full max-w-[520px] rounded-xl p-6 shadow-2xl max-sm:max-w-[calc(100vw-24px)] max-sm:p-5">
             <button
               type="button"
               onClick={closeModal}
-              className="absolute right-4 top-4 text-2xl leading-none text-gray-500 hover:text-gray-900"
+              className="app-muted absolute right-4 top-4 text-2xl leading-none hover:text-[var(--app-heading)]"
               aria-label="Close modal"
             >
               <X size={20} strokeWidth={2} aria-hidden="true" />
             </button>
 
-            <h2 className="text-xl font-bold text-[#0D1B2A]">
+            <h2 className="app-heading text-xl font-bold">
               {editingTeam ? "Edit Team" : "Create New Team"}
             </h2>
-            <p className="mt-1 max-w-[360px] text-sm text-gray-500">
+            <p className="app-muted mt-1 max-w-[360px] text-sm">
               {editingTeam
                 ? "Make changes to your team here. Click save when you're done."
                 : "Create a new team to organize your status updates."}
@@ -298,7 +298,7 @@ export default function TeamsPage() {
 
             <form onSubmit={handleSubmit} className="mt-8 space-y-4">
               <div className="grid grid-cols-[110px_minmax(0,1fr)] items-center gap-4 max-sm:grid-cols-1 max-sm:gap-2">
-                <label className="min-w-0 text-sm font-medium leading-tight text-[#0D1B2A]">
+                <label className="app-heading min-w-0 text-sm font-medium leading-tight">
                   Team
                   <br />
                   Name
@@ -308,21 +308,21 @@ export default function TeamsPage() {
                   onChange={(event) => setTeamName(event.target.value)}
                   placeholder="e.g., Alpha Team"
                   autoFocus
-                  className="h-10 w-full max-w-full rounded-md border border-gray-300 px-3 text-sm outline-none focus:border-[#26752C] focus:ring-2 focus:ring-green-100"
+                  className="app-input h-10 w-full max-w-full rounded-md border px-3 text-sm outline-none focus:border-[var(--app-primary)] focus:ring-2 focus:ring-[var(--app-focus-ring)]"
                 />
               </div>
 
               <div className="flex flex-wrap justify-end gap-2 pt-2">
                 <button
                   type="submit"
-                  className="h-10 rounded-md bg-[#26752C] px-4 text-sm font-semibold text-white hover:bg-[#1f6425]"
+                  className="app-success-btn h-10 rounded-md px-4 text-sm font-semibold hover:opacity-90"
                 >
                   {editingTeam ? "Update Team" : "Create Team"}
                 </button>
                 <button
                   type="button"
                   onClick={closeModal}
-                  className="h-10 rounded-md border border-gray-300 bg-white px-4 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                  className="app-card h-10 rounded-md border px-4 text-sm font-medium hover:bg-[var(--app-surface-elevated)]"
                 >
                   Cancel
                 </button>

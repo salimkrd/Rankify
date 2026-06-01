@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { getUserStorageKey } from "../utils/storage.js";
 import { getInitials } from "../utils/auth.js";
+import ThemeToggle from "./ThemeToggle.jsx";
 
 const EVENTS_KEY = "rankify_events";
 const ACTIVE_EVENT_KEY = "rankify_active_event_id";
@@ -219,8 +220,8 @@ function SidebarLink({ link, counts, onNavigate }) {
         [
           "flex h-9 items-center gap-3 rounded-md px-3 text-sm font-medium transition-colors",
           active || isActive
-            ? "bg-[#E8F3EA] text-[#26752C]"
-            : "text-gray-700 hover:bg-gray-100 hover:text-[#26752C]",
+            ? "app-sidebar-active"
+            : "app-muted hover:bg-[var(--app-sidebar-active-bg)] hover:text-[var(--app-sidebar-active-text)]",
         ].join(" ")
       }
     >
@@ -229,7 +230,7 @@ function SidebarLink({ link, counts, onNavigate }) {
       </span>
       <span className="min-w-0 flex-1 truncate">{link.label}</span>
       {typeof count === "number" && (
-        <span className="rounded-md bg-[#DCEFD9] px-2 py-0.5 text-xs font-bold text-[#26752C]">
+        <span className="app-badge rounded-md px-2 py-0.5 text-xs font-bold">
           {count}
         </span>
       )}
@@ -322,19 +323,19 @@ export default function Sidebar({ mobile = false, onNavigate, onClose }) {
   return (
     <aside
       className={[
-        "bottom-0 left-0 top-0 z-40 flex w-[260px] flex-col border-r border-gray-200 bg-white",
+        "app-sidebar bottom-0 left-0 top-0 z-40 flex w-[260px] flex-col border-r",
         mobile ? "fixed w-[min(330px,82vw)] shadow-2xl" : "fixed max-lg:hidden",
       ].join(" ")}
     >
       <Link
         to="/"
         onClick={onNavigate}
-        className="flex h-[62px] shrink-0 items-center gap-3 border-b border-gray-200 px-4 transition-colors hover:bg-gray-50 cursor-pointer"
+        className="app-border flex h-[62px] shrink-0 cursor-pointer items-center gap-3 border-b px-4 transition-colors hover:bg-[var(--app-sidebar-active-bg)]"
       >
-        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#26752C] text-sm font-bold text-white">
+        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--app-primary)] text-sm font-bold text-[var(--app-primary-text)]">
           P
         </div>
-        <div className="text-lg font-bold text-[#0D1B2A]">PosterGen</div>
+        <div className="app-heading text-lg font-bold">PosterGen</div>
         {mobile && (
           <button
             type="button"
@@ -343,7 +344,7 @@ export default function Sidebar({ mobile = false, onNavigate, onClose }) {
               event.stopPropagation();
               onClose?.();
             }}
-            className="ml-auto flex h-9 w-9 items-center justify-center rounded-md text-gray-500 transition-colors hover:bg-gray-100 hover:text-[#26752C]"
+            className="app-muted ml-auto flex h-9 w-9 items-center justify-center rounded-md transition-colors hover:bg-[var(--app-sidebar-active-bg)] hover:text-[var(--app-sidebar-active-text)]"
             aria-label="Close sidebar"
           >
             <X size={22} strokeWidth={2} aria-hidden="true" />
@@ -351,14 +352,20 @@ export default function Sidebar({ mobile = false, onNavigate, onClose }) {
         )}
       </Link>
 
-      <div className="shrink-0 border-b border-gray-100 px-3 py-4">
-        <p className="mb-2 px-1 text-[11px] font-bold uppercase tracking-wide text-gray-500">
+      <div className="app-border shrink-0 border-b px-3 py-4">
+        <p className="app-muted mb-3 px-1 text-[11px] font-bold uppercase tracking-wide">
+          Theme
+        </p>
+        <ThemeToggle />
+      </div>
+      <div className="app-border shrink-0 border-b px-3 py-4">
+        <p className="app-muted mb-2 px-1 text-[11px] font-bold uppercase tracking-wide">
           Active Event
         </p>
         <select
           value={activeEventId}
           onChange={handleActiveEventChange}
-          className="h-10 w-full rounded-md border border-gray-300 bg-white px-3 text-sm text-[#0D1B2A] shadow-sm outline-none focus:border-[#26752C] focus:ring-2 focus:ring-green-100"
+          className="app-select h-10 w-full rounded-md border px-3 text-sm shadow-sm outline-none focus:border-[var(--app-primary)] focus:ring-2 focus:ring-[var(--app-focus-ring)]"
         >
           <option value="" disabled={events.length > 0}>
             {events.length === 0 ? "No active event" : "Select active event"}
@@ -374,7 +381,7 @@ export default function Sidebar({ mobile = false, onNavigate, onClose }) {
       <div className="min-h-0 flex-1 overflow-y-auto px-3 py-4">
         {sections.map((section) => (
           <div key={section.label} className="mb-6">
-            <p className="mb-2 px-1 text-[11px] font-bold uppercase tracking-wide text-gray-500">
+            <p className="app-muted mb-2 px-1 text-[11px] font-bold uppercase tracking-wide">
               {section.label}
             </p>
             <nav className="space-y-1">
@@ -386,21 +393,21 @@ export default function Sidebar({ mobile = false, onNavigate, onClose }) {
         ))}
       </div>
 
-      <div className="shrink-0 border-t border-gray-200 p-3">
+      <div className="app-border shrink-0 border-t p-3">
         <div className="flex items-center gap-3">
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#DCEFD9] text-sm font-bold text-[#26752C]">
+          <div className="app-badge flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-bold">
             {getInitials(user)}
           </div>
           <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-semibold text-[#0D1B2A]">
+            <p className="app-heading truncate text-sm font-semibold">
               {user.name}
             </p>
-            <p className="truncate text-xs text-gray-500">{user.email}</p>
+            <p className="app-muted truncate text-xs">{user.email}</p>
           </div>
           <button
             type="button"
             onClick={handleLogout}
-            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-gray-500 transition-colors hover:bg-gray-100 hover:text-[#26752C]"
+            className="app-muted flex h-8 w-8 shrink-0 items-center justify-center rounded-md transition-colors hover:bg-[var(--app-sidebar-active-bg)] hover:text-[var(--app-sidebar-active-text)]"
             aria-label="Logout"
           >
             <LogOut size={18} strokeWidth={1.9} aria-hidden="true" />

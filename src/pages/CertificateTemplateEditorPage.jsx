@@ -160,7 +160,7 @@ function NumberInput({ value, onChange, className = "" }) {
       type="number"
       value={Number.isFinite(Number(value)) ? value : 0}
       onChange={(event) => onChange(Number(event.target.value) || 0)}
-      className={`h-9 rounded-md border border-gray-300 px-2 text-sm outline-none focus:border-[#26752C] focus:ring-2 focus:ring-green-100 ${className}`}
+      className={`app-input h-9 rounded-md border px-2 text-sm outline-none focus:border-[var(--app-primary)] focus:ring-2 focus:ring-[var(--app-focus-ring)] ${className}`}
     />
   );
 }
@@ -173,7 +173,7 @@ function nearestSafeScale(width, height) {
 
 function ToolbarField({ label, children }) {
   return (
-    <label className="grid min-w-[112px] gap-1 text-xs font-semibold text-gray-700">
+    <label className="app-text grid min-w-[112px] gap-1 text-xs font-semibold">
       <span>{label}</span>
       {children}
     </label>
@@ -295,23 +295,24 @@ export default function CertificateTemplateEditorPage() {
     navigate("/dashboard/certificate-templates");
   }
 
-  const inputClass = "h-9 rounded-md border border-gray-300 bg-white px-3 text-sm outline-none focus:border-[#26752C] focus:ring-2 focus:ring-green-100";
+  const inputClass = "app-input h-9 rounded-md border px-3 text-sm outline-none focus:border-[var(--app-primary)] focus:ring-2 focus:ring-[var(--app-focus-ring)]";
 
   return (
-    <section className="min-h-screen overflow-x-hidden bg-[#F5F6F8] pb-[82px] text-[#020817]">
-      <header className="flex min-h-[74px] items-center justify-between gap-4 border-b border-gray-200 bg-[#F8FAFC] px-7">
+    <section className="certificate-editor-page app-page min-h-screen overflow-x-hidden pb-[82px]">
+      <style>{certificateEditorThemeStyles}</style>
+      <header className="app-header flex min-h-[74px] items-center justify-between gap-4 border-b px-7">
         <div className="flex min-w-0 items-center gap-4">
           <button
             type="button"
             onClick={() => navigate("/dashboard/certificate-templates")}
-            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-gray-600 hover:bg-gray-100 hover:text-[#0D1B2A]"
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-[var(--app-muted)] hover:bg-[var(--app-surface-elevated)] hover:text-[var(--app-heading)]"
             aria-label="Back to certificate templates"
           >
             <ArrowLeft size={18} />
           </button>
           <div className="min-w-0">
-            <p className="text-sm font-medium text-gray-500">Certificate Templates</p>
-            <h1 className="truncate text-[21px] font-extrabold leading-tight">
+            <p className="app-muted text-sm font-medium">Certificate Templates</p>
+            <h1 className="app-heading truncate text-[21px] font-extrabold leading-tight">
               {isEditMode ? `Edit - ${template.name}` : "Create certificate template"}
             </h1>
           </div>
@@ -319,7 +320,7 @@ export default function CertificateTemplateEditorPage() {
         <button
           type="button"
           onClick={handleSave}
-          className="inline-flex h-10 shrink-0 items-center gap-2 rounded-md bg-[#26752C] px-4 text-sm font-bold text-white shadow-sm hover:bg-[#1f6425]"
+          className="app-success-btn inline-flex h-10 shrink-0 items-center gap-2 rounded-md px-4 text-sm font-bold shadow-sm hover:opacity-90"
         >
           <Save size={16} />
           {isEditMode ? "Save changes" : "Create template"}
@@ -327,9 +328,9 @@ export default function CertificateTemplateEditorPage() {
       </header>
 
       <div className="grid w-full max-w-full min-h-[calc(100vh-156px)] grid-cols-[minmax(240px,280px)_minmax(420px,1fr)_minmax(320px,380px)] gap-6 overflow-x-hidden p-5 max-[1180px]:grid-cols-1">
-        <aside className="min-w-0 overflow-hidden rounded-lg border border-gray-200 bg-white p-3">
+        <aside className="app-card min-w-0 overflow-hidden rounded-lg border p-3">
           <div className="mb-3 flex items-center justify-between gap-3 px-1">
-            <h2 className="text-xs font-bold uppercase tracking-wide text-gray-700">Layers</h2>
+            <h2 className="app-muted text-xs font-bold uppercase tracking-wide">Layers</h2>
           </div>
           <div className="space-y-2">
             {template.elements.map((element) => {
@@ -340,10 +341,10 @@ export default function CertificateTemplateEditorPage() {
                   type="button"
                   onClick={() => setSelectedId(element.id)}
                   className={`group flex h-[30px] w-full min-w-0 items-center gap-2 rounded-md px-2 text-left text-sm font-medium transition ${
-                    selected ? "bg-[#26752C] text-white" : "text-[#111827] hover:bg-gray-100"
+                    selected ? "bg-[var(--app-success)] text-[var(--app-success-text)]" : "app-text hover:bg-[var(--app-surface-elevated)]"
                   }`}
                 >
-                  <span className={selected ? "text-white" : "text-gray-500"}>T</span>
+                  <span className={selected ? "text-[var(--app-success-text)]" : "text-[var(--app-muted)]"}>T</span>
                   <span className="min-w-0 flex-1 truncate">{element.label}</span>
                   <span className={`flex shrink-0 gap-1 ${selected ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`}>
                     <span
@@ -353,7 +354,7 @@ export default function CertificateTemplateEditorPage() {
                         event.stopPropagation();
                         duplicateElement(element);
                       }}
-                      className={`flex h-5 w-5 items-center justify-center rounded ${selected ? "text-white hover:bg-white/15" : "hover:bg-white"}`}
+                      className={`flex h-5 w-5 items-center justify-center rounded ${selected ? "text-[var(--app-success-text)] hover:bg-white/15" : "hover:bg-[var(--app-surface-elevated)]"}`}
                     >
                       <Copy size={13} />
                     </span>
@@ -364,7 +365,7 @@ export default function CertificateTemplateEditorPage() {
                         event.stopPropagation();
                         removeElement(element);
                       }}
-                      className={`flex h-5 w-5 items-center justify-center rounded ${selected ? "text-white hover:bg-white/15" : "text-red-600 hover:bg-white"}`}
+                      className={`flex h-5 w-5 items-center justify-center rounded ${selected ? "text-[var(--app-success-text)] hover:bg-white/15" : "text-[var(--app-danger)] hover:bg-[var(--app-surface-elevated)]"}`}
                     >
                       <Trash2 size={13} />
                     </span>
@@ -373,11 +374,11 @@ export default function CertificateTemplateEditorPage() {
               );
             })}
           </div>
-          <div className="mt-5 border-t border-gray-200 pt-3">
+          <div className="mt-5 border-t border-[var(--app-border)] pt-3">
             <button
               type="button"
               onClick={addTextElement}
-              className="inline-flex h-8 items-center gap-2 rounded-md px-2 text-sm font-medium text-gray-700 hover:bg-gray-100"
+              className="app-text inline-flex h-8 items-center gap-2 rounded-md px-2 text-sm font-medium hover:bg-[var(--app-surface-elevated)]"
             >
               <Plus size={15} />
               Add text element
@@ -385,10 +386,10 @@ export default function CertificateTemplateEditorPage() {
           </div>
         </aside>
 
-        <main className="min-w-0 max-w-full overflow-hidden rounded-lg border border-gray-200 bg-white">
+        <main className="app-card min-w-0 max-w-full overflow-hidden rounded-lg border">
           <div className="flex items-center justify-between gap-4 px-4 py-3">
-            <h2 className="text-xl font-bold">Live Preview</h2>
-            <label className="flex items-center gap-2 text-sm font-medium text-gray-600">
+            <h2 className="app-heading text-xl font-bold">Live Preview</h2>
+            <label className="app-muted flex items-center gap-2 text-sm font-medium">
               <span>Canvas: {template.canvasWidth}×{template.canvasHeight}px</span>
               <select value={scalePercent} onChange={(event) => setScalePercent(Number(event.target.value))} className={inputClass}>
                 {scaleOptions.map((option) => (
@@ -398,7 +399,7 @@ export default function CertificateTemplateEditorPage() {
             </label>
           </div>
 
-          <div className="h-[calc(100vh-314px)] w-full max-w-full overflow-auto border-t border-gray-100 px-6 py-5">
+          <div className="h-[calc(100vh-314px)] w-full max-w-full overflow-auto border-t border-[var(--app-border)] px-6 py-5">
             <div className="flex w-max min-w-full items-start justify-center">
               <div
                 className="shrink-0"
@@ -450,7 +451,7 @@ export default function CertificateTemplateEditorPage() {
             </div>
           </div>
 
-          <section className="border-t border-gray-200 bg-white shadow-[0_-8px_18px_rgba(15,23,42,0.02)]">
+          <section className="border-t border-[var(--app-border)] bg-[var(--app-surface)] shadow-[0_-8px_18px_rgba(15,23,42,0.04)]">
             <button
               type="button"
               onClick={() => setExampleOpen((value) => !value)}
@@ -475,7 +476,7 @@ export default function CertificateTemplateEditorPage() {
                   ["certificateTitle", "Certificate"],
                   ["achievementText", "of Achievement"],
                 ].map(([key, label]) => (
-                  <label key={key} className="grid min-w-0 gap-1 text-xs font-semibold text-gray-600">
+                  <label key={key} className="app-text grid min-w-0 gap-1 text-xs font-semibold">
                     {label}
                     <input
                       value={template.previewData[key] || ""}
@@ -489,18 +490,18 @@ export default function CertificateTemplateEditorPage() {
           </section>
         </main>
 
-        <aside className="min-w-0 max-w-[380px] overflow-hidden overflow-y-auto rounded-lg border border-gray-200 bg-white p-4 max-[1180px]:max-w-full">
-          <h2 className="mb-8 text-2xl font-bold">Template Configuration</h2>
+        <aside className="app-card min-w-0 max-w-[380px] overflow-hidden overflow-y-auto rounded-lg border p-4 max-[1180px]:max-w-full">
+          <h2 className="app-heading mb-8 text-2xl font-bold">Template Configuration</h2>
           <div className="min-w-0 space-y-4 overflow-x-hidden">
-            <label className="grid min-w-0 gap-1 text-sm font-medium text-[#111827]">
+            <label className="app-text grid min-w-0 gap-1 text-sm font-medium">
               Template Name
               <input value={template.name} onChange={(event) => updateTemplate({ name: event.target.value })} className={`${inputClass} box-border w-full max-w-full min-w-0`} />
             </label>
-            <label className="grid min-w-0 gap-1 text-sm font-medium text-[#111827]">
+            <label className="app-text grid min-w-0 gap-1 text-sm font-medium">
               Position Filter Optional, e.g., 1 for 1st place
               <input value={template.positionFilter || ""} placeholder="1, 2, 3" onChange={(event) => updateTemplate({ positionFilter: event.target.value })} className={`${inputClass} box-border w-full max-w-full min-w-0`} />
             </label>
-            <label className="grid min-w-0 gap-1 text-sm font-medium text-[#111827]">
+            <label className="app-text grid min-w-0 gap-1 text-sm font-medium">
               Background Image
               <input
                 type="file"
@@ -518,18 +519,18 @@ export default function CertificateTemplateEditorPage() {
                 <button
                   type="button"
                   onClick={() => updateTemplate({ backgroundImage: "" })}
-                  className="h-9 rounded-md bg-red-600 px-4 text-sm font-bold text-white hover:bg-red-700"
+                  className="app-danger-btn h-9 rounded-md px-4 text-sm font-bold hover:opacity-90"
                 >
                   Clear Image
                 </button>
               </>
             )}
             <div className="grid w-full grid-cols-1 gap-4 min-[1380px]:grid-cols-[repeat(2,minmax(0,1fr))]">
-              <label className="grid min-w-0 gap-1 text-sm font-medium text-[#111827]">
+              <label className="app-text grid min-w-0 gap-1 text-sm font-medium">
                 Canvas Width (px)
                 <NumberInput value={template.canvasWidth} onChange={(canvasWidth) => updateTemplate({ canvasWidth })} className="box-border w-full max-w-full min-w-0" />
               </label>
-              <label className="grid min-w-0 gap-1 text-sm font-medium text-[#111827]">
+              <label className="app-text grid min-w-0 gap-1 text-sm font-medium">
                 Canvas Height (px)
                 <NumberInput value={template.canvasHeight} onChange={(canvasHeight) => updateTemplate({ canvasHeight })} className="box-border w-full max-w-full min-w-0" />
               </label>
@@ -537,7 +538,7 @@ export default function CertificateTemplateEditorPage() {
             <button
               type="button"
               onClick={handleSave}
-              className="h-11 w-full rounded-md bg-[#26752C] text-sm font-bold text-white shadow-sm hover:bg-[#1f6425]"
+              className="app-success-btn h-11 w-full rounded-md text-sm font-bold shadow-sm hover:opacity-90"
             >
               {isEditMode ? "Update Template" : "Create Template"}
             </button>
@@ -545,7 +546,7 @@ export default function CertificateTemplateEditorPage() {
         </aside>
       </div>
 
-      <div className="fixed bottom-0 left-[260px] right-0 z-40 overflow-x-auto border-t border-gray-200 bg-[#F8FAFC]/95 px-3 py-2 shadow-[0_-8px_20px_rgba(15,23,42,0.04)] backdrop-blur max-[900px]:left-0">
+      <div className="fixed bottom-0 left-[260px] right-0 z-40 overflow-x-auto border-t border-[var(--app-border)] bg-[var(--app-bg)]/95 px-3 py-2 shadow-[0_-8px_20px_rgba(15,23,42,0.08)] backdrop-blur max-[900px]:left-0">
         {selectedElement ? (
           <div className="flex min-w-max items-end gap-2">
             <ToolbarField label="Font Family">
@@ -564,7 +565,7 @@ export default function CertificateTemplateEditorPage() {
                 <option value="right">Right</option>
               </select>
             </ToolbarField>
-            <ToolbarField label="Color"><input type="color" value={selectedElement.color || "#000000"} onChange={(event) => updateSelected({ color: event.target.value })} className="h-9 w-16 rounded-md border border-gray-300 bg-white p-1" /></ToolbarField>
+            <ToolbarField label="Color"><input type="color" value={selectedElement.color || "#000000"} onChange={(event) => updateSelected({ color: event.target.value })} className="app-input h-9 w-16 rounded-md border p-1" /></ToolbarField>
             <ToolbarField label="Line Height"><NumberInput value={selectedElement.lineHeight} onChange={(lineHeight) => updateSelected({ lineHeight })} className="w-24" /></ToolbarField>
             <ToolbarField label="Width"><NumberInput value={selectedElement.width} onChange={(width) => updateSelected({ width })} className="w-24" /></ToolbarField>
             <ToolbarField label="Background">
@@ -586,14 +587,27 @@ export default function CertificateTemplateEditorPage() {
                 className={`${inputClass} w-56`}
               />
             </ToolbarField>
-            <button type="button" onClick={() => removeElement(selectedElement)} className="h-9 rounded-md bg-red-600 px-4 text-sm font-bold text-white hover:bg-red-700">
+            <button type="button" onClick={() => removeElement(selectedElement)} className="app-danger-btn h-9 rounded-md px-4 text-sm font-bold hover:opacity-90">
               Remove Element
             </button>
           </div>
         ) : (
-          <div className="py-3 text-sm font-semibold text-gray-500">Select an element to edit its controls.</div>
+          <div className="app-muted py-3 text-sm font-semibold">Select an element to edit its controls.</div>
         )}
       </div>
     </section>
   );
 }
+
+const certificateEditorThemeStyles = `
+.certificate-editor-page h2,
+.certificate-editor-page h3{color:var(--app-heading)}
+.certificate-editor-page input,
+.certificate-editor-page select{background:var(--app-input-bg);color:var(--app-text);border-color:var(--app-border)}
+.certificate-editor-page input:focus,
+.certificate-editor-page select:focus{border-color:var(--app-primary);box-shadow:0 0 0 3px var(--app-focus-ring);outline:none}
+.certificate-editor-page .app-card{background:var(--app-surface);border-color:var(--app-border);color:var(--app-text)}
+.certificate-editor-page .text-gray-500,
+.certificate-editor-page .text-gray-600,
+.certificate-editor-page .text-gray-700{color:var(--app-muted)}
+`;

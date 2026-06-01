@@ -568,14 +568,14 @@ export default function ProgramTemplatesPage() {
   }
 
   return (
-    <div className="overflow-x-hidden px-6 py-6 max-sm:px-4">
+    <div className="app-page overflow-x-hidden px-6 py-6 max-sm:px-4">
       <div className="space-y-8">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="min-w-0">
-            <h1 className="text-2xl font-bold tracking-tight text-[#0D1B2A]">
+            <h1 className="app-heading text-2xl font-bold tracking-tight">
               Poster Templates
             </h1>
-            <p className="mt-1 text-gray-600">
+            <p className="app-muted mt-1">
               Design and manage reusable poster templates
             </p>
           </div>
@@ -584,7 +584,7 @@ export default function ProgramTemplatesPage() {
             <button
               type="button"
               onClick={handleCreateTemplate}
-              className="inline-flex min-h-10 max-w-full items-center justify-center gap-2 rounded-md bg-[#26752C] px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-[#1f6425]"
+              className="app-success-btn inline-flex min-h-10 max-w-full items-center justify-center gap-2 rounded-md px-4 py-2 text-sm font-semibold shadow-sm hover:opacity-90"
             >
               <Plus size={18} strokeWidth={2} aria-hidden="true" />
               Create New Template
@@ -592,7 +592,7 @@ export default function ProgramTemplatesPage() {
             <button
               type="button"
               onClick={() => setPublicModalOpen(true)}
-              className="inline-flex min-h-10 max-w-full items-center justify-center rounded-md bg-[#26752C] px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-[#1f6425]"
+              className="app-success-btn inline-flex min-h-10 max-w-full items-center justify-center rounded-md px-4 py-2 text-sm font-semibold shadow-sm hover:opacity-90"
             >
               Explore Public Templates
             </button>
@@ -601,13 +601,13 @@ export default function ProgramTemplatesPage() {
 
         {visibleTemplates.length === 0 ? (
           <div className="flex min-h-[520px] flex-col items-center justify-center text-center">
-            <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-full bg-gray-100 text-gray-500">
+            <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-full bg-[var(--app-surface-elevated)] text-[var(--app-muted)]">
               <FilePlus2 size={42} strokeWidth={1.8} aria-hidden="true" />
             </div>
-            <h2 className="text-xl font-medium text-gray-600">
+            <h2 className="app-heading text-xl font-medium">
               No templates found.
             </h2>
-            <p className="mt-4 text-gray-600">
+            <p className="app-muted mt-4">
               Get started by creating your first poster template
             </p>
           </div>
@@ -616,9 +616,9 @@ export default function ProgramTemplatesPage() {
             {visibleTemplates.map((template) => (
               <div
                 key={template.id}
-                className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm"
+                className="app-card overflow-hidden rounded-xl border shadow-sm"
               >
-                <div className="flex h-[340px] items-center justify-center bg-gray-100 p-6">
+                <div className="flex h-[340px] items-center justify-center bg-[var(--app-surface-elevated)] p-6">
                   {template.previewImage ? (
                     <img
                       src={template.previewImage}
@@ -626,14 +626,14 @@ export default function ProgramTemplatesPage() {
                       className="h-full w-full object-contain"
                     />
                   ) : (
-                    <div className="flex h-full w-full items-center justify-center text-gray-400">
+                    <div className="flex h-full w-full items-center justify-center text-[var(--app-muted)]">
                       <ImageIcon size={52} strokeWidth={1.8} aria-hidden="true" />
                     </div>
                   )}
                 </div>
 
                 <div className="p-6">
-                  <h2 className="line-clamp-2 min-h-[56px] text-xl font-bold text-[#0D1B2A]">
+                  <h2 className="app-heading line-clamp-2 min-h-[56px] text-xl font-bold">
                     {template.name}
                   </h2>
 
@@ -641,7 +641,7 @@ export default function ProgramTemplatesPage() {
                     <button
                       type="button"
                       onClick={() => handleDuplicateTemplate(template)}
-                      className="inline-flex h-9 items-center gap-2 rounded-md border border-gray-200 bg-white px-3 text-sm font-semibold hover:bg-gray-50"
+                      className="app-card inline-flex h-9 items-center gap-2 rounded-md border px-3 text-sm font-semibold hover:bg-[var(--app-surface-elevated)]"
                     >
                       <Copy size={16} strokeWidth={1.9} aria-hidden="true" />
                       Duplicate
@@ -651,7 +651,7 @@ export default function ProgramTemplatesPage() {
                       onClick={() =>
                         navigate(`/dashboard/program-templates/${template.id}/edit`)
                       }
-                      className="inline-flex h-9 items-center gap-2 rounded-md border border-gray-200 bg-white px-3 text-sm font-semibold hover:bg-gray-50"
+                      className="app-card inline-flex h-9 items-center gap-2 rounded-md border px-3 text-sm font-semibold hover:bg-[var(--app-surface-elevated)]"
                     >
                       <Edit size={16} strokeWidth={1.9} aria-hidden="true" />
                       Edit
@@ -659,7 +659,7 @@ export default function ProgramTemplatesPage() {
                     <button
                       type="button"
                       onClick={() => handleDeleteTemplate(template.id)}
-                      className="inline-flex h-9 items-center gap-2 rounded-md bg-red-600 px-3 text-sm font-semibold text-white hover:bg-red-700"
+                      className="app-danger-btn inline-flex h-9 items-center gap-2 rounded-md px-3 text-sm font-semibold hover:opacity-90"
                     >
                       <Trash2 size={16} strokeWidth={1.9} aria-hidden="true" />
                       Delete
@@ -678,17 +678,17 @@ export default function ProgramTemplatesPage() {
 
       {publicModalOpen && (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 p-4">
-          <div className="relative max-h-[80vh] w-full max-w-[600px] overflow-hidden rounded-xl bg-white p-6 shadow-2xl">
+          <div className="app-modal relative max-h-[80vh] w-full max-w-[600px] overflow-hidden rounded-xl p-6 shadow-2xl">
             <button
               type="button"
               onClick={() => setPublicModalOpen(false)}
-              className="absolute right-4 top-4 flex h-8 w-8 items-center justify-center rounded-md border border-[#26752C] text-2xl leading-none text-gray-600 hover:bg-[#E8F3EA]"
+              className="absolute right-4 top-4 flex h-8 w-8 items-center justify-center rounded-md border border-[var(--app-success)] text-2xl leading-none text-[var(--app-muted)] hover:bg-[var(--app-sidebar-active-bg)]"
               aria-label="Close modal"
             >
               <X size={20} strokeWidth={2} aria-hidden="true" />
             </button>
 
-            <h2 className="text-xl font-bold text-[#0D1B2A]">
+            <h2 className="app-heading text-xl font-bold">
               Explore Public Templates
             </h2>
 
@@ -697,9 +697,9 @@ export default function ProgramTemplatesPage() {
                 {PUBLIC_TEMPLATES.map((template) => (
                   <div
                     key={template.id}
-                    className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm"
+                    className="app-card overflow-hidden rounded-xl border shadow-sm"
                   >
-                    <div className="flex h-[270px] items-center justify-center bg-gray-100 p-2">
+                    <div className="flex h-[270px] items-center justify-center bg-[var(--app-surface-elevated)] p-2">
                       <img
                         src={template.previewImage}
                         alt={template.name}
@@ -707,13 +707,13 @@ export default function ProgramTemplatesPage() {
                       />
                     </div>
                     <div className="p-4">
-                      <h3 className="truncate text-lg font-bold text-[#0D1B2A]">
+                      <h3 className="app-heading truncate text-lg font-bold">
                         {template.name}
                       </h3>
                       <button
                         type="button"
                         onClick={() => handleUsePublicTemplate(template)}
-                        className="mt-4 h-9 w-full rounded-md bg-[#26752C] text-sm font-bold text-white hover:bg-[#1f6425]"
+                        className="app-success-btn mt-4 h-9 w-full rounded-md text-sm font-bold hover:opacity-90"
                       >
                         USE
                       </button>

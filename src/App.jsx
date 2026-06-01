@@ -36,9 +36,9 @@ function ProtectedRoute({ children }) {
 
 function PlaceholderPage({ title }) {
   return (
-    <div className="p-6">
-      <h1 className="text-2xl font-bold text-[#0D1B2A]">{title}</h1>
-      <p className="mt-2 text-gray-600">This page is ready to be connected.</p>
+    <div className="app-page p-6">
+      <h1 className="app-heading text-2xl font-bold">{title}</h1>
+      <p className="app-muted mt-2">This page is ready to be connected.</p>
     </div>
   );
 }

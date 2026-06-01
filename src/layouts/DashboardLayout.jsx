@@ -28,23 +28,23 @@ export default function DashboardLayout() {
   }, []);
 
   return (
-    <div className="min-h-screen overflow-x-hidden bg-[#F8FAFC]">
-      <header className="sticky top-0 z-30 flex h-[76px] items-center justify-between border-b border-gray-200 bg-white px-4 lg:hidden">
+    <div className="app-page min-h-screen overflow-x-hidden">
+      <header className="app-header sticky top-0 z-30 flex h-[76px] items-center justify-between border-b px-4 lg:hidden">
         <button
           type="button"
           onClick={() => setDrawerOpen(true)}
-          className="flex h-11 w-11 items-center justify-center rounded-md text-3xl text-[#0D1B2A] hover:bg-gray-100"
+          className="app-heading flex h-11 w-11 items-center justify-center rounded-md text-3xl hover:bg-[var(--app-sidebar-active-bg)]"
           aria-label="Open sidebar"
         >
           <Menu size={26} strokeWidth={2} aria-hidden="true" />
         </button>
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#26752C] text-base font-bold text-white">
+          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[var(--app-primary)] text-base font-bold text-[var(--app-primary-text)]">
             P
           </div>
-          <div className="text-xl font-extrabold text-[#0D1B2A]">PosterGen</div>
+          <div className="app-heading text-xl font-extrabold">PosterGen</div>
         </div>
-        <div className="flex h-11 w-11 items-center justify-center rounded-full bg-[#DCEFD9] text-sm font-bold text-[#26752C]">
+        <div className="app-badge flex h-11 w-11 items-center justify-center rounded-full text-sm font-bold">
           {getInitials(user)}
         </div>
       </header>
@@ -63,7 +63,7 @@ export default function DashboardLayout() {
         </div>
       )}
 
-      <main className="min-h-screen overflow-x-hidden bg-[#F8FAFC] lg:ml-[260px]">
+      <main className="app-page min-h-screen overflow-x-hidden lg:ml-[260px]">
         <Outlet />
       </main>
     </div>

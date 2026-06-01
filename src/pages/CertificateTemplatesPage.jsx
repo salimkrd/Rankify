@@ -225,9 +225,9 @@ export default function CertificateTemplatesPage() {
   }
 
   return (
-    <section className="min-h-screen w-full overflow-x-hidden bg-[#F8FAFC] px-6 py-7 text-[#020817] max-sm:px-4">
+    <section className="app-page min-h-screen w-full overflow-x-hidden px-6 py-7 max-sm:px-4">
       <div className="mb-10 flex w-full max-w-full min-w-0 flex-wrap items-start justify-between gap-4 overflow-hidden">
-        <h1 className="min-w-0 flex-1 break-words text-[30px] font-extrabold leading-tight text-[#020817]">
+        <h1 className="app-heading min-w-0 flex-1 break-words text-[30px] font-extrabold leading-tight">
           {activeEvent?.name ? `Certificate Templates for ${activeEvent.name}` : "Certificate Templates"}
         </h1>
 
@@ -235,7 +235,7 @@ export default function CertificateTemplatesPage() {
           <button
             type="button"
             onClick={handleCreate}
-            className="inline-flex min-h-[46px] max-w-full items-center justify-center gap-3 rounded-md bg-[#26752C] px-5 py-2 text-base font-bold text-white shadow-sm transition hover:bg-[#1f6425]"
+            className="app-success-btn inline-flex min-h-[46px] max-w-full items-center justify-center gap-3 rounded-md px-5 py-2 text-base font-bold shadow-sm transition hover:opacity-90"
           >
             <Plus size={20} />
             Create New Template
@@ -243,7 +243,7 @@ export default function CertificateTemplatesPage() {
           <button
             type="button"
             onClick={() => setPublicModalOpen(true)}
-            className="inline-flex min-h-[46px] max-w-full items-center justify-center rounded-md bg-[#26752C] px-6 py-2 text-base font-bold text-white shadow-sm transition hover:bg-[#1f6425]"
+            className="app-success-btn inline-flex min-h-[46px] max-w-full items-center justify-center rounded-md px-6 py-2 text-base font-bold shadow-sm transition hover:opacity-90"
           >
             Explore Public Templates
           </button>
@@ -253,19 +253,19 @@ export default function CertificateTemplatesPage() {
       {!activeEvent?.id ? (
         <div className="flex min-h-[calc(100vh-200px)] items-center justify-center text-center">
           <div className="mx-auto max-w-[720px] px-4">
-            <div className="mx-auto mb-7 flex h-20 w-20 items-center justify-center rounded-full bg-[#EEF1F5] text-[#5F6B7A]">
+            <div className="mx-auto mb-7 flex h-20 w-20 items-center justify-center rounded-full bg-[var(--app-surface-elevated)] text-[var(--app-muted)]">
               <FileText size={34} strokeWidth={1.8} />
             </div>
-            <h2 className="text-2xl font-extrabold leading-tight text-[#020817]">
+            <h2 className="app-heading text-2xl font-extrabold leading-tight">
               No active event selected
             </h2>
-            <p className="mt-4 text-lg text-[#4B5563]">
+            <p className="app-muted mt-4 text-lg">
               Please select or create an event before creating certificate templates.
             </p>
             <button
               type="button"
               onClick={() => navigate("/dashboard/events")}
-              className="mt-9 inline-flex min-h-[50px] items-center justify-center rounded-md bg-[#26752C] px-6 text-base font-bold text-white shadow-sm transition hover:bg-[#1f6425]"
+              className="app-success-btn mt-9 inline-flex min-h-[50px] items-center justify-center rounded-md px-6 text-base font-bold shadow-sm transition hover:opacity-90"
             >
               Go to Events
             </button>
@@ -274,19 +274,19 @@ export default function CertificateTemplatesPage() {
       ) : eventTemplates.length === 0 ? (
         <div className="flex min-h-[calc(100vh-200px)] items-center justify-center text-center">
           <div className="mx-auto max-w-[820px] px-4">
-            <div className="mx-auto mb-7 flex h-20 w-20 items-center justify-center rounded-full bg-[#EEF1F5] text-[#5F6B7A]">
+            <div className="mx-auto mb-7 flex h-20 w-20 items-center justify-center rounded-full bg-[var(--app-surface-elevated)] text-[var(--app-muted)]">
               <FileText size={34} strokeWidth={1.8} />
             </div>
-            <h2 className="text-2xl font-extrabold leading-tight text-[#020817]">
+            <h2 className="app-heading text-2xl font-extrabold leading-tight">
               No Certificate Templates Yet
             </h2>
-            <p className="mt-4 text-lg text-[#4B5563]">
+            <p className="app-muted mt-4 text-lg">
               You haven't created any certificate templates yet. Get started by creating your first one!
             </p>
             <button
               type="button"
               onClick={handleCreate}
-              className="mt-9 inline-flex min-h-[50px] items-center justify-center rounded-md bg-[#26752C] px-6 text-base font-bold text-white shadow-sm transition hover:bg-[#1f6425]"
+              className="app-success-btn mt-9 inline-flex min-h-[50px] items-center justify-center rounded-md px-6 text-base font-bold shadow-sm transition hover:opacity-90"
             >
               Create Your First Template
             </button>
@@ -300,25 +300,25 @@ export default function CertificateTemplatesPage() {
             return (
               <article
                 key={template.id}
-                className="min-w-0 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-lg shadow-gray-200/60"
+                className="app-card min-w-0 overflow-hidden rounded-xl border shadow-lg"
               >
-                <div className="h-[512px] max-h-[70vh] border-b border-gray-100 bg-[#F1F3F5] p-3">
+                <div className="h-[512px] max-h-[70vh] border-b border-[var(--app-border)] bg-[var(--app-surface-elevated)] p-3">
                   <CertificatePreview template={template} />
                 </div>
                 <div className="p-5">
-                  <h2 className="break-words text-2xl font-extrabold leading-tight text-[#020817]">
+                  <h2 className="app-heading break-words text-2xl font-extrabold leading-tight">
                     {template.name || "Untitled Template"}
                   </h2>
-                  <p className="mt-2 text-lg text-[#4B5563]">
+                  <p className="app-muted mt-2 text-lg">
                     Elements: {elementCount} text {elementCount === 1 ? "element" : "elements"}
                   </p>
-                  <p className="mt-7 text-sm text-gray-400">Created: {formatDate(template.createdAt)}</p>
+                  <p className="app-muted mt-7 text-sm">Created: {formatDate(template.createdAt)}</p>
 
                   <div className="mt-16 flex flex-wrap items-center justify-end gap-3 max-sm:mt-8">
                     <button
                       type="button"
                       onClick={() => handleDuplicate(template)}
-                      className="inline-flex min-h-[40px] items-center justify-center gap-2 rounded-md border border-gray-200 bg-[#F8FAFC] px-4 text-base font-medium text-[#020817] shadow-sm transition hover:bg-gray-100"
+                      className="app-card inline-flex min-h-[40px] items-center justify-center gap-2 rounded-md border px-4 text-base font-medium shadow-sm transition hover:bg-[var(--app-surface-elevated)]"
                     >
                       <Copy size={18} />
                       Duplicate
@@ -326,7 +326,7 @@ export default function CertificateTemplatesPage() {
                     <button
                       type="button"
                       onClick={() => navigate(`/dashboard/certificate-templates/${template.id}/edit`)}
-                      className="inline-flex min-h-[40px] items-center justify-center gap-2 rounded-md px-1 text-base font-medium text-[#020817] transition hover:text-[#26752C]"
+                      className="app-text inline-flex min-h-[40px] items-center justify-center gap-2 rounded-md px-1 text-base font-medium transition hover:text-[var(--app-success)]"
                     >
                       <Edit size={18} />
                       Edit
@@ -334,7 +334,7 @@ export default function CertificateTemplatesPage() {
                     <button
                       type="button"
                       onClick={() => handleDelete(template.id)}
-                      className="inline-flex min-h-[40px] items-center justify-center gap-2 rounded-md px-1 text-base font-medium text-red-600 transition hover:text-red-700"
+                      className="inline-flex min-h-[40px] items-center justify-center gap-2 rounded-md px-1 text-base font-medium text-[var(--app-danger)] transition hover:opacity-80"
                     >
                       <Trash2 size={18} />
                       Delete
@@ -349,29 +349,29 @@ export default function CertificateTemplatesPage() {
 
       {publicModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/50 px-4 py-8">
-          <div className="relative flex min-h-[70vh] w-full max-w-[730px] flex-col rounded-lg border border-gray-200 bg-[#F8FAFC] p-8 shadow-2xl max-sm:min-h-[60vh] max-sm:p-5">
+          <div className="app-modal relative flex min-h-[70vh] w-full max-w-[730px] flex-col rounded-lg border p-8 shadow-2xl max-sm:min-h-[60vh] max-sm:p-5">
             <button
               type="button"
               onClick={() => setPublicModalOpen(false)}
               aria-label="Close modal"
-              className="absolute right-5 top-5 flex h-8 w-8 items-center justify-center rounded-md border-2 border-[#6FA578] bg-white text-gray-600 transition hover:bg-[#E8F3EA] hover:text-[#0D1B2A]"
+              className="absolute right-5 top-5 flex h-8 w-8 items-center justify-center rounded-md border-2 border-[var(--app-success)] bg-[var(--app-surface)] text-[var(--app-muted)] transition hover:bg-[var(--app-sidebar-active-bg)] hover:text-[var(--app-heading)]"
             >
               <X size={20} />
             </button>
-            <h2 className="pr-10 text-2xl font-extrabold leading-tight text-[#111827]">
+            <h2 className="app-heading pr-10 text-2xl font-extrabold leading-tight">
               Explore Public Certificate Templates
             </h2>
 
             {publicTemplates.length === 0 ? (
-              <div className="flex flex-1 items-center justify-center text-center text-lg text-gray-500">
+              <div className="app-muted flex flex-1 items-center justify-center text-center text-lg">
                 No public templates available yet.
               </div>
             ) : (
               <div className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2">
                 {publicTemplates.map((template) => (
-                  <article key={template.id} className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
-                    <h3 className="text-base font-bold text-[#0D1B2A]">{template.name || "Untitled Template"}</h3>
-                    <p className="mt-1 text-sm text-gray-500">Public certificate template</p>
+                  <article key={template.id} className="app-card rounded-lg border p-4 shadow-sm">
+                    <h3 className="app-heading text-base font-bold">{template.name || "Untitled Template"}</h3>
+                    <p className="app-muted mt-1 text-sm">Public certificate template</p>
                   </article>
                 ))}
               </div>

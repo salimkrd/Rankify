@@ -1,6 +1,16 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, ChevronDown, ChevronUp, Copy, ListOrdered, PlusCircle, Save, Trash2 } from "lucide-react";
+import {
+  ArrowLeft,
+  ChevronDown,
+  ChevronUp,
+  Copy,
+  ListOrdered,
+  PlusCircle,
+  Save,
+  Trash2,
+  Type,
+} from "lucide-react";
 import FontFamilySelect from "../components/FontFamilySelect";
 import TeamStatusTemplatePreview from "../components/TeamStatusTemplatePreview";
 import { getUserStorageKey } from "../utils/storage.js";
@@ -8,48 +18,38 @@ import { getUserStorageKey } from "../utils/storage.js";
 const EVENTS_KEY = "rankify_events";
 const ACTIVE_EVENT_KEY = "rankify_active_event_id";
 const STORAGE_KEY = "rankify_team_status_templates";
-const MAX_IMAGE_SIZE = 1024 * 1024; // 1MB
+const MAX_IMAGE_SIZE = 1024 * 1024;
 
 const defaultTeams = [
-  { name: "Nullamkulam", score: "581" },
-  { name: "Parappanangadi", score: "581" },
-  { name: "Hidayah Nagar", score: "580" },
-  { name: "Ottummal South", score: "579" },
+  { name: "Team A", score: "120" },
+  { name: "Team B", score: "95" },
+  { name: "Team C", score: "80" },
 ];
 
-function uid(prefix = "item") {
-  return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-}
-
-function safeJsonParse(value, fallback) {
+function safeParse(value, fallback) {
   try {
     const parsed = JSON.parse(value || "");
-    return parsed || fallback;
+    return parsed ?? fallback;
   } catch {
     return fallback;
   }
 }
 
-function validateImageFile(file) {
-  if (!file) return true;
-  if (file.size > MAX_IMAGE_SIZE) {
-    alert("Image is too large. Please compress the image below 1MB and upload again.");
-    return false;
-  }
-  return true;
+function makeId(prefix) {
+  if (window.crypto?.randomUUID) return `${prefix}_${window.crypto.randomUUID()}`;
+  return `${prefix}_${Date.now()}_${Math.random().toString(16).slice(2)}`;
 }
 
 function today() {
   return new Date().toLocaleDateString("en-US");
 }
 
-function getTemplatesByEvent() {
-  const stored = safeJsonParse(localStorage.getItem(getUserStorageKey(STORAGE_KEY)), {});
-  return stored && typeof stored === "object" && !Array.isArray(stored) ? stored : {};
+function readEvents() {
+  return safeParse(localStorage.getItem(getUserStorageKey(EVENTS_KEY)), []);
 }
 
 function getActiveEvent() {
-  const events = safeJsonParse(localStorage.getItem(getUserStorageKey(EVENTS_KEY)), []);
+  const events = readEvents();
   const activeEventId = localStorage.getItem(getUserStorageKey(ACTIVE_EVENT_KEY)) || "";
   const activeEvent = Array.isArray(events)
     ? events.find((event) => String(event.id) === String(activeEventId))
@@ -64,6 +64,38 @@ function getActiveEvent() {
   };
 }
 
+function readTemplatesByEvent() {
+  const stored = safeParse(localStorage.getItem(getUserStorageKey(STORAGE_KEY)), {});
+  if (stored && typeof stored === "object" && !Array.isArray(stored)) return stored;
+  if (Array.isArray(stored)) {
+    return stored.reduce((acc, template) => {
+      const eventId = template.eventId || "default";
+      acc[eventId] = acc[eventId] || [];
+      acc[eventId].push(template);
+      return acc;
+    }, {});
+  }
+  return {};
+}
+
+function dataUrlFromFile(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+function validateImageFile(file) {
+  if (!file) return true;
+  if (file.size > MAX_IMAGE_SIZE) {
+    alert("Image is too large. Please compress the image below 1MB and upload again.");
+    return false;
+  }
+  return true;
+}
+
 function defaultTitle(id, text, x, y) {
   return {
     id,
@@ -73,12 +105,12 @@ function defaultTitle(id, text, x, y) {
     text,
     x,
     y,
-    width: 380,
+    width: 360,
     fontFamily: "Inter",
-    fontSize: 72,
-    fontWeight: "400",
+    fontSize: 52,
+    fontWeight: "700",
     align: "left",
-    color: "#6d00b9",
+    color: "#111827",
     lineHeight: 1.2,
     showBg: false,
   };
@@ -86,149 +118,105 @@ function defaultTitle(id, text, x, y) {
 
 function defaultSlot(index) {
   return {
-    id: uid("slot"),
+    id: makeId("slot"),
     kind: "teamSlot",
     label: `Slot ${index}`,
     teamIndex: index - 1,
     x: 100,
-    y: 300 + (index - 1) * 40,
-    width: 400,
-    spacing: 0,
+    y: 330 + (index - 1) * 72,
+    width: 560,
+    spacing: 12,
     horizontalAlign: "left",
     verticalAlign: "top",
     name: {
       x: 0,
       y: 0,
-      width: 250,
+      width: 330,
       fontFamily: "Inter",
-      fontSize: 30,
+      fontSize: 34,
       fontWeight: "700",
       align: "left",
-      color: "#222222",
-      lineHeight: 1.2,
-      showBg: true,
+      color: "#111827",
+      lineHeight: 1.15,
+      showBg: false,
     },
     score: {
-      x: 235,
+      x: 380,
       y: 0,
-      width: 90,
+      width: 120,
       fontFamily: "Inter",
-      fontSize: 30,
+      fontSize: 34,
       fontWeight: "800",
       align: "left",
-      color: "#6d00b9",
-      lineHeight: 1.2,
+      color: "#26752C",
+      lineHeight: 1.15,
       showBg: false,
     },
   };
 }
 
-function publicBackgroundImage(variant = "green") {
-  const isLight = variant === "light";
-  const background = isLight
-    ? `<rect width="1080" height="1350" fill="#ffffff"/><path d="M0 0 C420 160 600 20 1080 160 V1350 H0Z" fill="#f6f3ed"/><path d="M90 960 C170 760 210 620 170 430" stroke="#4E0D65" stroke-width="18" fill="none"/><g fill="#6D1684"><ellipse cx="122" cy="830" rx="42" ry="18" transform="rotate(-35 122 830)"/><ellipse cx="185" cy="720" rx="42" ry="18" transform="rotate(-35 185 720)"/><ellipse cx="230" cy="610" rx="42" ry="18" transform="rotate(-35 230 610)"/></g>`
-    : `<defs><radialGradient id="g" cx="72%" cy="30%" r="72%"><stop stop-color="#0c6a50"/><stop offset="1" stop-color="#063a55"/></radialGradient></defs><rect width="1080" height="1350" fill="url(#g)"/><path d="M620 260 C780 120 1050 160 1220 360" stroke="#2c7b1f" stroke-width="92" fill="none" opacity=".75"/><path d="M660 360 C820 230 1030 280 1190 470" stroke="#2458a2" stroke-width="78" fill="none" opacity=".7"/><circle cx="760" cy="775" r="150" fill="#48b8e8" opacity=".78"/><rect x="0" y="0" width="1080" height="1350" fill="none" stroke="rgba(255,255,255,.08)" stroke-width="20"/>`;
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1350" viewBox="0 0 1080 1350">${background}<text x="110" y="1200" font-family="Arial" font-size="42" font-weight="700" fill="${isLight ? "#111827" : "#ffffff"}">Sahityolsav</text></svg>`;
-  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
-}
-
-function publicTemplateDefaults(template = {}) {
-  const isLight = template.variant === "light";
-  return {
-    canvas: {
-      width: template.canvas?.width || 1080,
-      height: template.canvas?.height || 1350,
-      backgroundImage: template.canvas?.backgroundImage || template.previewImage || publicBackgroundImage(template.variant),
-      backgroundColor: template.canvas?.backgroundColor || (isLight ? "#ffffff" : "#07543F"),
-    },
-    elements: [
-      defaultTitle("title_final", "Final", 110, 120),
-      defaultTitle("title_point", "Point", 110, 180),
-      defaultTitle("title_status", "Status", 110, 240),
-      defaultSlot(1),
-      defaultSlot(2),
-      defaultSlot(3),
-      defaultSlot(4),
-    ].map((element) =>
-      element.kind === "title"
-        ? { ...element, color: isLight ? "#4E0D65" : "#ffffff", fontSize: 52, width: 360 }
-        : element
-    ),
-  };
-}
-
-function normalizePreviewData(template = {}, activeEvent = {}) {
+function defaultPreviewData(template = {}, activeEvent = {}) {
   const existing = template.previewData || {};
-  const previewData = {
+  const titles = Array.isArray(template.elements)
+    ? template.elements.filter((element) => element.kind === "title")
+    : [];
+  const slots = Array.isArray(template.elements)
+    ? template.elements.filter((element) => element.kind === "teamSlot")
+    : [];
+  const titleValues = { ...(existing.titleValues || {}) };
+
+  titles.forEach((title, index) => {
+    if (titleValues[title.id] == null) {
+      titleValues[title.id] = existing.titleParts?.[index] || title.text || title.label || "";
+    }
+  });
+
+  const teams = Array.isArray(existing.teams) ? [...existing.teams] : [];
+  slots.forEach((slot, index) => {
+    const teamIndex = Number(slot.teamIndex ?? index);
+    if (!teams[teamIndex]) teams[teamIndex] = defaultTeams[teamIndex] || { name: `Team ${teamIndex + 1}`, score: "0" };
+  });
+
+  return {
     eventName: existing.eventName ?? activeEvent.name ?? "",
     organizerName: existing.organizerName ?? activeEvent.organizer ?? "",
     eventDate: existing.eventDate ?? activeEvent.date ?? "",
     eventLocation: existing.eventLocation ?? activeEvent.location ?? "",
-    titleValues: { ...(existing.titleValues || {}) },
-    teams: Array.isArray(existing.teams) ? [...existing.teams] : [],
-  };
-
-  const titleElements = Array.isArray(template.elements) ? template.elements.filter((element) => element.kind === "title") : [];
-  const titleParts = Array.isArray(existing.titleParts) ? [...existing.titleParts] : [];
-  titleElements.forEach((title) => {
-    if (previewData.titleValues[title.id] == null) {
-      previewData.titleValues[title.id] = titleParts.length
-        ? titleParts.shift()
-        : title.text || title.label || "";
-    }
-  });
-
-  const slotElements = Array.isArray(template.elements) ? template.elements.filter((element) => element.kind === "teamSlot") : [];
-  const defaultTeam = (index) => defaultTeams[index] || { name: `Team ${index + 1}`, score: "0" };
-  slotElements.forEach((slot, index) => {
-    const teamIndex = Number(slot.teamIndex ?? index);
-    if (previewData.teams[teamIndex] == null) {
-      previewData.teams[teamIndex] = defaultTeam(teamIndex);
-    }
-  });
-
-  return previewData;
-}
-
-function defaultTemplate(activeEvent, existing = {}) {
-  const publicDefaults =
-    existing.source === "public" && !Array.isArray(existing.elements)
-      ? publicTemplateDefaults(existing)
-      : existing.source === "public" && Array.isArray(existing.elements) && existing.elements.length === 0
-        ? publicTemplateDefaults(existing)
-        : null;
-  const fallbackElements = publicDefaults?.elements || [
-    defaultTitle("title_final", "Final", 100, 100),
-    defaultTitle("title_point", "Point", 100, 175),
-    defaultTitle("title_status", "Status", 100, 250),
-    defaultSlot(1),
-    defaultSlot(2),
-    defaultSlot(3),
-  ];
-  const elements = Array.isArray(existing.elements) && existing.elements.length ? existing.elements : fallbackElements;
-
-  return {
-    id: existing.id || uid("team_status_template"),
-    eventId: existing.eventId || activeEvent.id,
-    type: "team-status",
-    name: existing.name || "New Team Status Template",
-    canvas: {
-      width: publicDefaults?.canvas.width || existing.canvas?.width || 1080,
-      height: publicDefaults?.canvas.height || existing.canvas?.height || 1080,
-      backgroundImage: publicDefaults?.canvas.backgroundImage || existing.canvas?.backgroundImage || "",
-      backgroundColor: publicDefaults?.canvas.backgroundColor || existing.canvas?.backgroundColor || "#eeeeee",
-    },
-    elements,
-    previewData: normalizePreviewData({ ...existing, elements }, activeEvent),
-    previewImage: existing.previewImage || "",
-    createdAt: existing.createdAt || today(),
-    updatedAt: existing.updatedAt || today(),
-    source: existing.source || "custom",
+    titleValues,
+    teams,
   };
 }
 
 function normalizeTemplate(template, activeEvent) {
-  return defaultTemplate(activeEvent, template || {});
+  const fallbackElements = [
+    defaultTitle("title_final", "Final", 80, 90),
+    defaultTitle("title_point", "Point", 80, 155),
+    defaultTitle("title_status", "Status", 80, 220),
+    defaultSlot(1),
+    defaultSlot(2),
+    defaultSlot(3),
+  ];
+  const elements = Array.isArray(template?.elements) && template.elements.length ? template.elements : fallbackElements;
+  const canvas = template?.canvas || {};
+
+  return {
+    id: template?.id || makeId("team_status_template"),
+    eventId: template?.eventId || activeEvent.id,
+    type: "team-status",
+    name: template?.name || "New Team Status Template",
+    canvas: {
+      width: Number(canvas.width) || 1080,
+      height: Number(canvas.height) || 1080,
+      backgroundImage: canvas.backgroundImage || template?.previewImage || "",
+      backgroundColor: canvas.backgroundColor || "#eeeeee",
+    },
+    elements,
+    previewData: defaultPreviewData({ ...template, elements }, activeEvent),
+    previewImage: template?.previewImage || "",
+    createdAt: template?.createdAt || today(),
+    updatedAt: template?.updatedAt || today(),
+    source: template?.source || "custom",
+  };
 }
 
 function escapeSvg(value) {
@@ -252,13 +240,11 @@ function svgAlignedX(x, width, align) {
 }
 
 function titleValue(element, previewData) {
-  const titleValues = previewData.titleValues || {};
   if (element.dataSource === "eventName") return previewData.eventName;
   if (element.dataSource === "organizerName") return previewData.organizerName;
   if (element.dataSource === "eventDate") return previewData.eventDate;
   if (element.dataSource === "eventLocation") return previewData.eventLocation;
-  if (titleValues[element.id] != null) return titleValues[element.id];
-  return element.text;
+  return previewData.titleValues?.[element.id] ?? element.text ?? element.label ?? "";
 }
 
 function makePreviewImage(template) {
@@ -306,23 +292,68 @@ function selectedParts(selectedId) {
   return { elementId, child };
 }
 
-function LayerRow({ active, label, onSelect, onDuplicate, onDelete }) {
+function inputClass(extra = "") {
+  return `app-input h-10 rounded-md border px-3 text-sm outline-none focus:border-[var(--app-primary)] focus:ring-2 focus:ring-[var(--app-focus-ring)] ${extra}`;
+}
+
+function ToolbarField({ label, children }) {
   return (
-    <button type="button" className={active ? "active layer-row" : "layer-row"} onClick={onSelect}>
-      <span className="layer-label">{label}</span>
-      <span className="layer-icons">
+    <label className="app-text flex min-w-0 flex-col gap-1 text-sm">
+      <span className="whitespace-nowrap font-medium">{label}</span>
+      {children}
+    </label>
+  );
+}
+
+function NumberInput({ value, onChange, className = "w-24" }) {
+  return (
+    <input
+      type="number"
+      value={value ?? ""}
+      onChange={(event) => onChange(Number(event.target.value))}
+      className={inputClass(className)}
+    />
+  );
+}
+
+function TextInput({ label, value, onChange }) {
+  return (
+    <ToolbarField label={label}>
+      <input value={value || ""} onChange={(event) => onChange(event.target.value)} className={inputClass("box-border w-full max-w-full min-w-0")} />
+    </ToolbarField>
+  );
+}
+
+function LayerButton({ active, label, icon, onSelect, onDuplicate, onDelete }) {
+  return (
+    <button
+      type="button"
+      onClick={onSelect}
+      className={`layer-row mb-1 flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm ${
+        active ? "layer-row-active" : "app-text hover:bg-[var(--app-surface-elevated)]"
+      }`}
+    >
+      <span className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden">
+        {icon}
+        <span className="truncate">{label}</span>
+      </span>
+      <span className="flex shrink-0 items-center gap-2">
         <Copy
-          size={13}
+          size={14}
+          strokeWidth={1.9}
+          aria-hidden="true"
           onClick={(event) => {
             event.stopPropagation();
-            onDuplicate();
+            onDuplicate?.();
           }}
         />
         <Trash2
-          size={13}
+          size={14}
+          strokeWidth={1.9}
+          aria-hidden="true"
           onClick={(event) => {
             event.stopPropagation();
-            onDelete();
+            onDelete?.();
           }}
         />
       </span>
@@ -333,13 +364,12 @@ function LayerRow({ active, label, onSelect, onDuplicate, onDelete }) {
 export default function TeamStatusTemplateEditorPage() {
   const navigate = useNavigate();
   const { templateId } = useParams();
-  const previewContainerRef = useRef(null);
-  const previewRef = useRef(null);
+  const canvasScrollRef = useRef(null);
   const dragRef = useRef(null);
   const [activeEvent, setActiveEvent] = useState(() => getActiveEvent());
-  const [template, setTemplate] = useState(() => defaultTemplate(getActiveEvent()));
+  const [template, setTemplate] = useState(() => normalizeTemplate(null, getActiveEvent()));
   const [selectedId, setSelectedId] = useState("title_final");
-  const [exampleOpen, setExampleOpen] = useState(false);
+  const [exampleOpen, setExampleOpen] = useState(true);
   const [scalePercent, setScalePercent] = useState(60);
 
   const isEdit = Boolean(templateId);
@@ -358,27 +388,8 @@ export default function TeamStatusTemplateEditorPage() {
   const scale = scalePercent / 100;
 
   useEffect(() => {
-    const node = previewContainerRef.current;
-    if (!node) return;
-
-    function updateFitScale() {
-      const previewWidth = node.clientWidth;
-      const previewHeight = node.clientHeight;
-      const fitScale = Math.min(previewWidth / template.canvas.width, previewHeight / template.canvas.height, 1);
-      const fitPercent = Math.max(1, Math.round(fitScale * 100));
-      if (scalePercent > fitPercent) {
-        setScalePercent(fitPercent);
-      }
-    }
-
-    updateFitScale();
-    window.addEventListener("resize", updateFitScale);
-    return () => window.removeEventListener("resize", updateFitScale);
-  }, [template.canvas.height, template.canvas.width, scalePercent]);
-
-  useEffect(() => {
     const event = getActiveEvent();
-    const stored = getTemplatesByEvent();
+    const stored = readTemplatesByEvent();
     const found = templateId
       ? Object.values(stored)
           .flat()
@@ -388,6 +399,49 @@ export default function TeamStatusTemplateEditorPage() {
     setActiveEvent(event);
     setTemplate(normalizeTemplate(found, event));
   }, [templateId]);
+
+  useEffect(() => {
+    const node = canvasScrollRef.current;
+    if (!node) return;
+
+    function updateFitScale() {
+      const previewWidth = node.clientWidth;
+      const previewHeight = node.clientHeight;
+      const fitScale = Math.min(previewWidth / template.canvas.width, previewHeight / template.canvas.height, 1);
+      const fitPercent = Math.max(1, Math.round(fitScale * 100));
+      if (scalePercent > fitPercent) setScalePercent(fitPercent);
+    }
+
+    updateFitScale();
+    window.addEventListener("resize", updateFitScale);
+    return () => window.removeEventListener("resize", updateFitScale);
+  }, [template.canvas.width, template.canvas.height, scalePercent]);
+
+  useEffect(() => {
+    function onKeyDown(event) {
+      if (!selectedId) return;
+      if (!["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(event.key)) return;
+      const activeTag = document.activeElement?.tagName?.toLowerCase();
+      if (["input", "select", "textarea"].includes(activeTag)) return;
+
+      const { element, child } = selected;
+      if (!element) return;
+      event.preventDefault();
+      const step = event.shiftKey ? 10 : 1;
+      const dx = event.key === "ArrowLeft" ? -step : event.key === "ArrowRight" ? step : 0;
+      const dy = event.key === "ArrowUp" ? -step : event.key === "ArrowDown" ? step : 0;
+      const target = child ? element[child] : element;
+      const patch = {
+        x: Math.max(0, Number(target?.x || 0) + dx),
+        y: Math.max(0, Number(target?.y || 0) + dy),
+      };
+      if (child) updateSlotChild(element.id, child, patch);
+      else updateElement(element.id, patch);
+    }
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [selected, selectedId]);
 
   function updateTemplate(patch) {
     setTemplate((current) => ({ ...current, ...patch }));
@@ -400,29 +454,18 @@ export default function TeamStatusTemplateEditorPage() {
   function updateElement(elementId, patch) {
     setTemplate((current) => {
       const target = current.elements.find((element) => element.id === elementId);
-      const nextElements = current.elements.map((element) =>
-        element.id === elementId ? { ...element, ...patch } : element
-      );
-      let nextPreviewData = current.previewData;
-
+      const elements = current.elements.map((element) => (element.id === elementId ? { ...element, ...patch } : element));
+      let previewData = current.previewData;
       if (target?.kind === "title" && patch.text != null) {
-        const currentTitleValue = current.previewData?.titleValues?.[elementId];
-        if (currentTitleValue === undefined || currentTitleValue === target.text) {
-          nextPreviewData = {
-            ...current.previewData,
-            titleValues: {
-              ...(current.previewData?.titleValues || {}),
-              [elementId]: patch.text,
-            },
-          };
-        }
+        previewData = {
+          ...current.previewData,
+          titleValues: {
+            ...(current.previewData.titleValues || {}),
+            [elementId]: patch.text,
+          },
+        };
       }
-
-      return {
-        ...current,
-        elements: nextElements,
-        previewData: nextPreviewData,
-      };
+      return { ...current, elements, previewData };
     });
   }
 
@@ -430,156 +473,132 @@ export default function TeamStatusTemplateEditorPage() {
     setTemplate((current) => ({
       ...current,
       elements: current.elements.map((element) =>
-        element.id === elementId
-          ? { ...element, [child]: { ...element[child], ...patch } }
-          : element
+        element.id === elementId ? { ...element, [child]: { ...element[child], ...patch } } : element
       ),
     }));
   }
 
   function updatePreviewData(patch) {
-    setTemplate((current) => ({
-      ...current,
-      previewData: { ...current.previewData, ...patch },
-    }));
+    setTemplate((current) => ({ ...current, previewData: { ...current.previewData, ...patch } }));
   }
 
-  function nextTeamIndex(elements = []) {
-    const slotIndices = elements
+  function updateTeam(teamIndex, patch) {
+    setTemplate((current) => {
+      const teams = Array.isArray(current.previewData.teams) ? [...current.previewData.teams] : [];
+      teams[teamIndex] = { ...(teams[teamIndex] || { name: `Team ${teamIndex + 1}`, score: "0" }), ...patch };
+      return { ...current, previewData: { ...current.previewData, teams } };
+    });
+  }
+
+  function nextTeamIndex(elements = template.elements) {
+    const indices = elements
       .filter((element) => element.kind === "teamSlot")
       .map((slot) => Number(slot.teamIndex ?? 0));
-    return slotIndices.length ? Math.max(...slotIndices) + 1 : 0;
+    return indices.length ? Math.max(...indices) + 1 : 0;
   }
 
   function addTitle() {
-    const title = defaultTitle(uid("title"), "Title", 120, 120);
-    setTemplate((current) => {
-      const titleValues = { ...(current.previewData?.titleValues || {}), [title.id]: title.text };
-      return {
-        ...current,
-        elements: [...current.elements, title],
-        previewData: { ...current.previewData, titleValues },
-      };
-    });
+    const count = titles.length + 1;
+    const title = defaultTitle(makeId("title"), `Title ${count}`, 120, 120);
+    setTemplate((current) => ({
+      ...current,
+      elements: [...current.elements, title],
+      previewData: {
+        ...current.previewData,
+        titleValues: { ...(current.previewData.titleValues || {}), [title.id]: title.text },
+      },
+    }));
     setSelectedId(title.id);
-  }
-
-  function addSlot() {
-    const index = nextTeamIndex(template.elements);
-    const slot = defaultSlot(index + 1);
-    slot.teamIndex = index;
-
-    setTemplate((current) => {
-      const teams = Array.isArray(current.previewData?.teams) ? [...current.previewData.teams] : [];
-      if (teams[slot.teamIndex] == null) {
-        teams[slot.teamIndex] = { name: `Team ${slot.teamIndex + 1}`, score: "0" };
-      }
-      return {
-        ...current,
-        elements: [...current.elements, slot],
-        previewData: { ...current.previewData, teams },
-      };
-    });
-    setSelectedId(slot.id);
   }
 
   function duplicateTitle(title) {
     const copy = {
       ...title,
-      id: uid("title"),
+      id: makeId("title"),
       label: `${title.label || title.text || "Title"} Copy`,
       text: `${title.text || title.label || "Title"} Copy`,
       x: Number(title.x || 0) + 20,
       y: Number(title.y || 0) + 20,
     };
-
-    setTemplate((current) => {
-      const titleValues = { ...(current.previewData?.titleValues || {}), [copy.id]: copy.text };
-      return {
-        ...current,
-        elements: [...current.elements, copy],
-        previewData: { ...current.previewData, titleValues },
-      };
-    });
+    setTemplate((current) => ({
+      ...current,
+      elements: [...current.elements, copy],
+      previewData: {
+        ...current.previewData,
+        titleValues: { ...(current.previewData.titleValues || {}), [copy.id]: copy.text },
+      },
+    }));
     setSelectedId(copy.id);
   }
 
   function deleteTitle(titleId) {
-    const confirmed = window.confirm("Are you sure you want to delete this title layer?");
-    if (!confirmed) return;
-
+    if (!window.confirm("Delete this title layer?")) return;
     setTemplate((current) => {
-      const nextElements = current.elements.filter((element) => element.id !== titleId);
-      const nextPreviewData = { ...current.previewData };
-      if (nextPreviewData?.titleValues) {
-        const titleValues = { ...nextPreviewData.titleValues };
-        delete titleValues[titleId];
-        nextPreviewData.titleValues = titleValues;
-      }
-      const nextSelection = nextElements[0]?.id || "";
-      setSelectedId(nextSelection);
-      return { ...current, elements: nextElements, previewData: nextPreviewData };
+      const elements = current.elements.filter((element) => element.id !== titleId);
+      const titleValues = { ...(current.previewData.titleValues || {}) };
+      delete titleValues[titleId];
+      setSelectedId(elements[0]?.id || "");
+      return { ...current, elements, previewData: { ...current.previewData, titleValues } };
     });
   }
 
+  function addSlot() {
+    const index = nextTeamIndex();
+    const slot = defaultSlot(index + 1);
+    slot.teamIndex = index;
+    setTemplate((current) => {
+      const teams = Array.isArray(current.previewData.teams) ? [...current.previewData.teams] : [];
+      if (!teams[index]) teams[index] = defaultTeams[index] || { name: `Team ${index + 1}`, score: "0" };
+      return { ...current, elements: [...current.elements, slot], previewData: { ...current.previewData, teams } };
+    });
+    setSelectedId(slot.id);
+  }
+
   function duplicateSlot(slot) {
-    const nextIndex = nextTeamIndex(template.elements);
+    const index = nextTeamIndex();
     const copy = {
       ...slot,
-      id: uid("slot"),
-      label: `Slot ${nextIndex + 1}`,
-      y: Number(slot.y || 0) + 40,
-      teamIndex: nextIndex,
+      id: makeId("slot"),
+      label: `Slot ${index + 1}`,
+      teamIndex: index,
+      y: Number(slot.y || 0) + 72,
     };
-
     setTemplate((current) => {
-      const teams = Array.isArray(current.previewData?.teams) ? [...current.previewData.teams] : [];
-      if (teams[copy.teamIndex] == null) {
-        teams[copy.teamIndex] = { name: `Team ${copy.teamIndex + 1}`, score: "0" };
-      }
-      return {
-        ...current,
-        elements: [...current.elements, copy],
-        previewData: { ...current.previewData, teams },
-      };
+      const teams = Array.isArray(current.previewData.teams) ? [...current.previewData.teams] : [];
+      if (!teams[index]) teams[index] = defaultTeams[index] || { name: `Team ${index + 1}`, score: "0" };
+      return { ...current, elements: [...current.elements, copy], previewData: { ...current.previewData, teams } };
     });
     setSelectedId(copy.id);
   }
 
   function deleteSlot(slotId) {
-    setTemplate((current) => ({
-      ...current,
-      elements: current.elements.filter((element) => element.id !== slotId),
-    }));
+    if (!window.confirm("Delete this team score slot?")) return;
+    setTemplate((current) => ({ ...current, elements: current.elements.filter((element) => element.id !== slotId) }));
     setSelectedId("");
   }
 
-  function handleBackgroundUpload(event) {
+  async function handleBackgroundUpload(event) {
     const file = event.target.files?.[0];
     if (!file) return;
-    if (!validateImageFile(file)) return;
-
-    const reader = new FileReader();
-    reader.onload = () => {
-      const image = new Image();
-      image.onload = () => {
-        const nextWidth = image.naturalWidth;
-        const nextHeight = image.naturalHeight;
-        updateCanvas({
-          backgroundImage: reader.result,
-          width: nextWidth,
-          height: nextHeight,
-        });
-
-        const node = previewContainerRef.current;
-        if (node) {
-          const fitScale = Math.min(node.clientWidth / nextWidth, node.clientHeight / nextHeight, 1);
-          setScalePercent(Math.max(1, Math.round(fitScale * 100)));
-        }
-      };
-      image.src = reader.result;
+    if (!validateImageFile(file)) {
+      event.target.value = "";
+      return;
+    }
+    const dataUrl = await dataUrlFromFile(file);
+    const image = new Image();
+    image.onload = () => {
+      updateCanvas({
+        backgroundImage: dataUrl,
+        width: Number(image.naturalWidth) || template.canvas.width,
+        height: Number(image.naturalHeight) || template.canvas.height,
+      });
+      const node = canvasScrollRef.current;
+      if (node) {
+        const fitScale = Math.min(node.clientWidth / image.naturalWidth, node.clientHeight / image.naturalHeight, 1);
+        setScalePercent(Math.max(1, Math.round(fitScale * 100)));
+      }
     };
-    reader.readAsDataURL(file);
+    image.src = dataUrl;
   }
 
   function beginDrag(event, elementId, child = "") {
@@ -607,8 +626,8 @@ export default function TeamStatusTemplateEditorPage() {
     const dx = (event.clientX - drag.startX) / scale;
     const dy = (event.clientY - drag.startY) / scale;
     const patch = {
-      x: Math.round((drag.originalX + dx) * 100) / 100,
-      y: Math.round((drag.originalY + dy) * 100) / 100,
+      x: Math.max(0, Math.round((drag.originalX + dx) * 10) / 10),
+      y: Math.max(0, Math.round((drag.originalY + dy) * 10) / 10),
     };
     if (drag.child) updateSlotChild(drag.elementId, drag.child, patch);
     else updateElement(drag.elementId, patch);
@@ -623,33 +642,38 @@ export default function TeamStatusTemplateEditorPage() {
   function saveTemplate() {
     try {
       const activeEventId = localStorage.getItem(getUserStorageKey(ACTIVE_EVENT_KEY)) || activeEvent?.id;
-      
       if (!activeEventId) {
         alert("Please create or select an event first before creating a template.");
         return;
       }
+      if (!template.name.trim()) {
+        alert("Template name is required.");
+        return;
+      }
 
-      const stored = getTemplatesByEvent();
+      const stored = readTemplatesByEvent();
       const currentList = stored[activeEventId] || [];
       const nextTemplate = {
         ...template,
-        id: isEdit ? template.id : template.id || uid("team_status_template"),
+        id: isEdit ? template.id : template.id || makeId("team_status_template"),
         eventId: activeEventId,
         type: "team-status",
+        canvas: {
+          ...template.canvas,
+          width: Number(template.canvas.width) || 1,
+          height: Number(template.canvas.height) || 1,
+        },
         previewImage: makePreviewImage(template),
-        updatedAt: today(),
         createdAt: template.createdAt || today(),
+        updatedAt: today(),
       };
-
       const nextList = isEdit
         ? currentList.map((item) => (String(item.id) === String(nextTemplate.id) ? nextTemplate : item))
         : [...currentList, nextTemplate];
 
       localStorage.setItem(getUserStorageKey(STORAGE_KEY), JSON.stringify({ ...stored, [activeEventId]: nextList }));
-
       window.dispatchEvent(new Event("rankify-data-changed"));
       window.dispatchEvent(new Event("rankify-team-status-templates-changed"));
-      
       navigate("/dashboard/team-status-templates");
     } catch (error) {
       if (error?.name === "QuotaExceededError") {
@@ -664,21 +688,25 @@ export default function TeamStatusTemplateEditorPage() {
   function renderToolbar() {
     if (!selected.element) {
       return (
-        <div className="toolbar team-status-editor-toolbar empty-toolbar">
-          <strong className="empty-message">No element selected.</strong>
-          <div className="toolbar-group">
-            <span>Add New Elements:</span>
-            <button type="button" onClick={addTitle}><PlusCircle size={16} strokeWidth={1.9} aria-hidden="true" /> Title Part</button>
-            <button type="button" onClick={addSlot}><ListOrdered size={16} strokeWidth={1.9} aria-hidden="true" /> Team Score Slot</button>
-          </div>
-          <div className="toolbar-group existing-group">
-            <span>Existing Elements:</span>
-            {titles.map((title, index) => (
-              <button type="button" key={title.id} onClick={() => setSelectedId(title.id)}>Title {index + 1}</button>
-            ))}
-            {slots.map((slot, index) => (
-              <button type="button" key={slot.id} onClick={() => setSelectedId(slot.id)}>Team Slot {index + 1}</button>
-            ))}
+        <div className="fixed bottom-0 left-[260px] right-0 z-40 overflow-x-auto border-t border-[var(--app-border)] bg-[var(--app-bg)]/95 px-4 py-3 shadow-[0_-8px_20px_rgba(15,23,42,0.08)] backdrop-blur max-[900px]:left-0">
+          <div className="flex min-w-max items-center gap-8">
+            <div>
+              <p className="app-muted text-xs font-bold uppercase">Tools</p>
+              <p className="app-muted text-sm">Select a title part or team score layer to edit it.</p>
+            </div>
+            <div>
+              <p className="app-muted text-xs font-bold uppercase">Add New</p>
+              <div className="flex gap-2">
+                <button type="button" onClick={addTitle} className="app-card h-10 rounded-md border px-4 hover:bg-[var(--app-surface-elevated)]">
+                  <PlusCircle className="mr-2 inline-block align-[-2px]" size={16} strokeWidth={1.9} aria-hidden="true" />
+                  Title Part
+                </button>
+                <button type="button" onClick={addSlot} className="app-card h-10 rounded-md border px-4 hover:bg-[var(--app-surface-elevated)]">
+                  <ListOrdered className="mr-2 inline-block align-[-2px]" size={16} strokeWidth={1.9} aria-hidden="true" />
+                  Team Score Slot
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       );
@@ -686,13 +714,27 @@ export default function TeamStatusTemplateEditorPage() {
 
     if (selected.element.kind === "teamSlot" && !selected.child) {
       return (
-        <div className="toolbar team-status-editor-toolbar">
-          {numberControl("X (Slot)", selected.element.x, (value) => updateElement(selected.element.id, { x: value }))}
-          {numberControl("Y (Slot)", selected.element.y, (value) => updateElement(selected.element.id, { y: value }))}
-          {numberControl("Width", selected.element.width, (value) => updateElement(selected.element.id, { width: value }))}
-          {numberControl("Spacing", selected.element.spacing, (value) => updateElement(selected.element.id, { spacing: value }))}
-          {selectControl("H. Align", selected.element.horizontalAlign, ["left", "center", "right"], (value) => updateElement(selected.element.id, { horizontalAlign: value }))}
-          {selectControl("V. Align", selected.element.verticalAlign, ["top", "center", "bottom"], (value) => updateElement(selected.element.id, { verticalAlign: value }))}
+        <div className="fixed bottom-0 left-[260px] right-0 z-40 overflow-x-auto border-t border-[var(--app-border)] bg-[var(--app-bg)]/95 px-4 py-3 shadow-[0_-8px_20px_rgba(15,23,42,0.08)] backdrop-blur max-[900px]:left-0">
+          <div className="flex min-w-max items-end gap-3">
+            <ToolbarField label="X Position"><NumberInput value={selected.element.x} onChange={(x) => updateElement(selected.element.id, { x })} /></ToolbarField>
+            <ToolbarField label="Y Position"><NumberInput value={selected.element.y} onChange={(y) => updateElement(selected.element.id, { y })} /></ToolbarField>
+            <ToolbarField label="Width"><NumberInput value={selected.element.width} onChange={(width) => updateElement(selected.element.id, { width })} /></ToolbarField>
+            <ToolbarField label="Spacing"><NumberInput value={selected.element.spacing} onChange={(spacing) => updateElement(selected.element.id, { spacing })} /></ToolbarField>
+            <ToolbarField label="Horizontal Align">
+              <select value={selected.element.horizontalAlign || "left"} onChange={(event) => updateElement(selected.element.id, { horizontalAlign: event.target.value })} className={inputClass("w-36")}>
+                <option value="left">Left</option>
+                <option value="center">Center</option>
+                <option value="right">Right</option>
+              </select>
+            </ToolbarField>
+            <ToolbarField label="Vertical Align">
+              <select value={selected.element.verticalAlign || "top"} onChange={(event) => updateElement(selected.element.id, { verticalAlign: event.target.value })} className={inputClass("w-36")}>
+                <option value="top">Top</option>
+                <option value="center">Center</option>
+                <option value="bottom">Bottom</option>
+              </select>
+            </ToolbarField>
+          </div>
         </div>
       );
     }
@@ -703,111 +745,167 @@ export default function TeamStatusTemplateEditorPage() {
       : (patch) => updateElement(selected.element.id, patch);
 
     return (
-      <div className="toolbar team-status-editor-toolbar">
-        {numberControl("X Position", target.x, (value) => update({ x: value }))}
-        {numberControl("Y Position", target.y, (value) => update({ y: value }))}
-        {!selected.child && selectControl("Data Source", target.dataSource, ["manual", "eventName", "organizerName", "eventDate", "eventLocation"], (value) => update({ dataSource: value }))}
-        {!selected.child && textControl("Example Text", target.text, (value) => update({ text: value, label: value }))}
-        {fontFamilyControl("Font Family", target.fontFamily, (value) => update({ fontFamily: value }))}
-        {numberControl("Font Size", target.fontSize, (value) => update({ fontSize: value }))}
-        {selectControl("Font Weight", target.fontWeight, ["400", "500", "600", "700", "800"], (value) => update({ fontWeight: value }))}
-        {selectControl("Align", target.align, ["left", "center", "right"], (value) => update({ align: value }))}
-        {colorControl("Color", target.color, (value) => update({ color: value }))}
-        {numberControl("Line Height", target.lineHeight, (value) => update({ lineHeight: value }), 0.1)}
-        {numberControl("Width", target.width, (value) => update({ width: value }))}
-        {checkboxControl("Show BG", target.showBg, (value) => update({ showBg: value }))}
+      <div className="fixed bottom-0 left-[260px] right-0 z-40 overflow-x-auto border-t border-[var(--app-border)] bg-[var(--app-bg)]/95 px-4 py-3 shadow-[0_-8px_20px_rgba(15,23,42,0.08)] backdrop-blur max-[900px]:left-0">
+        <div className="flex min-w-max items-end gap-3">
+          {!selected.child && (
+            <ToolbarField label="Data Source">
+              <select value={target.dataSource || "manual"} onChange={(event) => update({ dataSource: event.target.value })} className={inputClass("w-40")}>
+                <option value="manual">Manual</option>
+                <option value="eventName">Event Name</option>
+                <option value="organizerName">Organizer Name</option>
+                <option value="eventDate">Event Date</option>
+                <option value="eventLocation">Event Location</option>
+              </select>
+            </ToolbarField>
+          )}
+          {!selected.child && (
+            <ToolbarField label="Text">
+              <input value={target.text || ""} onChange={(event) => update({ text: event.target.value, label: event.target.value })} className={inputClass("w-48")} />
+            </ToolbarField>
+          )}
+          <ToolbarField label="Font Family">
+            <FontFamilySelect value={target.fontFamily || "Inter"} onChange={(fontFamily) => update({ fontFamily })} className={inputClass("w-48")} />
+          </ToolbarField>
+          <ToolbarField label="Font Size"><NumberInput value={target.fontSize} onChange={(fontSize) => update({ fontSize })} /></ToolbarField>
+          <ToolbarField label="Font Weight">
+            <select value={target.fontWeight || "700"} onChange={(event) => update({ fontWeight: event.target.value })} className={inputClass("w-36")}>
+              <option value="400">400</option>
+              <option value="500">500</option>
+              <option value="600">600</option>
+              <option value="700">700</option>
+              <option value="800">800</option>
+            </select>
+          </ToolbarField>
+          <ToolbarField label="Align">
+            <select value={target.align || "left"} onChange={(event) => update({ align: event.target.value })} className={inputClass("w-32")}>
+              <option value="left">Left</option>
+              <option value="center">Center</option>
+              <option value="right">Right</option>
+            </select>
+          </ToolbarField>
+          <ToolbarField label="Color"><input type="color" value={target.color || "#000000"} onChange={(event) => update({ color: event.target.value })} className={inputClass("w-20 p-1")} /></ToolbarField>
+          <ToolbarField label="Line Height"><NumberInput value={target.lineHeight} onChange={(lineHeight) => update({ lineHeight })} /></ToolbarField>
+          <ToolbarField label="Width"><NumberInput value={target.width} onChange={(width) => update({ width })} /></ToolbarField>
+          <ToolbarField label="X Position"><NumberInput value={target.x} onChange={(x) => update({ x })} /></ToolbarField>
+          <ToolbarField label="Y Position"><NumberInput value={target.y} onChange={(y) => update({ y })} /></ToolbarField>
+          <label className="app-text flex min-w-[84px] items-center gap-2 text-sm font-medium">
+            <span>Show BG</span>
+            <input type="checkbox" checked={Boolean(target.showBg)} onChange={(event) => update({ showBg: event.target.checked })} className="h-4 w-4" />
+          </label>
+        </div>
       </div>
     );
   }
 
   return (
-    <section className="team-editor-page team-status-editor-page w-full max-w-full overflow-x-hidden">
-      <style>{styles}</style>
-      <header className="sticky top-0 z-30 border-b border-gray-200 bg-[#F8FAFC] px-5 py-4">
+    <div className="template-editor-page app-page min-h-screen overflow-x-hidden pb-28">
+      <style>{teamStatusEditorThemeStyles}</style>
+      <header className="app-header sticky top-0 z-30 border-b px-5 py-4">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="flex min-w-0 items-center gap-4">
             <button
               type="button"
               onClick={() => navigate("/dashboard/team-status-templates")}
-              className="rounded-md px-2 py-1 text-2xl text-gray-600 hover:bg-gray-100"
+              className="rounded-md px-2 py-1 text-2xl text-[var(--app-muted)] hover:bg-[var(--app-surface-elevated)]"
             >
               <ArrowLeft size={22} strokeWidth={1.9} aria-hidden="true" />
             </button>
             <div className="min-w-0">
-              <p className="text-sm text-gray-500">Team Point Status Templates</p>
-              <h1 className="text-2xl font-bold">{isEdit ? `Edit — ${template.name}` : "Create team status template"}</h1>
+              <p className="app-muted text-sm">Team Status Templates</p>
+              <h1 className="app-heading truncate text-2xl font-bold">{isEdit ? "Edit Team Status Template" : "Create Team Status Template"}</h1>
             </div>
           </div>
           <button
             type="button"
             onClick={saveTemplate}
-            className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-md bg-[#26752C] px-4 text-sm font-semibold text-white shadow-sm hover:bg-[#1f6425]"
+            className="app-success-btn inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-md px-4 text-sm font-semibold shadow-sm hover:opacity-90"
           >
-            <Save size={17} />
+            <Save size={16} strokeWidth={1.9} aria-hidden="true" />
             {isEdit ? "Save changes" : "Create template"}
           </button>
         </div>
       </header>
 
-      <main className="team-status-editor-grid grid w-full max-w-full min-w-0 grid-cols-1 gap-4 overflow-x-hidden p-4 min-[1181px]:grid-cols-[260px_minmax(0,1fr)_360px]">
-        <aside className="team-status-editor-panel layers-panel w-full max-w-full min-w-0 rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
-          <h2>LAYERS</h2>
+      <main className="grid w-full max-w-full grid-cols-[260px_minmax(0,1fr)_360px] gap-4 overflow-x-hidden p-4 max-[1180px]:grid-cols-1">
+        <aside className="app-card min-w-0 rounded-lg border p-4 shadow-sm">
+          <h2 className="app-muted mb-3 text-xs font-bold uppercase tracking-wide">Layers</h2>
           {titles.map((title) => (
-            <LayerRow
+            <LayerButton
               key={title.id}
               active={selectedId === title.id}
-              label={`T ${title.label}`}
+              label={title.label || title.text || "Title"}
+              icon={<Type size={15} strokeWidth={1.9} aria-hidden="true" />}
               onSelect={() => setSelectedId(title.id)}
               onDuplicate={() => duplicateTitle(title)}
               onDelete={() => deleteTitle(title.id)}
             />
           ))}
-          <h3>TEAM SCORE SLOTS</h3>
+
+          <h3 className="app-muted mb-3 mt-6 text-xs font-bold uppercase tracking-wide">Team Score Slots</h3>
           {slots.map((slot, index) => (
-            <div key={slot.id} className="slot-layer">
-              <LayerRow
+            <div key={slot.id} className="mb-2">
+              <LayerButton
                 active={selectedId === slot.id}
-                label={<><ListOrdered size={14} strokeWidth={1.9} aria-hidden="true" /> Slot {index + 1}</>}
+                label={`Slot ${index + 1}`}
+                icon={<ListOrdered size={15} strokeWidth={1.9} aria-hidden="true" />}
                 onSelect={() => setSelectedId(slot.id)}
                 onDuplicate={() => duplicateSlot(slot)}
                 onDelete={() => deleteSlot(slot.id)}
               />
-              <button type="button" className={selectedId === `${slot.id}:name` ? "active child" : "child"} onClick={() => setSelectedId(`${slot.id}:name`)}>
+              <button
+                type="button"
+                onClick={() => setSelectedId(`${slot.id}:name`)}
+                className={`mb-1 block w-full rounded-md px-8 py-2 text-left text-sm ${
+                  selectedId === `${slot.id}:name`
+                    ? "layer-row-active"
+                    : "app-text hover:bg-[var(--app-surface-elevated)]"
+                }`}
+              >
                 T Team Name
               </button>
-              <button type="button" className={selectedId === `${slot.id}:score` ? "active child" : "child"} onClick={() => setSelectedId(`${slot.id}:score`)}>
+              <button
+                type="button"
+                onClick={() => setSelectedId(`${slot.id}:score`)}
+                className={`mb-1 block w-full rounded-md px-8 py-2 text-left text-sm ${
+                  selectedId === `${slot.id}:score`
+                    ? "layer-row-active"
+                    : "app-text hover:bg-[var(--app-surface-elevated)]"
+                }`}
+              >
                 T Score
               </button>
             </div>
           ))}
-          <div className="layer-actions">
-            <button type="button" onClick={addTitle}><PlusCircle size={15} strokeWidth={1.9} aria-hidden="true" /> Add title part</button>
-            <button type="button" onClick={addSlot}><ListOrdered size={15} strokeWidth={1.9} aria-hidden="true" /> Add team score slot</button>
+
+          <div className="mt-5 grid gap-2 border-t border-[var(--app-border)] pt-4">
+            <button type="button" onClick={addTitle} className="app-card flex h-10 items-center gap-2 rounded-md border px-3 text-sm hover:bg-[var(--app-surface-elevated)]">
+              <PlusCircle size={16} strokeWidth={1.9} aria-hidden="true" />
+              Add title part
+            </button>
+            <button type="button" onClick={addSlot} className="app-card flex h-10 items-center gap-2 rounded-md border px-3 text-sm hover:bg-[var(--app-surface-elevated)]">
+              <ListOrdered size={16} strokeWidth={1.9} aria-hidden="true" />
+              Add team score slot
+            </button>
           </div>
-          <p className="hint">↑↓ Arrow keys nudge selected element (Shift = 10 px)</p>
+          <p className="app-muted mt-4 text-xs">Arrow keys nudge selected element. Hold Shift for 10 px.</p>
         </aside>
 
-        <section className="team-status-editor-panel preview-panel w-full max-w-full min-w-0 rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
+        <section className="app-card min-w-0 max-w-full overflow-hidden rounded-lg border p-4 shadow-sm">
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-            <h2 className="whitespace-nowrap text-2xl font-bold">Live Preview</h2>
+            <h2 className="app-heading whitespace-nowrap text-2xl font-bold">Live Preview</h2>
             <div className="flex min-w-0 flex-wrap items-center justify-end gap-3 text-sm">
-              <span className="text-gray-600">Canvas: {template.canvas.width}×{template.canvas.height}px</span>
-              <select
-                value={scalePercent}
-                onChange={(event) => setScalePercent(Number(event.target.value))}
-                className="h-9 rounded-md border border-gray-300 bg-white px-3"
-              >
+              <span className="app-muted">Canvas: {template.canvas.width}x{template.canvas.height}px</span>
+              <select value={scalePercent} onChange={(event) => setScalePercent(Number(event.target.value))} className={inputClass("w-36")}>
                 {scaleSelectOptions.map((value) => (
                   <option key={value} value={value}>Scaled to {value}%</option>
                 ))}
               </select>
             </div>
           </div>
-          <div className="preview-scroll max-h-[520px] overflow-auto rounded-lg bg-white p-4" ref={previewContainerRef}>
-            <div className="canvas-scroll-inner">
+          <div ref={canvasScrollRef} className="max-h-[520px] w-full max-w-full overflow-auto rounded-lg bg-[var(--app-surface)] p-4">
+            <div className="flex w-max min-w-full justify-center">
               <div
-                className="canvas-outer"
-                ref={previewRef}
+                className="relative flex-[0_0_auto] overflow-hidden"
                 style={{ width: template.canvas.width * scale, height: template.canvas.height * scale }}
                 onClick={() => setSelectedId("")}
               >
@@ -823,189 +921,113 @@ export default function TeamStatusTemplateEditorPage() {
             </div>
           </div>
 
-          <section className="mt-6 rounded-lg bg-white/70 p-4">
-            <button type="button" onClick={() => setExampleOpen((open) => !open)} className="flex w-full items-center justify-between text-left text-lg font-semibold">
-              Example Data for Preview <span>{exampleOpen ? <ChevronUp size={18} strokeWidth={1.9} aria-hidden="true" /> : <ChevronDown size={18} strokeWidth={1.9} aria-hidden="true" />}</span>
+          <section className="app-surface-elevated mt-6 rounded-lg border border-[var(--app-border)] p-4">
+            <button type="button" onClick={() => setExampleOpen((open) => !open)} className="app-heading flex w-full items-center justify-between text-left text-lg font-semibold">
+              Example Data for Preview
+              {exampleOpen ? <ChevronUp size={18} strokeWidth={1.9} aria-hidden="true" /> : <ChevronDown size={18} strokeWidth={1.9} aria-hidden="true" />}
             </button>
             {exampleOpen && (
-              <div className="example-fields">
-                <p>Adjust these values to see how your template elements will look with real data. These values are NOT saved with the template.</p>
-                <h3>Event Data (for dynamic elements)</h3>
-                <div className="two-col">
-                  {textInput("Event Name", template.previewData.eventName, (value) => updatePreviewData({ eventName: value }))}
-                  {textInput("Organizer Name", template.previewData.organizerName, (value) => updatePreviewData({ organizerName: value }))}
-                  {textInput("Event Date (string)", template.previewData.eventDate, (value) => updatePreviewData({ eventDate: value }))}
-                  {textInput("Event Location", template.previewData.eventLocation, (value) => updatePreviewData({ eventLocation: value }))}
+              <div className="mt-4 max-w-full overflow-x-hidden">
+                <p className="app-muted mb-4 text-sm">
+                  Adjust these values to see how your team status template will look with real data. These values are NOT saved with the template.
+                </p>
+
+                <h3 className="app-heading mb-3 mt-4 font-semibold">Event Data</h3>
+                <div className="example-grid">
+                  <TextInput label="Event Name" value={template.previewData.eventName} onChange={(eventName) => updatePreviewData({ eventName })} />
+                  <TextInput label="Organizer Name" value={template.previewData.organizerName} onChange={(organizerName) => updatePreviewData({ organizerName })} />
+                  <TextInput label="Event Date" value={template.previewData.eventDate} onChange={(eventDate) => updatePreviewData({ eventDate })} />
+                  <TextInput label="Event Location" value={template.previewData.eventLocation} onChange={(eventLocation) => updatePreviewData({ eventLocation })} />
                 </div>
-                <h3>Manual Title Parts</h3>
-                {titles
-                  .filter((title) => title.dataSource === "manual")
-                  .map((title) =>
-                    textInput(
-                      title.label || title.text || "Title",
-                      template.previewData.titleValues?.[title.id] ?? title.text ?? "",
-                      (value) => updatePreviewData({
-                        titleValues: {
-                          ...(template.previewData.titleValues || {}),
-                          [title.id]: value,
-                        },
-                      })
-                    )
-                  )}
-                <h3>Example Teams & Scores</h3>
-                {slots.map((slot, index) => {
-                  const teamIndex = Number(slot.teamIndex ?? index);
-                  const team = template.previewData.teams?.[teamIndex] || { name: `Team ${teamIndex + 1}`, score: "0" };
-                  return (
-                    <div className="team-row" key={slot.id}>
-                      <input value={team.name} onChange={(event) => {
-                        const teams = [...(template.previewData.teams || [])];
-                        teams[teamIndex] = { ...teams[teamIndex], name: event.target.value };
-                        updatePreviewData({ teams });
-                      }} />
-                      <input value={team.score} onChange={(event) => {
-                        const teams = [...(template.previewData.teams || [])];
-                        teams[teamIndex] = { ...teams[teamIndex], score: event.target.value };
-                        updatePreviewData({ teams });
-                      }} />
-                    </div>
-                  );
-                })}
-                <button type="button" className="add-example" onClick={() => addSlot()}>
-                  <ListOrdered size={16} strokeWidth={1.9} aria-hidden="true" /> Add Team Score Slot
-                </button>
+
+                <h3 className="app-heading mb-3 mt-6 font-semibold">Title Parts</h3>
+                <div className="example-grid">
+                  {titles.map((title) => (
+                    <TextInput
+                      key={title.id}
+                      label={title.label || title.text || "Title"}
+                      value={template.previewData.titleValues?.[title.id] ?? title.text ?? ""}
+                      onChange={(value) =>
+                        updatePreviewData({
+                          titleValues: { ...(template.previewData.titleValues || {}), [title.id]: value },
+                        })
+                      }
+                    />
+                  ))}
+                </div>
+
+                <h3 className="app-heading mb-3 mt-6 font-semibold">Teams and Scores</h3>
+                <div className="space-y-3">
+                  {slots.map((slot, index) => {
+                    const teamIndex = Number(slot.teamIndex ?? index);
+                    const team = template.previewData.teams?.[teamIndex] || { name: `Team ${teamIndex + 1}`, score: "0" };
+                    return (
+                      <div key={slot.id} className="team-example-row">
+                        <TextInput label={`Slot ${index + 1} Team`} value={team.name} onChange={(name) => updateTeam(teamIndex, { name })} />
+                        <TextInput label="Score" value={team.score} onChange={(score) => updateTeam(teamIndex, { score })} />
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             )}
           </section>
         </section>
 
-        <aside className="team-status-editor-panel config-panel w-full max-w-full min-w-0 rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
-          <h2 className="mb-8 text-2xl font-bold">Template Configuration</h2>
-          {textInput("Template Name", template.name, (value) => updateTemplate({ name: value }))}
-          <label>
-            Background Image
-            <input type="file" accept="image/*" onChange={handleBackgroundUpload} />
-          </label>
+        <aside className="app-card min-w-0 overflow-x-hidden rounded-lg border p-6 shadow-sm">
+          <h2 className="app-heading mb-8 text-2xl font-bold">Template Configuration</h2>
+          <TextInput label="Template Name" value={template.name} onChange={(name) => updateTemplate({ name })} />
+          <ToolbarField label="Background Image">
+            <input type="file" accept="image/*" onChange={handleBackgroundUpload} className={inputClass("box-border h-auto min-h-10 w-full max-w-full min-w-0 truncate py-2")} />
+          </ToolbarField>
           {template.canvas.backgroundImage && (
             <>
               <img className="bg-preview" src={template.canvas.backgroundImage} alt="" />
-              <button type="button" className="clear-btn" onClick={() => updateCanvas({ backgroundImage: "" })}>Clear Image</button>
+              <button type="button" className="app-danger-btn h-10 self-start rounded-md px-4 font-semibold hover:opacity-90" onClick={() => updateCanvas({ backgroundImage: "" })}>
+                Clear Image
+              </button>
             </>
           )}
-          <div className="two-col">
-            {numberInput("Canvas Width (px)", template.canvas.width, (value) => updateCanvas({ width: value }))}
-            {numberInput("Canvas Height (px)", template.canvas.height, (value) => updateCanvas({ height: value }))}
+          <h3 className="mb-3 mt-5 text-sm font-bold">Canvas Dimensions</h3>
+          <div className="grid w-full grid-cols-1 gap-3 min-[1380px]:grid-cols-[repeat(2,minmax(0,1fr))]">
+            <ToolbarField label="Canvas Width (px)"><NumberInput value={template.canvas.width} onChange={(width) => updateCanvas({ width })} className="box-border w-full max-w-full min-w-0" /></ToolbarField>
+            <ToolbarField label="Canvas Height (px)"><NumberInput value={template.canvas.height} onChange={(height) => updateCanvas({ height })} className="box-border w-full max-w-full min-w-0" /></ToolbarField>
           </div>
-          <button type="button" className="big-save-btn" onClick={saveTemplate}>
-            {isEdit ? "Save Template Changes" : "Create Template"}
-          </button>
+          <div className="mt-48 border-t border-[var(--app-border)] pt-6">
+            <button type="button" className="app-success-btn h-14 w-full rounded-md text-lg font-bold hover:opacity-90" onClick={saveTemplate}>
+              {isEdit ? "Save Template Changes" : "Create New Template"}
+            </button>
+            <p className="app-muted mt-3 text-center text-xs">Tip: you can also save from the sticky bar at the top.</p>
+          </div>
         </aside>
       </main>
 
       {renderToolbar()}
-    </section>
+    </div>
   );
 }
 
-function textInput(label, value, onChange) {
-  return (
-    <label>
-      {label}
-      <input value={value || ""} onChange={(event) => onChange(event.target.value)} />
-    </label>
-  );
-}
-
-function numberInput(label, value, onChange) {
-  return (
-    <label>
-      {label}
-      <input type="number" value={value ?? ""} onChange={(event) => onChange(Number(event.target.value))} />
-    </label>
-  );
-}
-
-function numberControl(label, value, onChange, step = 1) {
-  return (
-    <label>
-      {label}
-      <input type="number" step={step} value={value ?? ""} onChange={(event) => onChange(Number(event.target.value))} />
-    </label>
-  );
-}
-
-function textControl(label, value, onChange) {
-  return (
-    <label>
-      {label}
-      <input value={value || ""} onChange={(event) => onChange(event.target.value)} />
-    </label>
-  );
-}
-
-function fontFamilyControl(label, value, onChange) {
-  return (
-    <label>
-      {label}
-      <FontFamilySelect value={value} onChange={onChange} />
-    </label>
-  );
-}
-
-function selectControl(label, value, options, onChange) {
-  return (
-    <label>
-      {label}
-      <select value={value || options[0]} onChange={(event) => onChange(event.target.value)}>
-        {options.map((option) => <option key={option} value={option}>{option}</option>)}
-      </select>
-    </label>
-  );
-}
-
-function colorControl(label, value, onChange) {
-  return (
-    <label>
-      {label}
-      <input type="color" value={value || "#000000"} onChange={(event) => onChange(event.target.value)} />
-    </label>
-  );
-}
-
-function checkboxControl(label, value, onChange) {
-  return (
-    <label className="check-control">
-      {label}
-      <input type="checkbox" checked={Boolean(value)} onChange={(event) => onChange(event.target.checked)} />
-    </label>
-  );
-}
-
-const styles = `
-.team-editor-page{min-height:100vh;background:#F8FAFC;color:#020817;padding-bottom:112px;font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;overflow-x:hidden}
-.team-editor-page>main,.team-editor-page>main>*{width:100%;max-width:100%;min-width:0;box-sizing:border-box}
-.team-editor-page header>div>div:first-child{flex:1 1 0;min-width:0}.team-editor-page header h1{min-width:0;margin:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:24px;line-height:32px;font-weight:700}.team-editor-page header p{margin:0;color:#6B7280;font-size:14px;line-height:20px}
-.editor-header{min-height:76px;border-bottom:1px solid #D9DEE6;display:flex;align-items:center;gap:14px;padding:12px 20px 12px 28px;background:#F8FAFC;flex-wrap:wrap}
-.back-btn{border:0;background:transparent;color:#4B5563;display:flex;cursor:pointer}.editor-header p{margin:0;color:#667085;font-size:13px}.editor-header h1{margin:2px 0 0;font-size:21px;line-height:1.2;font-weight:800}.save-btn{margin-left:auto;height:40px;border:0;border-radius:7px;background:#26752C;color:#fff;padding:0 14px;display:flex;align-items:center;gap:8px;font-weight:800;cursor:pointer}
-.layers-panel,.preview-panel,.config-panel{border:1px solid #D9DEE6;border-radius:8px;background:#fff;box-shadow:0 1px 3px rgba(15,23,42,.06);min-width:0;max-width:100%;justify-self:stretch;overflow-x:hidden}
-.layers-panel{padding:16px;min-height:620px;max-height:calc(100vh - 196px);overflow:auto}.layers-panel h2,.layers-panel h3{margin:0 0 10px;color:#667085;font-size:12px;font-weight:800;letter-spacing:.02em}.layers-panel h3{margin-top:26px}.layers-panel button{width:100%;min-height:32px;border:0;border-radius:6px;background:transparent;display:flex;align-items:center;justify-content:space-between;text-align:left;padding:0 10px;cursor:pointer}.layers-panel button.active{background:#26752C!important;color:#fff!important;font-weight:700}.layers-panel button:focus-visible{outline:2px solid #26752C;outline-offset:2px}.layers-panel button.active:focus-visible{outline-color:#1f6425}.layers-panel button.child{padding-left:22px}.layer-row{gap:8px}.layer-label{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.layer-icons{margin-left:auto;display:flex;align-items:center;justify-content:flex-end;gap:10px;flex:0 0 auto}.layer-icons svg{display:block;border-radius:4px}.layer-icons svg:hover{background:rgba(15,23,42,.08)}.active .layer-icons svg:hover{background:rgba(255,255,255,.18)}.layer-actions{border-top:1px solid #D9DEE6;margin-top:18px;padding-top:12px;display:grid;gap:4px}.layer-actions button{color:#475467}.hint{margin:14px 0 0;color:#98A2B3;font-size:12px;line-height:1.35}
-.preview-panel{padding:16px;min-height:620px;overflow:hidden}.panel-title{display:flex;align-items:flex-start;justify-content:space-between;gap:16px}.panel-title h2{margin:0;font-size:22px;line-height:1.2}.panel-title p{margin:2px 0 0;color:#344054;font-size:13px;white-space:nowrap}.panel-title span{border:1px solid #D9DEE6;border-radius:6px;padding:4px 9px;background:#fff}
-.preview-scroll{width:100%;max-width:100%;overflow:auto}.canvas-scroll-inner{display:flex;width:max-content;min-width:100%;justify-content:center}.canvas-outer{margin:22px 0 34px;position:relative;overflow:hidden;flex:0 0 auto}.canvas-inner{position:relative;overflow:hidden;background-size:cover;background-position:center;transform-origin:top left;border:1px solid #D9DEE6;border-radius:6px}
-.canvas-element,.slot-element,.slot-child{position:absolute;box-sizing:border-box;cursor:move;user-select:none;white-space:pre-wrap}.canvas-element.selected,.slot-element.selected,.slot-child.selected{outline:2px solid #26752C;outline-offset:0}.slot-element{height:42px;display:flex;position:absolute}.slot-child{min-height:24px;padding:0 4px}
-.example-panel{background:#fff;border-top:1px solid #F1F3F6}.example-panel>button{width:100%;height:56px;border:0;background:#fff;display:flex;align-items:center;justify-content:space-between;padding:0 18px;font-size:18px;cursor:pointer}.example-fields{padding:0 18px 18px;max-width:100%;overflow-x:hidden}.example-fields p{color:#344054}.example-fields h3{font-size:16px}.two-col{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;width:100%;max-width:100%}.team-row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-bottom:8px;width:100%;max-width:100%}.two-col label,.team-row label,.example-fields label{min-width:0}.two-col input,.two-col select,.team-row input,.team-row select,.example-fields input,.example-fields select{width:100%;max-width:100%;box-sizing:border-box}.add-example{height:36px;border:1px solid #D9DEE6;border-radius:6px;background:#fff;padding:0 14px;font-size:16px;cursor:pointer}
-.config-panel{padding:20px 16px;display:flex;flex-direction:column;gap:12px;min-height:620px;max-height:calc(100vh - 196px);overflow:auto}.config-panel h2{margin:0 0 18px;font-size:24px;font-weight:500}label{display:grid;gap:6px;font-size:15px;min-width:0}input,select{width:100%;min-width:0;height:38px;border:1px solid #D9DEE6;border-radius:6px;background:#fff;padding:0 12px;font-size:15px;outline:none;box-sizing:border-box}input:focus,select:focus{border-color:#26752C;box-shadow:0 0 0 3px rgba(38,117,44,.16)}.bg-preview{width:100%;max-height:360px;object-fit:contain;border-radius:6px;background:#F3F4F6}.clear-btn{align-self:flex-start;height:36px;border:0;border-radius:6px;background:#DC2626;color:#fff;padding:0 14px;font-weight:700;cursor:pointer}.big-save-btn{margin-top:auto;height:52px;min-height:52px;border:0;border-radius:7px;background:#26752C;color:#fff;font-size:20px;font-weight:800;cursor:pointer}
-.toolbar{position:fixed;left:260px;right:0;bottom:0;z-index:30;min-height:82px;border-top:1px solid #D9DEE6;background:#F8FAFC;display:flex;align-items:center;gap:10px;padding:10px 14px;box-shadow:0 -2px 10px rgba(15,23,42,.06);overflow-x:auto;overflow-y:hidden;white-space:nowrap;max-width:100%}.toolbar label{min-width:90px;display:grid;gap:6px;color:#344054;font-size:13px;font-weight:600}.toolbar input,.toolbar select{height:38px;border-radius:7px;max-width:100%;box-sizing:border-box}.toolbar button{height:38px;border:1px solid #D9DEE6;border-radius:7px;background:#fff;padding:0 14px;font-size:16px;cursor:pointer;box-shadow:0 1px 2px rgba(15,23,42,.06);max-width:100%}.toolbar.empty-toolbar{gap:16px}.empty-message{color:#667085;white-space:nowrap;font-size:15px}.toolbar-group{display:flex;align-items:center;gap:10px;white-space:nowrap}.toolbar-group span{color:#667085;font-size:15px;font-weight:500}.existing-group button{background:#EAF5EA;border-color:#DDEBDD;color:#176B22;box-shadow:none}.check-control{min-width:70px;display:flex!important;align-items:center;gap:8px}.check-control input{width:18px;height:18px;min-width:18px;padding:0}.toolbar label:has(input[type="color"]){min-width:86px}.toolbar input[type="color"]{width:56px;padding:4px}.toolbar label:has(select){min-width:120px}.toolbar label:nth-child(4){min-width:230px}.toolbar label:nth-child(5){min-width:200px}
-@media(max-width:1180px){.toolbar{left:0}.layers-panel,.preview-panel,.config-panel{width:100%;max-width:100%;max-height:none;min-height:auto}.config-panel{min-height:420px}.save-btn{margin-left:0}.editor-header h1{white-space:normal}}
-@media(max-width:900px){.two-col,.team-row{grid-template-columns:1fr}.toolbar{left:0;right:0}.preview-panel{padding:12px}.preview-scroll{padding:12px}.canvas-scroll-inner{justify-content:flex-start}.config-panel{padding:16px}.big-save-btn{font-size:17px}.toolbar-group{gap:8px}.toolbar.empty-toolbar{align-items:flex-start}}
-@media(max-width:767px){
-  .team-status-editor-page,
-  .team-status-editor-page *{box-sizing:border-box}
-  .team-status-editor-page{width:100%;max-width:100%;min-width:0;overflow-x:hidden}
-  .team-status-editor-grid{display:grid!important;grid-template-columns:minmax(0,1fr)!important;width:100%!important;max-width:100%!important;min-width:0!important;overflow-x:hidden!important}
-  .team-status-editor-panel{width:100%!important;max-width:100%!important;min-width:0!important;justify-self:stretch!important}
-  .team-status-editor-toolbar{left:0!important;right:0!important;width:auto!important;max-width:100%!important;overflow-x:auto!important}
-  .team-status-editor-panel input,
-  .team-status-editor-panel select,
-  .team-status-editor-panel button{max-width:100%;box-sizing:border-box}
-}
+const teamStatusEditorThemeStyles = `
+.template-editor-page h2,
+.template-editor-page h3{color:var(--app-heading)}
+.template-editor-page input,
+.template-editor-page select,
+.template-editor-page textarea{background:var(--app-input-bg);color:var(--app-text);border-color:var(--app-border)}
+.template-editor-page input::placeholder,
+.template-editor-page textarea::placeholder{color:var(--app-muted)}
+.template-editor-page input:focus,
+.template-editor-page select:focus,
+.template-editor-page textarea:focus{border-color:var(--app-primary);box-shadow:0 0 0 3px var(--app-focus-ring)}
+.template-editor-page input[type=file]::file-selector-button{border:1px solid var(--app-border);border-radius:6px;background:var(--app-surface-elevated);color:var(--app-text);margin-right:10px;padding:5px 10px}
+.template-editor-page .app-card{background:var(--app-surface);border-color:var(--app-border);color:var(--app-text)}
+.template-editor-page .app-surface-elevated{background:var(--app-surface-elevated);color:var(--app-text)}
+.template-editor-page button:not(.app-success-btn):not(.app-danger-btn){color:inherit}
+.template-editor-page .layer-row-active{background:var(--app-sidebar-active-bg);color:var(--app-sidebar-active-text);font-weight:700}
+.template-editor-page .layer-row-active:hover{background:var(--app-sidebar-active-bg);color:var(--app-sidebar-active-text)}
+.template-editor-page .layer-row-active svg{color:var(--app-sidebar-active-text)}
+.team-status-template-canvas{color-scheme:light}
+.bg-preview{width:100%;max-height:300px;object-fit:contain;border-radius:8px;background:var(--app-surface-elevated);border:1px solid var(--app-border);color-scheme:light}
+.example-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;width:100%;max-width:100%}
+.team-example-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(120px,.35fr);gap:12px;width:100%;max-width:100%}
+@media(max-width:900px){.example-grid,.team-example-row{grid-template-columns:minmax(0,1fr)}.template-editor-page header h1{white-space:normal}}
 `;

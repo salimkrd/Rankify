@@ -5,8 +5,249 @@
 @tailwind utilities;
 
 :root {
-  background: #f8fafc;
-  color: #0d1b2a;
+  color-scheme: light;
+  --app-bg: #F8FAFC;
+  --app-header-bg: #FFFFFF;
+  --app-sidebar-bg: #FFFFFF;
+  --app-surface: #FFFFFF;
+  --app-surface-elevated: #FFFFFF;
+  --app-heading: #0D1B2A;
+  --app-text: #334155;
+  --app-muted: #64748B;
+  --app-border: #E2E8F0;
+  --app-primary: #2563EB;
+  --app-primary-text: #FFFFFF;
+  --app-trophy: #FFC107;
+  --app-trophy-text: #0D1B2A;
+  --app-success: #14B8A6;
+  --app-success-text: #FFFFFF;
+  --app-sidebar-active-bg: #EFF6FF;
+  --app-sidebar-active-text: #2563EB;
+  --app-input-bg: #FFFFFF;
+  --app-dropdown-bg: #FFFFFF;
+  --app-danger: #DC2626;
+  --app-danger-text: #FFFFFF;
+  --app-danger-bg-soft: #FEF2F2;
+  --app-focus-ring: rgba(37, 99, 235, 0.18);
+  --app-shadow-sm: 0 1px 2px rgba(13, 27, 42, 0.06);
+  --app-shadow-md: 0 10px 24px rgba(13, 27, 42, 0.08);
+  --app-shadow-lg: 0 18px 45px rgba(13, 27, 42, 0.12);
+  --color-bg: var(--app-bg);
+  --color-surface: var(--app-surface);
+  --color-surface-elevated: var(--app-surface-elevated);
+  --color-heading: var(--app-heading);
+  --color-text: var(--app-text);
+  --color-muted: var(--app-muted);
+  --color-border: var(--app-border);
+  --color-primary: var(--app-primary);
+  --color-primary-hover: #1D4ED8;
+  --color-primary-text: var(--app-primary-text);
+  --color-trophy: var(--app-trophy);
+  --color-trophy-text: var(--app-trophy-text);
+  --color-success: var(--app-success);
+  --color-success-hover: #0F9F91;
+  --color-success-text: var(--app-success-text);
+  --color-danger: var(--app-danger);
+  --color-danger-soft: var(--app-danger-bg-soft);
+  --color-header-bg: var(--app-header-bg);
+  --color-sidebar-bg: var(--app-sidebar-bg);
+  --color-sidebar-active-bg: var(--app-sidebar-active-bg);
+  --color-sidebar-active-text: var(--app-sidebar-active-text);
+  --color-sidebar-hover-bg: #F1F5F9;
+  --color-shadow-sm: var(--app-shadow-sm);
+  --color-shadow-lg: var(--app-shadow-lg);
+}
+
+html.dark {
+  color-scheme: dark;
+  --app-bg: #07111F;
+  --app-header-bg: #0D1B2A;
+  --app-sidebar-bg: #0D1B2A;
+  --app-surface: #10243A;
+  --app-surface-elevated: #132D46;
+  --app-heading: #F8FAFC;
+  --app-text: #CBD5E1;
+  --app-muted: #94A3B8;
+  --app-border: #1E3A5F;
+  --app-primary: #2563EB;
+  --app-primary-text: #FFFFFF;
+  --app-trophy: #FFC107;
+  --app-trophy-text: #0D1B2A;
+  --app-success: #14B8A6;
+  --app-success-text: #FFFFFF;
+  --app-sidebar-active-bg: rgba(255, 193, 7, 0.12);
+  --app-sidebar-active-text: #FFC107;
+  --app-input-bg: #10243A;
+  --app-dropdown-bg: #132D46;
+  --app-danger: #EF4444;
+  --app-danger-bg-soft: rgba(239, 68, 68, 0.14);
+  --app-focus-ring: rgba(255, 193, 7, 0.18);
+  --app-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.32);
+  --app-shadow-md: 0 16px 34px rgba(0, 0, 0, 0.35);
+  --app-shadow-lg: 0 20px 60px rgba(0, 0, 0, 0.42);
+  --color-primary-hover: #1D4ED8;
+  --color-success-hover: #0D9488;
+  --color-sidebar-hover-bg: rgba(255, 255, 255, 0.06);
+}
+
+.app-page {
+  min-height: 100vh;
+  background: var(--app-bg);
+  color: var(--app-text);
+}
+
+.app-header {
+  background: var(--app-header-bg);
+  border-color: var(--app-border);
+  color: var(--app-heading);
+}
+
+.app-sidebar {
+  background: var(--app-sidebar-bg);
+  border-color: var(--app-border);
+  color: var(--app-text);
+}
+
+.app-card,
+.app-surface {
+  background: var(--app-surface);
+  border-color: var(--app-border);
+  color: var(--app-text);
+  box-shadow: var(--app-shadow-sm);
+}
+
+.app-surface-elevated {
+  background: var(--app-surface-elevated);
+  border-color: var(--app-border);
+  color: var(--app-text);
+}
+
+.app-heading {
+  color: var(--app-heading);
+}
+
+.app-text {
+  color: var(--app-text);
+}
+
+.app-muted {
+  color: var(--app-muted);
+}
+
+.app-border {
+  border-color: var(--app-border);
+}
+
+.app-input,
+.app-select,
+.app-textarea {
+  background: var(--app-input-bg);
+  border-color: var(--app-border);
+  color: var(--app-text);
+}
+
+.app-input::placeholder,
+.app-textarea::placeholder {
+  color: var(--app-muted);
+}
+
+.app-dropdown,
+.app-modal {
+  background: var(--app-dropdown-bg);
+  border-color: var(--app-border);
+  color: var(--app-text);
+  box-shadow: var(--app-shadow-lg);
+}
+
+.app-primary-btn,
+.app-success-btn,
+.app-trophy-btn,
+.app-danger-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border: 0;
+}
+
+.app-primary-btn {
+  background: var(--app-primary);
+  color: var(--app-primary-text);
+}
+
+.app-success-btn {
+  background: var(--app-success);
+  color: var(--app-success-text);
+}
+
+.app-trophy-btn {
+  background: var(--app-trophy);
+  color: var(--app-trophy-text);
+}
+
+.app-danger-btn {
+  background: var(--app-danger);
+  color: var(--app-danger-text);
+}
+
+.app-badge {
+  background: var(--app-sidebar-active-bg);
+  color: var(--app-sidebar-active-text);
+}
+
+.app-sidebar-active {
+  background: var(--app-sidebar-active-bg);
+  color: var(--app-sidebar-active-text);
+}
+
+.theme-toggle {
+  display: inline-flex;
+  overflow: hidden;
+  border: 1px solid var(--app-border);
+  border-radius: 9999px;
+  background: var(--app-surface-elevated);
+  color: var(--app-muted);
+  box-shadow: var(--app-shadow-sm);
+}
+
+.theme-toggle__button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  min-height: 2.25rem;
+  padding: 0.5rem 0.75rem;
+  color: var(--app-muted);
+  font-size: 0.75rem;
+  font-weight: 700;
+  transition: background-color 160ms ease, color 160ms ease;
+}
+
+.theme-toggle.w-full .theme-toggle__button {
+  flex: 1 1 0;
+}
+
+.theme-toggle__button:hover {
+  background: var(--app-sidebar-active-bg);
+  color: var(--app-sidebar-active-text);
+}
+
+.theme-toggle__button.is-active {
+  background: var(--app-primary);
+  color: var(--app-primary-text);
+}
+
+html.dark .theme-toggle__button.is-active {
+  background: var(--app-trophy);
+  color: var(--app-trophy-text);
+}
+
+.poster-canvas,
+.live-preview-canvas,
+.canvas-inner,
+.canvas-outer,
+.certificate-preview-canvas {
+  color-scheme: light;
 }
 
 html,
@@ -23,8 +264,9 @@ body,
 body {
   margin: 0;
   min-width: 320px;
-  background: #f8fafc;
+  background: var(--app-bg);
   overflow-x: hidden;
+  color: var(--app-text);
 }
 
 html,
@@ -46,6 +288,19 @@ textarea {
   font: inherit;
   max-width: 100%;
   box-sizing: border-box;
+}
+
+input:not([type="color"]):not([type="checkbox"]):not([type="radio"]),
+select,
+textarea {
+  background-color: var(--app-input-bg);
+  border-color: var(--app-border);
+  color: var(--app-text);
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: var(--app-muted);
 }
 
 button {

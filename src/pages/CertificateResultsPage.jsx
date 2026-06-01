@@ -90,23 +90,23 @@ export default function CertificateResultsPage() {
   }
 
   return (
-    <section className="min-h-screen w-full overflow-x-hidden bg-[#F8FAFC] px-6 py-9 text-[#020817] max-sm:px-4">
+    <section className="app-page min-h-screen w-full overflow-x-hidden px-6 py-9 max-sm:px-4">
       <div className="w-full max-w-full">
-        <h1 className="break-words text-[30px] font-extrabold leading-tight text-[#020817] max-sm:text-2xl">Certificate Results</h1>
-        <p className="mt-4 break-words text-2xl leading-snug text-[#4B5563] max-sm:text-lg">
+        <h1 className="app-heading break-words text-[30px] font-extrabold leading-tight max-sm:text-2xl">Certificate Results</h1>
+        <p className="app-muted mt-4 break-words text-2xl leading-snug max-sm:text-lg">
           {activeEvent?.name
             ? `View generated certificates for ${activeEvent.name}`
             : "View generated certificates"}
         </p>
 
         {eventResults.length === 0 ? (
-          <div className="mt-12 flex min-h-[220px] w-full items-center justify-center rounded-xl border border-dashed border-gray-300 bg-[#F8FAFC] px-6 text-center max-sm:px-4">
+          <div className="app-surface mt-12 flex min-h-[220px] w-full items-center justify-center rounded-xl border border-dashed border-[var(--app-border)] px-6 text-center max-sm:px-4">
             <div>
-              <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-full bg-gray-100 text-gray-500">
+              <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-full bg-[var(--app-surface-elevated)] text-[var(--app-muted)]">
                 <FileSearch size={38} strokeWidth={1.8} aria-hidden="true" />
               </div>
-              <h2 className="text-2xl font-extrabold leading-tight text-[#020817] max-sm:text-xl">No Certificates Found</h2>
-              <p className="mt-3 text-xl text-[#020817] max-sm:text-base">
+              <h2 className="app-heading text-2xl font-extrabold leading-tight max-sm:text-xl">No Certificates Found</h2>
+              <p className="app-text mt-3 text-xl max-sm:text-base">
                 No certificates have been generated for this event yet.
               </p>
             </div>
@@ -114,33 +114,33 @@ export default function CertificateResultsPage() {
         ) : (
           <div className="mt-10 grid max-w-full grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-5">
             {eventResults.map((result) => (
-              <article key={result.id} className="min-w-0 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
-                <div className="flex h-44 items-center justify-center bg-gray-100">
+              <article key={result.id} className="app-card min-w-0 overflow-hidden rounded-xl border shadow-sm">
+                <div className="flex h-44 items-center justify-center bg-[var(--app-surface-elevated)]">
                   {result.previewImage || result.image ? (
                     <img src={result.previewImage || result.image} alt="" className="h-full w-full object-contain" />
                   ) : (
-                    <span className="text-sm font-semibold text-gray-500">Certificate Preview</span>
+                    <span className="app-muted text-sm font-semibold">Certificate Preview</span>
                   )}
                 </div>
                 <div className="p-4">
-                  <h2 className="truncate text-lg font-bold text-[#0D1B2A]">
+                  <h2 className="app-heading truncate text-lg font-bold">
                     {result.candidateName || result.name || "Unnamed Candidate"}
                   </h2>
-                  <p className="mt-1 truncate text-sm text-gray-600">{result.programName || "Untitled Program"}</p>
-                  <p className="mt-2 text-sm text-gray-500">
+                  <p className="app-text mt-1 truncate text-sm">{result.programName || "Untitled Program"}</p>
+                  <p className="app-muted mt-2 text-sm">
                     {[result.position, result.team, result.category].filter(Boolean).join(" / ") || "No result details"}
                   </p>
-                  <p className="mt-3 text-xs text-gray-400">Created: {formatDate(result.createdAt)}</p>
+                  <p className="app-muted mt-3 text-xs">Created: {formatDate(result.createdAt)}</p>
                   <div className="mt-4 flex flex-wrap gap-2">
-                    <button type="button" className="rounded-md border border-gray-200 bg-white px-3 py-2 text-sm font-semibold text-[#0D1B2A] hover:bg-gray-50">
+                    <button type="button" className="app-card rounded-md border px-3 py-2 text-sm font-semibold hover:bg-[var(--app-surface-elevated)]">
                       <Eye className="mr-2 inline-block align-[-2px]" size={16} strokeWidth={1.9} aria-hidden="true" />
                       View
                     </button>
-                    <button type="button" className="rounded-md border border-gray-200 bg-white px-3 py-2 text-sm font-semibold text-[#0D1B2A] hover:bg-gray-50">
+                    <button type="button" className="app-card rounded-md border px-3 py-2 text-sm font-semibold hover:bg-[var(--app-surface-elevated)]">
                       <Download className="mr-2 inline-block align-[-2px]" size={16} strokeWidth={1.9} aria-hidden="true" />
                       Download
                     </button>
-                    <button type="button" onClick={() => handleDelete(result.id)} className="rounded-md px-3 py-2 text-sm font-semibold text-red-600 hover:bg-red-50">
+                    <button type="button" onClick={() => handleDelete(result.id)} className="rounded-md px-3 py-2 text-sm font-semibold text-[var(--app-danger)] hover:bg-[var(--app-danger-bg-soft)]">
                       <Trash2 className="mr-2 inline-block align-[-2px]" size={16} strokeWidth={1.9} aria-hidden="true" />
                       Delete
                     </button>

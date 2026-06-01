@@ -274,12 +274,12 @@ const defaultElements = [
 ];
 
 function inputClass(extra = "") {
-  return `h-10 rounded-md border border-gray-300 bg-white px-3 text-sm outline-none focus:border-[#26752C] focus:ring-2 focus:ring-green-100 ${extra}`;
+  return `app-input h-10 rounded-md border px-3 text-sm outline-none focus:border-[var(--app-primary)] focus:ring-2 focus:ring-[var(--app-focus-ring)] ${extra}`;
 }
 
 function ToolbarField({ label, children }) {
   return (
-    <label className="flex min-w-0 flex-col gap-1 text-sm text-[#0D1B2A]">
+    <label className="app-text flex min-w-0 flex-col gap-1 text-sm">
       <span className="whitespace-nowrap font-medium">{label}</span>
       {children}
     </label>
@@ -674,26 +674,27 @@ export default function TemplateEditorPage() {
   );
 
   return (
-    <div className="min-h-screen overflow-x-hidden bg-[#F8FAFC] pb-28 text-[#0D1B2A]">
-      <header className="sticky top-0 z-30 border-b border-gray-200 bg-[#F8FAFC] px-5 py-4">
+    <div className="template-editor-page app-page min-h-screen overflow-x-hidden pb-28">
+      <style>{templateEditorThemeStyles}</style>
+      <header className="app-header sticky top-0 z-30 border-b px-5 py-4">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="flex min-w-0 items-center gap-4">
             <button
               type="button"
               onClick={() => navigate("/dashboard/program-templates")}
-              className="rounded-md px-2 py-1 text-2xl text-gray-600 hover:bg-gray-100"
+              className="rounded-md px-2 py-1 text-2xl text-[var(--app-muted)] hover:bg-[var(--app-surface-elevated)]"
             >
               <ArrowLeft size={22} strokeWidth={1.9} aria-hidden="true" />
             </button>
             <div className="min-w-0">
-              <p className="text-sm text-gray-500">Poster Templates</p>
-              <h1 className="truncate text-2xl font-bold">{templateId ? `Edit - ${templateName || "New Template"}` : "Create poster template"}</h1>
+              <p className="app-muted text-sm">Poster Templates</p>
+              <h1 className="app-heading truncate text-2xl font-bold">{templateId ? `Edit - ${templateName || "New Template"}` : "Create poster template"}</h1>
             </div>
           </div>
           <button
             type="button"
             onClick={saveTemplate}
-            className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-md bg-[#26752C] px-4 text-sm font-semibold text-white shadow-sm hover:bg-[#1f6425]"
+            className="app-success-btn inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-md px-4 text-sm font-semibold shadow-sm hover:opacity-90"
           >
             <Save size={16} strokeWidth={1.9} aria-hidden="true" />
             {templateId ? "Save changes" : "Create template"}
@@ -702,27 +703,27 @@ export default function TemplateEditorPage() {
       </header>
 
       <main className="grid w-full max-w-full grid-cols-[260px_minmax(0,1fr)_360px] gap-4 overflow-x-hidden p-4 max-[1180px]:grid-cols-1">
-        <aside className="min-w-0 rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
-          <h2 className="mb-4 text-xs font-bold uppercase tracking-wide text-gray-600">Layers</h2>
+        <aside className="app-card min-w-0 rounded-lg border p-4 shadow-sm">
+          <h2 className="app-muted mb-4 text-xs font-bold uppercase tracking-wide">Layers</h2>
           <LayerButton element={elements.find((item) => item.id === "programName")} selected={selectedElementId} onSelect={setSelectedElementId} />
           <LayerButton element={elements.find((item) => item.id === "category")} selected={selectedElementId} onSelect={setSelectedElementId} />
           <LayerButton element={elements.find((item) => item.id === "resultNumber")} selected={selectedElementId} onSelect={setSelectedElementId} />
           <LayerButton element={winnerContainer} selected={selectedElementId} onSelect={setSelectedElementId} icon={<Trophy size={15} strokeWidth={1.9} aria-hidden="true" />} />
 
-          <p className="mb-2 mt-5 text-xs font-bold uppercase tracking-wide text-gray-400">Winner Item (All)</p>
+          <p className="app-muted mb-2 mt-5 text-xs font-bold uppercase tracking-wide">Winner Item (All)</p>
           <LayerButton element={elements.find((item) => item.id === "winnerPosition")} selected={selectedElementId} onSelect={setSelectedElementId} />
           <LayerButton element={elements.find((item) => item.id === "winnerName")} selected={selectedElementId} onSelect={setSelectedElementId} />
           <LayerButton element={elements.find((item) => item.id === "winnerTeam")} selected={selectedElementId} onSelect={setSelectedElementId} />
           <LayerButton element={elements.find((item) => item.id === "winnerPhoto")} selected={selectedElementId} onSelect={setSelectedElementId} icon={<Image size={15} strokeWidth={1.9} aria-hidden="true" />} />
 
-          {elements.some((item) => item.custom) && <div className="my-4 border-t border-gray-200" />}
+          {elements.some((item) => item.custom) && <div className="my-4 border-t border-[var(--app-border)]" />}
           {elements
             .filter((item) => item.custom)
             .map((element) => (
               <div
                 key={element.id}
                 className={`mb-1 flex items-center gap-1 rounded-md px-2 py-2 text-sm ${
-                  selectedElementId === element.id ? "bg-[#26752C] text-white" : "hover:bg-gray-50"
+                  selectedElementId === element.id ? "bg-[var(--app-success)] text-[var(--app-success-text)]" : "app-text hover:bg-[var(--app-surface-elevated)]"
                 }`}
               >
                 <button type="button" onClick={() => setSelectedElementId(element.id)} className="min-w-0 flex-1 truncate text-left">
@@ -737,12 +738,12 @@ export default function TemplateEditorPage() {
               </div>
             ))}
 
-          <div className="mt-4 border-t border-gray-200 pt-4">
-            <button type="button" onClick={addCustomTextField} className="block w-full rounded-md px-3 py-2 text-left text-sm hover:bg-gray-50">
+          <div className="mt-4 border-t border-[var(--app-border)] pt-4">
+            <button type="button" onClick={addCustomTextField} className="app-text block w-full rounded-md px-3 py-2 text-left text-sm hover:bg-[var(--app-surface-elevated)]">
               <PlusCircle className="mr-2 inline-block align-[-2px]" size={15} strokeWidth={1.9} aria-hidden="true" />
               Add custom text field
             </button>
-            <button type="button" onClick={addImageElement} className="block w-full rounded-md px-3 py-2 text-left text-sm hover:bg-gray-50">
+            <button type="button" onClick={addImageElement} className="app-text block w-full rounded-md px-3 py-2 text-left text-sm hover:bg-[var(--app-surface-elevated)]">
               <Image className="mr-2 inline-block align-[-2px]" size={15} strokeWidth={1.9} aria-hidden="true" />
               Add image element
             </button>
@@ -751,15 +752,15 @@ export default function TemplateEditorPage() {
           <p className="mt-40 text-xs text-gray-400">↑↓ Arrow keys nudge selected element<br />(Shift = 10 px)</p>
         </aside>
 
-        <section className="min-w-0 max-w-full overflow-hidden rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
+        <section className="app-card min-w-0 max-w-full overflow-hidden rounded-lg border p-4 shadow-sm">
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
             <h2 className="whitespace-nowrap text-2xl font-bold">Live Preview</h2>
             <div className="flex items-center gap-3 text-sm">
-              <span className="text-gray-600">Canvas: {canvas.width}x{canvas.height}px</span>
+              <span className="app-muted">Canvas: {canvas.width}x{canvas.height}px</span>
               <select
                 value={scalePercent}
                 onChange={(event) => setScalePercent(Number(event.target.value))}
-                className="h-9 rounded-md border border-gray-300 bg-white px-3"
+                className="app-select h-9 rounded-md border px-3"
               >
                 {scaleSelectOptions.map((value) => (
                   <option key={value} value={value}>Scaled to {value}%</option>
@@ -774,7 +775,7 @@ export default function TemplateEditorPage() {
 
           <div
             ref={canvasScrollRef}
-            className="max-h-[520px] w-full max-w-full overflow-auto rounded-lg bg-white p-4"
+            className="max-h-[520px] w-full max-w-full overflow-auto rounded-lg bg-[var(--app-surface)] p-4"
             onPointerMove={handlePointerMove}
             onPointerUp={endDrag}
             onPointerLeave={endDrag}
@@ -830,7 +831,7 @@ export default function TemplateEditorPage() {
             </div>
           </div>
 
-          <section className="mt-6 rounded-lg bg-white/70 p-4">
+          <section className="app-surface-elevated mt-6 rounded-lg p-4">
             <button
               type="button"
               onClick={() => setPreviewOpen((open) => !open)}
@@ -844,8 +845,8 @@ export default function TemplateEditorPage() {
           </section>
         </section>
 
-        <aside className="min-w-0 overflow-x-hidden rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
-          <h2 className="mb-8 text-2xl font-bold">Template Configuration</h2>
+        <aside className="app-card min-w-0 overflow-x-hidden rounded-lg border p-6 shadow-sm">
+          <h2 className="app-heading mb-8 text-2xl font-bold">Template Configuration</h2>
           <label className="mb-5 block">
             <span className="mb-1 block text-sm font-semibold">Template Name</span>
             <input value={templateName} onChange={(event) => setTemplateName(event.target.value)} className={inputClass("box-border w-full max-w-full min-w-0 text-base")} />
@@ -855,7 +856,7 @@ export default function TemplateEditorPage() {
             <input type="file" accept="image/*" onChange={handleBackgroundUpload} className={inputClass("box-border w-full max-w-full min-w-0 truncate")} />
           </label>
           {backgroundName && (
-            <div className="mb-5 flex items-start justify-between gap-3 text-sm text-gray-500">
+            <div className="app-muted mb-5 flex items-start justify-between gap-3 text-sm">
               <span className="min-w-0 truncate">Image loaded. Canvas dimensions set to image size. {backgroundName}</span>
               <button type="button" onClick={() => { setCanvas((current) => ({ ...current, backgroundImage: "" })); setBackgroundName(""); }} className="shrink-0 text-red-600">
                 Clear Image
@@ -881,11 +882,11 @@ export default function TemplateEditorPage() {
               />
             </ToolbarField>
           </div>
-          <div className="mt-48 border-t border-gray-200 pt-6">
-            <button type="button" onClick={saveTemplate} className="h-14 w-full rounded-md bg-[#26752C] text-lg font-bold text-white hover:bg-[#1f6425]">
+          <div className="mt-48 border-t border-[var(--app-border)] pt-6">
+            <button type="button" onClick={saveTemplate} className="app-success-btn h-14 w-full rounded-md text-lg font-bold hover:opacity-90">
               {templateId ? "Save Template Changes" : "Create New Template"}
             </button>
-            <p className="mt-3 text-center text-xs text-gray-500">Tip: you can also save from the sticky bar at the top.</p>
+            <p className="app-muted mt-3 text-center text-xs">Tip: you can also save from the sticky bar at the top.</p>
           </div>
         </aside>
       </main>
@@ -902,14 +903,14 @@ export default function TemplateEditorPage() {
 
       {removeTarget && (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-[560px] rounded-lg bg-white p-6 shadow-2xl">
-            <h2 className="text-xl font-bold">Remove "{removeTarget.label}"?</h2>
-            <p className="mt-3 text-gray-500">This element will be permanently removed from the template.</p>
+          <div className="app-modal w-full max-w-[560px] rounded-lg p-6 shadow-2xl">
+            <h2 className="app-heading text-xl font-bold">Remove "{removeTarget.label}"?</h2>
+            <p className="app-muted mt-3">This element will be permanently removed from the template.</p>
             <div className="mt-6 flex justify-end gap-2">
-              <button type="button" onClick={() => setRemoveTarget(null)} className="h-10 rounded-md border border-gray-300 px-4 hover:bg-gray-50">
+              <button type="button" onClick={() => setRemoveTarget(null)} className="app-card h-10 rounded-md border px-4 hover:bg-[var(--app-surface-elevated)]">
                 Cancel
               </button>
-              <button type="button" onClick={() => removeElement(removeTarget)} className="h-10 rounded-md bg-red-600 px-5 font-semibold text-white hover:bg-red-700">
+              <button type="button" onClick={() => removeElement(removeTarget)} className="app-danger-btn h-10 rounded-md px-5 font-semibold hover:opacity-90">
                 Remove
               </button>
             </div>
@@ -927,7 +928,7 @@ function LayerButton({ element, selected, onSelect, icon = <Type size={15} strok
       type="button"
       onClick={() => onSelect(element.id)}
       className={`mb-1 block w-full rounded-md px-3 py-2 text-left text-sm ${
-        selected === element.id ? "bg-[#26752C] text-white" : "hover:bg-gray-50"
+        selected === element.id ? "bg-[var(--app-success)] text-[var(--app-success-text)]" : "app-text hover:bg-[var(--app-surface-elevated)]"
       }`}
     >
       <span className="mr-2 inline-flex align-[-2px]">{icon}</span>{element.label}
@@ -948,13 +949,13 @@ function NumberInput({ value, onChange, className = "w-20" }) {
 
 function AlignButtons({ value, onChange }) {
   return (
-    <div className="flex h-10 overflow-hidden rounded-md border border-gray-300">
+    <div className="flex h-10 overflow-hidden rounded-md border border-[var(--app-border)]">
       {["left", "center", "right"].map((align) => (
         <button
           type="button"
           key={align}
           onClick={() => onChange(align)}
-          className={`w-10 ${value === align ? "bg-green-100" : "bg-white"}`}
+          className={`w-10 ${value === align ? "bg-[var(--app-sidebar-active-bg)] text-[var(--app-sidebar-active-text)]" : "bg-[var(--app-surface)]"}`}
         >
           {align === "left" ? (
             <AlignLeft className="mx-auto" size={16} strokeWidth={1.9} aria-hidden="true" />
@@ -979,34 +980,34 @@ function ElementToolbar({
   handleImageUpload,
 }) {
   const chip = (label, id) => (
-    <button key={id} type="button" onClick={() => setSelectedElementId(id)} className="rounded-md bg-green-50 px-4 py-2 text-green-800">
+    <button key={id} type="button" onClick={() => setSelectedElementId(id)} className="rounded-md bg-[var(--app-sidebar-active-bg)] px-4 py-2 text-[var(--app-sidebar-active-text)]">
       {label}
     </button>
   );
 
   if (!selectedElement) {
     return (
-      <div className="fixed bottom-0 left-[260px] right-0 z-40 border-t border-gray-200 bg-[#F8FAFC]/95 px-4 py-3 shadow-[0_-8px_20px_rgba(15,23,42,0.04)] backdrop-blur max-[900px]:left-0">
+      <div className="fixed bottom-0 left-[260px] right-0 z-40 border-t border-[var(--app-border)] bg-[var(--app-bg)]/95 px-4 py-3 shadow-[0_-8px_20px_rgba(15,23,42,0.08)] backdrop-blur max-[900px]:left-0">
         <div className="flex min-w-max items-center gap-8 overflow-x-auto">
           <div>
-            <p className="text-xs font-bold uppercase text-gray-500">Tools</p>
-            <p className="text-sm text-gray-500">Click the canvas, or pick an element below.</p>
+            <p className="app-muted text-xs font-bold uppercase">Tools</p>
+            <p className="app-muted text-sm">Click the canvas, or pick an element below.</p>
           </div>
           <div>
-            <p className="text-xs font-bold uppercase text-gray-500">Add New</p>
+            <p className="app-muted text-xs font-bold uppercase">Add New</p>
             <div className="flex gap-2">
-              <button type="button" onClick={addCustomTextField} className="h-10 rounded-md border border-gray-300 bg-white px-4 hover:bg-gray-50">
+              <button type="button" onClick={addCustomTextField} className="app-card h-10 rounded-md border px-4 hover:bg-[var(--app-surface-elevated)]">
                 <PlusCircle className="mr-2 inline-block align-[-2px]" size={16} strokeWidth={1.9} aria-hidden="true" />
                 Custom Field
               </button>
-              <button type="button" onClick={addImageElement} className="h-10 rounded-md border border-gray-300 bg-white px-4 hover:bg-gray-50">
+              <button type="button" onClick={addImageElement} className="app-card h-10 rounded-md border px-4 hover:bg-[var(--app-surface-elevated)]">
                 <Image className="mr-2 inline-block align-[-2px]" size={16} strokeWidth={1.9} aria-hidden="true" />
                 Image Element
               </button>
             </div>
           </div>
           <div>
-            <p className="text-xs font-bold uppercase text-gray-500">Existing Elements</p>
+            <p className="app-muted text-xs font-bold uppercase">Existing Elements</p>
             <div className="flex gap-2">
               {[
                 ["Program", "programName"],
@@ -1030,7 +1031,7 @@ function ElementToolbar({
   const isResult = selectedElement.id === "resultNumber";
 
   return (
-    <div className="fixed bottom-0 left-[260px] right-0 z-40 overflow-x-auto border-t border-gray-200 bg-[#F8FAFC]/95 px-4 py-3 shadow-[0_-8px_20px_rgba(15,23,42,0.04)] backdrop-blur max-[900px]:left-0">
+    <div className="fixed bottom-0 left-[260px] right-0 z-40 overflow-x-auto border-t border-[var(--app-border)] bg-[var(--app-bg)]/95 px-4 py-3 shadow-[0_-8px_20px_rgba(15,23,42,0.08)] backdrop-blur max-[900px]:left-0">
       <div className="flex min-w-max items-end gap-3">
         {isWinnerContainer ? (
           <>
@@ -1050,7 +1051,7 @@ function ElementToolbar({
           <>
             <ToolbarField label="X Position"><NumberInput value={selectedElement.x} onChange={(x) => updateSelected({ x })} /></ToolbarField>
             <ToolbarField label="Y Position"><NumberInput value={selectedElement.y} onChange={(y) => updateSelected({ y })} /></ToolbarField>
-            <label className="flex flex-col gap-2 text-sm font-medium">Show<input type="checkbox" checked={selectedElement.visible !== false} onChange={(event) => updateSelected({ visible: event.target.checked })} /></label>
+            <label className="app-text flex flex-col gap-2 text-sm font-medium">Show<input type="checkbox" checked={selectedElement.visible !== false} onChange={(event) => updateSelected({ visible: event.target.checked })} /></label>
             <ToolbarField label="Width"><NumberInput value={selectedElement.width} onChange={(width) => updateSelected({ width })} /></ToolbarField>
             <ToolbarField label="Height"><NumberInput value={selectedElement.height} onChange={(height) => updateSelected({ height })} /></ToolbarField>
             <ToolbarField label="Opacity"><NumberInput value={selectedElement.opacity} onChange={(opacity) => updateSelected({ opacity })} /></ToolbarField>
@@ -1070,7 +1071,7 @@ function ElementToolbar({
                 <ToolbarField label="Upload Image">
                   <input type="file" accept="image/*" onChange={(event) => handleImageUpload(event, selectedElement.id)} className={inputClass("w-96")} />
                 </ToolbarField>
-                <button type="button" onClick={() => setRemoveTarget(selectedElement)} className="h-10 rounded-md bg-red-600 px-4 font-semibold text-white hover:bg-red-700">
+                <button type="button" onClick={() => setRemoveTarget(selectedElement)} className="app-danger-btn h-10 rounded-md px-4 font-semibold hover:opacity-90">
                   <Trash2 className="mr-2 inline-block align-[-2px]" size={16} strokeWidth={1.9} aria-hidden="true" />
                   Remove Element
                 </button>
@@ -1107,7 +1108,7 @@ function ElementToolbar({
             <ToolbarField label="Y Position"><NumberInput value={selectedElement.y} onChange={(y) => updateSelected({ y })} /></ToolbarField>
             {isResult && (
               <>
-                <label className="flex flex-col gap-2 text-sm font-medium">Ordinal Suffix<input type="checkbox" checked={Boolean(selectedElement.ordinalSuffix)} onChange={(event) => updateSelected({ ordinalSuffix: event.target.checked })} /></label>
+                <label className="app-text flex flex-col gap-2 text-sm font-medium">Ordinal Suffix<input type="checkbox" checked={Boolean(selectedElement.ordinalSuffix)} onChange={(event) => updateSelected({ ordinalSuffix: event.target.checked })} /></label>
                 <ToolbarField label="Indicator Type">
                   <select value={selectedElement.indicatorType || "Number"} onChange={(event) => updateSelected({ indicatorType: event.target.value })} className={inputClass("w-32")}>
                     <option>None</option>
@@ -1116,8 +1117,8 @@ function ElementToolbar({
                     <option>Medal</option>
                   </select>
                 </ToolbarField>
-                <label className="flex flex-col gap-2 text-sm font-medium">Background<input type="checkbox" checked={Boolean(selectedElement.showBackground)} onChange={(event) => updateSelected({ showBackground: event.target.checked })} /></label>
-                <label className="flex flex-col gap-2 text-sm font-medium">Stroke<input type="checkbox" checked={Boolean(selectedElement.showStroke)} onChange={(event) => updateSelected({ showStroke: event.target.checked })} /></label>
+                <label className="app-text flex flex-col gap-2 text-sm font-medium">Background<input type="checkbox" checked={Boolean(selectedElement.showBackground)} onChange={(event) => updateSelected({ showBackground: event.target.checked })} /></label>
+                <label className="app-text flex flex-col gap-2 text-sm font-medium">Stroke<input type="checkbox" checked={Boolean(selectedElement.showStroke)} onChange={(event) => updateSelected({ showStroke: event.target.checked })} /></label>
               </>
             )}
             {selectedElement.custom && (
@@ -1125,7 +1126,7 @@ function ElementToolbar({
                 <ToolbarField label="Label"><input value={selectedElement.label} onChange={(event) => updateSelected({ label: event.target.value })} className={inputClass("w-64")} /></ToolbarField>
                 <ToolbarField label="Data Source"><select className={inputClass("w-40")}><option>Manual Input</option></select></ToolbarField>
                 <ToolbarField label="Content"><input value={selectedElement.content || ""} onChange={(event) => updateSelected({ content: event.target.value })} className={inputClass("w-64")} /></ToolbarField>
-                <button type="button" onClick={() => setRemoveTarget(selectedElement)} className="h-10 rounded-md bg-red-600 px-4 font-semibold text-white hover:bg-red-700">
+                <button type="button" onClick={() => setRemoveTarget(selectedElement)} className="app-danger-btn h-10 rounded-md px-4 font-semibold hover:opacity-90">
                   <Trash2 className="mr-2 inline-block align-[-2px]" size={16} strokeWidth={1.9} aria-hidden="true" />
                   Remove Element
                 </button>
@@ -1164,7 +1165,7 @@ function PreviewDataPanel({ previewData, setPreviewData }) {
 
   return (
     <div className="mt-5">
-      <p className="mb-4 text-sm text-gray-500">
+      <p className="app-muted mb-4 text-sm">
         Adjust these values to see how your template elements will look with real data. These values are NOT saved with the template.
       </p>
       <div className="grid w-full max-w-full grid-cols-1 gap-4 overflow-x-hidden min-[900px]:grid-cols-[repeat(2,minmax(0,1fr))]">
@@ -1216,3 +1217,15 @@ function PreviewDataPanel({ previewData, setPreviewData }) {
     </div>
   );
 }
+
+const templateEditorThemeStyles = `
+.template-editor-page h2,
+.template-editor-page h3{color:var(--app-heading)}
+.template-editor-page input,
+.template-editor-page select{background:var(--app-input-bg);color:var(--app-text);border-color:var(--app-border)}
+.template-editor-page input:focus,
+.template-editor-page select:focus{border-color:var(--app-primary);box-shadow:0 0 0 3px var(--app-focus-ring)}
+.template-editor-page .app-card{background:var(--app-surface);border-color:var(--app-border);color:var(--app-text)}
+.template-editor-page .app-surface-elevated{background:var(--app-surface-elevated);color:var(--app-text)}
+.template-editor-page button:not(.app-success-btn):not(.app-danger-btn){color:inherit}
+`;

@@ -42,6 +42,48 @@ function safeJsonParse(value, fallback) {
   }
 }
 
+const framedPostsThemeStyles = `
+.framed-posts-page h1,
+.framed-posts-page h2,
+.framed-posts-page h3{color:var(--app-heading)}
+.framed-posts-page label,
+.framed-posts-page .text-\\[\\#0D1B2A\\],
+.framed-posts-page .text-gray-700,
+.framed-posts-page .text-gray-900{color:var(--app-text)}
+.framed-posts-page .text-gray-500,
+.framed-posts-page .text-gray-600{color:var(--app-muted)}
+.framed-posts-page input:not([type="range"]),
+.framed-posts-page select{background:var(--app-input-bg);color:var(--app-text);border-color:var(--app-border)}
+.framed-posts-page input:not([type="range"])::placeholder{color:var(--app-muted)}
+.framed-posts-page input[type=file]::file-selector-button{border:1px solid var(--app-border);border-radius:8px;background:var(--app-surface-elevated);color:var(--app-text);margin-right:10px;padding:6px 12px}
+.framed-posts-page input:focus,
+.framed-posts-page select:focus{border-color:var(--app-primary);box-shadow:0 0 0 3px var(--app-focus-ring);outline:none}
+.framed-posts-page .bg-white{background:var(--app-surface)}
+.framed-posts-page .bg-gray-50,
+.framed-posts-page .bg-gray-100,
+.framed-posts-page .bg-\\[\\#f9fafb\\],
+.framed-posts-page .bg-\\[\\#faf7ff\\],
+.framed-posts-page .bg-\\[\\#f3f4f6\\],
+.framed-posts-page .bg-\\[\\#eef2ff\\],
+.framed-posts-page .bg-\\[\\#eef9f1\\],
+.framed-posts-page .bg-\\[\\#EAF5EA\\]{background:var(--app-surface-elevated)}
+.framed-posts-page .border-gray-200,
+.framed-posts-page .border-gray-300{border-color:var(--app-border)}
+.framed-posts-page .text-\\[\\#2d1867\\],
+.framed-posts-page .text-\\[\\#4f2593\\],
+.framed-posts-page .text-\\[\\#5b2ee1\\]{color:var(--app-heading)}
+.framed-posts-page .text-\\[\\#7d62c9\\],
+.framed-posts-page .text-\\[\\#4338ca\\],
+.framed-posts-page .text-\\[\\#167f42\\]{color:var(--app-muted)}
+.framed-posts-page .bg-\\[\\#26752C\\]{background:var(--app-success);color:var(--app-success-text)}
+.framed-posts-page .hover\\:bg-\\[\\#1f6425\\]:hover{opacity:.9}
+.framed-posts-page .app-modal{background:var(--app-surface-elevated);border-color:var(--app-border);color:var(--app-text)}
+.framed-posts-page .framed-post-canvas,
+.framed-posts-page .framed-post-canvas .bg-white,
+.framed-posts-page .framed-post-canvas .bg-\\[\\#f8f2ff\\],
+.framed-posts-page .bg-\\[\\#f8f2ff\\]{color-scheme:light}
+`;
+
 function normalizeStored(raw) {
   if (Array.isArray(raw)) return raw;
   if (raw && typeof raw === "object") {
@@ -543,7 +585,7 @@ export default function FramedPostsPage() {
   }) {
     if (!template) {
       return (
-        <div className="h-[320px] rounded-3xl border border-dashed border-gray-300 bg-white p-6 text-center text-sm text-gray-500">
+    <div className="app-surface-elevated h-[320px] rounded-3xl border border-dashed border-[var(--app-border)] p-6 text-center text-sm text-[var(--app-muted)]">
           Select a frame template to preview your framed post here.
         </div>
       );
@@ -558,7 +600,7 @@ export default function FramedPostsPage() {
     return (
       <div
         style={{ width: scaledWidth, height: scaledHeight }}
-        className={isExport ? "relative overflow-hidden bg-[#f8f2ff]" : "relative overflow-hidden rounded-[24px] border border-gray-200 bg-[#f8f2ff] shadow-sm"}
+        className={isExport ? "framed-post-canvas relative overflow-hidden bg-[#f8f2ff]" : "framed-post-canvas relative overflow-hidden rounded-[24px] border border-gray-200 bg-[#f8f2ff] shadow-sm"}
       >
         <div className="absolute inset-0 overflow-hidden bg-[#f8f2ff]">
           {contentImageSrc ? (
@@ -686,43 +728,44 @@ export default function FramedPostsPage() {
   const hasPosts = filteredPosts.length > 0;
 
   return (
-    <div className="min-h-screen overflow-x-hidden bg-[#F8FAFC] pb-24 text-[#0D1B2A]">
+    <div className="framed-posts-page app-page min-h-screen overflow-x-hidden pb-24">
+      <style>{framedPostsThemeStyles}</style>
       <div className="mx-auto max-w-[1360px] px-6 py-6 max-sm:px-4">
         <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
           <div className="min-w-0">
-            <h1 className="break-words text-3xl font-bold">Manage Framed Posts</h1>
-            <p className="mt-2 text-sm text-gray-600">
+            <h1 className="app-heading break-words text-3xl font-bold">Manage Framed Posts</h1>
+            <p className="app-muted mt-2 text-sm">
               View, create, edit, and generate framed posts for event: {activeEventName}
             </p>
           </div>
           <button
             type="button"
             onClick={openCreateModal}
-            className="inline-flex h-12 items-center justify-center rounded-md bg-[#26752C] px-5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#1f6425]"
+            className="app-success-btn inline-flex h-12 items-center justify-center rounded-md px-5 text-sm font-semibold shadow-sm transition hover:opacity-90"
           >
             <Plus className="mr-2" size={18} strokeWidth={2} aria-hidden="true" />
             Create New Framed Post
           </button>
         </div>
 
-        <div className="mb-6 rounded-3xl border border-gray-200 bg-white p-5 shadow-sm">
+        <div className="app-card mb-6 rounded-3xl border p-5 shadow-sm">
           <div className="grid gap-4 xl:grid-cols-[1.5fr_0.8fr_0.8fr]">
             <label className="block">
-              <span className="text-sm font-medium text-gray-700">Search your framed posts...</span>
+              <span className="app-text text-sm font-medium">Search your framed posts...</span>
               <input
                 type="text"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="mt-2 w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm outline-none transition focus:border-[#26752C] focus:ring-2 focus:ring-green-100"
+                className="app-input mt-2 w-full rounded-xl border px-4 py-3 text-sm outline-none transition"
                 placeholder="Search your framed posts..."
               />
             </label>
             <label className="block">
-              <span className="text-sm font-medium text-gray-700">All Status</span>
+              <span className="app-text text-sm font-medium">All Status</span>
               <select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
-                className="mt-2 w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm outline-none transition focus:border-[#26752C] focus:ring-2 focus:ring-green-100"
+                className="app-select mt-2 w-full rounded-xl border px-4 py-3 text-sm outline-none transition"
               >
                 {STATUS_OPTIONS.map((option) => (
                   <option key={option} value={option}>
@@ -732,11 +775,11 @@ export default function FramedPostsPage() {
               </select>
             </label>
             <label className="block">
-              <span className="text-sm font-medium text-gray-700">Sort by Date</span>
+              <span className="app-text text-sm font-medium">Sort by Date</span>
               <select
                 value={sortOrder}
                 onChange={(e) => setSortOrder(e.target.value)}
-                className="mt-2 w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm outline-none transition focus:border-[#26752C] focus:ring-2 focus:ring-green-100"
+                className="app-select mt-2 w-full rounded-xl border px-4 py-3 text-sm outline-none transition"
               >
                 {SORT_OPTIONS.map((option) => (
                   <option key={option.value} value={option.value}>
@@ -753,22 +796,22 @@ export default function FramedPostsPage() {
             {filteredPosts.map((post) => {
               const template = getTemplateById(templates, post.templateId);
               return (
-                <div key={post.id} className="min-w-0 overflow-hidden rounded-[28px] border border-gray-200 bg-white shadow-sm">
-                  <div className="rounded-t-[28px] bg-gradient-to-br from-[#f4e5ff] via-[#f7dcff] to-[#fef7ff] px-6 py-8 text-center">
-                    <div className="mx-auto mb-3 flex h-24 w-full max-w-[520px] items-center justify-center rounded-[24px] bg-white/80 px-4 text-center text-lg font-semibold text-[#5b2ee1]">
+                <div key={post.id} className="app-card min-w-0 overflow-hidden rounded-[28px] border shadow-sm">
+                  <div className="rounded-t-[28px] bg-[var(--app-surface-elevated)] px-6 py-8 text-center">
+                    <div className="mx-auto mb-3 flex h-24 w-full max-w-[520px] items-center justify-center rounded-[24px] border border-[var(--app-border)] bg-[var(--app-surface)] px-4 text-center text-lg font-semibold text-[var(--app-heading)]">
                       <div>
-                        <div className="text-xl font-semibold text-[#4f2593]">{post.name}</div>
-                        <div className="mt-1 text-sm text-[#7d62c9]">{post.templateName || "No template selected"}</div>
+                        <div className="text-xl font-semibold">{post.name}</div>
+                        <div className="app-muted mt-1 text-sm">{post.templateName || "No template selected"}</div>
                       </div>
                     </div>
                   </div>
                   <div className="px-6 pb-6 pt-4">
-                    <p className="text-sm text-gray-500">Created: {formatDate(post.createdAt)}</p>
+                    <p className="app-muted text-sm">Created: {formatDate(post.createdAt)}</p>
                     <div className="mt-5 flex flex-wrap gap-3">
                       <button
                         type="button"
                         onClick={() => openViewModal(post)}
-                        className="inline-flex h-10 items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 text-sm font-semibold text-[#0D1B2A] hover:bg-gray-50"
+                        className="app-card inline-flex h-10 items-center gap-2 rounded-xl border px-4 text-sm font-semibold hover:bg-[var(--app-surface-elevated)]"
                       >
                         <Eye size={16} strokeWidth={1.9} aria-hidden="true" />
                         View Framed Post
@@ -776,7 +819,7 @@ export default function FramedPostsPage() {
                       <button
                         type="button"
                         onClick={() => openEditModal(post)}
-                        className="inline-flex h-10 items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 text-sm font-semibold text-[#0D1B2A] hover:bg-gray-50"
+                        className="app-card inline-flex h-10 items-center gap-2 rounded-xl border px-4 text-sm font-semibold hover:bg-[var(--app-surface-elevated)]"
                       >
                         <Edit size={16} strokeWidth={1.9} aria-hidden="true" />
                         Edit
@@ -796,19 +839,19 @@ export default function FramedPostsPage() {
             })}
           </div>
         ) : (
-          <div className="flex min-h-[52vh] items-center justify-center rounded-[32px] border border-dashed border-gray-200 bg-white p-10 shadow-sm">
+          <div className="app-card flex min-h-[52vh] items-center justify-center rounded-[32px] border border-dashed p-10 shadow-sm">
             <div className="text-center">
-              <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-[#EAF5EA] text-2xl text-[#26752C]">
+              <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-[var(--app-surface-elevated)] text-2xl text-[var(--app-success)]">
                 <FilePlus2 size={36} strokeWidth={1.8} aria-hidden="true" />
               </div>
-              <h2 className="text-2xl font-semibold text-[#0D1B2A]">No Framed Posts Yet</h2>
-              <p className="mt-2 text-sm text-gray-500">
+              <h2 className="app-heading text-2xl font-semibold">No Framed Posts Yet</h2>
+              <p className="app-muted mt-2 text-sm">
                 You haven't created any framed posts yet. Get started by creating your first one!
               </p>
               <button
                 type="button"
                 onClick={openCreateModal}
-                className="mt-6 inline-flex items-center justify-center rounded-md bg-[#26752C] px-5 py-2 text-sm font-semibold text-white shadow-sm hover:bg-[#1f6425]"
+                className="app-success-btn mt-6 inline-flex items-center justify-center rounded-md px-5 py-2 text-sm font-semibold shadow-sm hover:opacity-90"
               >
                 Create Your First Framed Post
               </button>
@@ -818,8 +861,8 @@ export default function FramedPostsPage() {
       </div>
 
       {isFormOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/40 p-4">
-          <div className="w-full rounded-[28px] bg-white shadow-2xl" style={{ maxWidth: "min(1100px, calc(100vw - 48px))", maxHeight: "calc(100vh - 48px)", overflowY: "auto" }}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/60 p-4">
+          <div className="app-modal w-full rounded-[28px] border shadow-2xl" style={{ maxWidth: "min(1100px, calc(100vw - 48px))", maxHeight: "calc(100vh - 48px)", overflowY: "auto" }}>
             <div className="p-6 md:p-8">
               <div className="mb-6 flex items-start justify-between gap-4">
               <div>
@@ -1094,8 +1137,8 @@ export default function FramedPostsPage() {
       )}
 
       {isViewing && viewingPost && (
-        <div className="fixed inset-0 z-50 overflow-y-auto bg-black/40 p-4">
-          <div className="mx-auto max-w-4xl rounded-[28px] bg-white p-6 shadow-2xl">
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-black/60 p-4">
+          <div className="app-modal mx-auto max-w-4xl rounded-[28px] border p-6 shadow-2xl">
             <div className="mb-4 flex items-start justify-between gap-4">
               <div>
                 <h2 className="text-2xl font-bold">Framed Posts for: {viewingPost.name}</h2>

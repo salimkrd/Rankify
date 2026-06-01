@@ -249,14 +249,14 @@ export default function EventsPage() {
   }
 
   return (
-    <div className="overflow-x-hidden px-6 py-6 max-sm:px-4">
+    <div className="app-page overflow-x-hidden px-6 py-6 max-sm:px-4">
       <div className="max-w-[1080px] space-y-5">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold tracking-tight text-[#0D1B2A]">
+            <h1 className="app-heading text-2xl font-bold tracking-tight">
               Manage Events
             </h1>
-            <p className="mt-1 text-gray-600">
+            <p className="app-muted mt-1">
               View, create, edit, and delete your events
             </p>
           </div>
@@ -264,7 +264,7 @@ export default function EventsPage() {
           <button
             type="button"
             onClick={openCreateModal}
-            className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-[#26752C] px-4 text-sm font-semibold text-white shadow-sm hover:bg-[#1f6425]"
+            className="app-success-btn inline-flex h-10 items-center justify-center gap-2 rounded-md px-4 text-sm font-semibold shadow-sm hover:opacity-90"
           >
             <Plus size={18} strokeWidth={2} aria-hidden="true" />
             Create New Event
@@ -276,22 +276,22 @@ export default function EventsPage() {
             value={search}
             onChange={(event) => setSearch(event.target.value)}
             placeholder="Search events..."
-            className="h-10 w-[430px] max-w-full rounded-md border border-gray-300 bg-white px-3 text-sm outline-none focus:border-[#26752C] focus:ring-2 focus:ring-green-100"
+            className="app-input h-10 w-[430px] max-w-full rounded-md border px-3 text-sm outline-none focus:border-[var(--app-primary)] focus:ring-2 focus:ring-[var(--app-focus-ring)]"
           />
           <button
             type="button"
-            className="h-10 rounded-md border border-gray-300 bg-white px-5 text-sm font-medium text-[#0D1B2A] shadow-sm"
+            className="app-card h-10 rounded-md border px-5 text-sm font-medium shadow-sm"
           >
             All ({filteredEvents.length})
           </button>
         </div>
 
         {filteredEvents.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-gray-300 bg-white p-8 text-center text-gray-600">
-            <p className="text-lg font-semibold text-[#0D1B2A]">
+          <div className="app-card rounded-xl border border-dashed p-8 text-center">
+            <p className="app-heading text-lg font-semibold">
               {events.length === 0 ? "No events yet" : "No events found"}
             </p>
-            <p className="mt-2 text-sm">
+            <p className="app-muted mt-2 text-sm">
               {events.length === 0
                 ? "Create a new event to get started."
                 : "Try a different search term."}
@@ -305,7 +305,7 @@ export default function EventsPage() {
             return (
               <div
                 key={event.id}
-                className="relative flex min-h-[230px] flex-col rounded-xl border border-gray-200 bg-white p-6 shadow-sm"
+                className="app-card relative flex min-h-[230px] flex-col rounded-xl border p-6 shadow-sm"
               >
                 <button
                   type="button"
@@ -314,21 +314,21 @@ export default function EventsPage() {
                       current === event.id ? "" : event.id
                     )
                   }
-                  className="absolute right-6 top-6 flex h-8 w-8 items-center justify-center rounded-md text-xl leading-none text-[#0D1B2A] hover:bg-gray-100"
+                  className="absolute right-6 top-6 flex h-8 w-8 items-center justify-center rounded-md text-xl leading-none text-[var(--app-heading)] hover:bg-[var(--app-surface-elevated)]"
                   aria-label="Event actions"
                 >
                   <MoreVertical size={18} strokeWidth={1.9} aria-hidden="true" />
                 </button>
 
                 {openMenuId === event.id && (
-                  <div className="absolute right-6 top-14 z-50 w-[230px] rounded-md border border-gray-200 bg-white py-2 shadow-lg">
-                    <p className="px-4 pb-2 text-sm font-semibold text-[#0D1B2A]">
+                  <div className="app-dropdown absolute right-6 top-14 z-50 w-[230px] rounded-md border py-2 shadow-lg">
+                    <p className="app-heading px-4 pb-2 text-sm font-semibold">
                       Actions
                     </p>
                     <button
                       type="button"
                       onClick={() => openEditModal(event)}
-                      className="block w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-[#E8F3EA] hover:text-[#26752C]"
+                      className="app-text block w-full px-4 py-2 text-left text-sm hover:bg-[var(--app-sidebar-active-bg)] hover:text-[var(--app-sidebar-active-text)]"
                     >
                       <Edit className="mr-2 inline-block align-[-2px]" size={15} strokeWidth={1.9} aria-hidden="true" />
                       Edit
@@ -336,7 +336,7 @@ export default function EventsPage() {
                     <button
                       type="button"
                       onClick={handleIntegrations}
-                      className="block w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50"
+                      className="app-text block w-full px-4 py-2 text-left text-sm hover:bg-[var(--app-surface-elevated)]"
                     >
                       <Plug className="mr-2 inline-block align-[-2px]" size={15} strokeWidth={1.9} aria-hidden="true" />
                       Integrations
@@ -344,7 +344,7 @@ export default function EventsPage() {
                     <button
                       type="button"
                       onClick={() => handleCopyUrl(event.id)}
-                      className="block w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50"
+                      className="app-text block w-full px-4 py-2 text-left text-sm hover:bg-[var(--app-surface-elevated)]"
                     >
                       <Copy className="mr-2 inline-block align-[-2px]" size={15} strokeWidth={1.9} aria-hidden="true" />
                       Copy Results Page URL
@@ -352,7 +352,7 @@ export default function EventsPage() {
                     <button
                       type="button"
                       onClick={() => handleDeleteEvent(event.id)}
-                      className="block w-full border-t border-gray-100 px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50"
+                      className="block w-full border-t border-[var(--app-border)] px-4 py-2 text-left text-sm text-[var(--app-danger)] hover:bg-[var(--app-danger-bg-soft)]"
                     >
                       <Trash2 className="mr-2 inline-block align-[-2px]" size={15} strokeWidth={1.9} aria-hidden="true" />
                       Delete
@@ -362,16 +362,16 @@ export default function EventsPage() {
 
                 <div className="pr-10">
                   {isActive && (
-                    <span className="mb-2 inline-flex rounded-full bg-[#E8F3EA] px-3 py-1 text-xs font-semibold text-[#26752C]">
+                    <span className="app-badge mb-2 inline-flex rounded-full px-3 py-1 text-xs font-semibold">
                       Active
                     </span>
                   )}
-                  <h2 className="truncate text-lg font-bold uppercase text-[#0D1B2A]">
+                  <h2 className="app-heading truncate text-lg font-bold uppercase">
                     {event.name}
                   </h2>
                 </div>
 
-                <div className="mt-3 space-y-2 text-sm text-gray-600">
+                <div className="app-muted mt-3 space-y-2 text-sm">
                   <p>Organizer: {event.organizer}</p>
                   <p>Date: {event.date}</p>
                   <p>Location: {event.location}</p>
@@ -382,14 +382,14 @@ export default function EventsPage() {
                   <button
                     type="button"
                     onClick={handleIntegrations}
-                    className="h-10 flex-1 rounded-md border border-gray-200 bg-white text-sm font-semibold hover:bg-gray-50"
+                    className="app-card h-10 flex-1 rounded-md border text-sm font-semibold hover:bg-[var(--app-surface-elevated)]"
                   >
                     Integrations
                   </button>
                   <button
                     type="button"
                     onClick={() => handleSelectEvent(event.id)}
-                    className="h-10 flex-1 rounded-md border border-gray-200 bg-white text-sm font-semibold hover:bg-gray-50"
+                    className="app-card h-10 flex-1 rounded-md border text-sm font-semibold hover:bg-[var(--app-surface-elevated)]"
                   >
                     Select Event
                   </button>
@@ -403,20 +403,20 @@ export default function EventsPage() {
 
       {modalOpen && (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center overflow-y-auto bg-black/50 p-4">
-          <div className="relative w-full max-w-[520px] rounded-xl bg-white p-6 shadow-2xl max-sm:max-w-[calc(100vw-24px)] max-sm:p-5">
+          <div className="app-modal relative w-full max-w-[520px] rounded-xl p-6 shadow-2xl max-sm:max-w-[calc(100vw-24px)] max-sm:p-5">
             <button
               type="button"
               onClick={closeModal}
-              className="absolute right-4 top-4 text-2xl leading-none text-gray-500 hover:text-gray-900"
+              className="app-muted absolute right-4 top-4 text-2xl leading-none hover:text-[var(--app-heading)]"
               aria-label="Close modal"
             >
               <X size={20} strokeWidth={2} aria-hidden="true" />
             </button>
 
-            <h2 className="text-xl font-bold text-[#0D1B2A]">
+            <h2 className="app-heading text-xl font-bold">
               {editingEvent ? "Edit Event" : "Create New Event"}
             </h2>
-            <p className="mt-1 text-sm text-gray-500">
+            <p className="app-muted mt-1 text-sm">
               {editingEvent
                 ? "Make changes to your event."
                 : "Create a new event to get started."}
@@ -424,7 +424,7 @@ export default function EventsPage() {
 
             <form onSubmit={handleSubmitEvent} className="mt-8 space-y-4">
               <div className="grid grid-cols-[110px_1fr] items-center gap-4 max-sm:grid-cols-1 max-sm:gap-2">
-                <label className="text-sm font-medium text-[#0D1B2A]">
+                <label className="app-heading text-sm font-medium">
                   Name
                 </label>
                 <input
@@ -432,48 +432,48 @@ export default function EventsPage() {
                   value={form.name}
                   onChange={handleFormChange}
                   autoFocus
-                  className="h-10 w-full rounded-md border border-gray-300 px-3 text-sm outline-none focus:border-[#26752C] focus:ring-2 focus:ring-green-100"
+                  className="app-input h-10 w-full rounded-md border px-3 text-sm outline-none focus:border-[var(--app-primary)] focus:ring-2 focus:ring-[var(--app-focus-ring)]"
                 />
               </div>
 
               <div className="grid grid-cols-[110px_1fr] items-center gap-4 max-sm:grid-cols-1 max-sm:gap-2">
-                <label className="text-sm font-medium text-[#0D1B2A]">
+                <label className="app-heading text-sm font-medium">
                   Organizer
                 </label>
                 <input
                   name="organizer"
                   value={form.organizer}
                   onChange={handleFormChange}
-                  className="h-10 w-full rounded-md border border-gray-300 px-3 text-sm outline-none focus:border-[#26752C] focus:ring-2 focus:ring-green-100"
+                  className="app-input h-10 w-full rounded-md border px-3 text-sm outline-none focus:border-[var(--app-primary)] focus:ring-2 focus:ring-[var(--app-focus-ring)]"
                 />
               </div>
 
               <div className="grid grid-cols-[110px_1fr] items-center gap-4 max-sm:grid-cols-1 max-sm:gap-2">
-                <label className="text-sm font-medium text-[#0D1B2A]">
+                <label className="app-heading text-sm font-medium">
                   Date(s)
                 </label>
                 <input
                   name="date"
                   value={form.date}
                   onChange={handleFormChange}
-                  className="h-10 w-full rounded-md border border-gray-300 px-3 text-sm outline-none focus:border-[#26752C] focus:ring-2 focus:ring-green-100"
+                  className="app-input h-10 w-full rounded-md border px-3 text-sm outline-none focus:border-[var(--app-primary)] focus:ring-2 focus:ring-[var(--app-focus-ring)]"
                 />
               </div>
 
               <div className="grid grid-cols-[110px_1fr] items-center gap-4 max-sm:grid-cols-1 max-sm:gap-2">
-                <label className="text-sm font-medium text-[#0D1B2A]">
+                <label className="app-heading text-sm font-medium">
                   Location
                 </label>
                 <input
                   name="location"
                   value={form.location}
                   onChange={handleFormChange}
-                  className="h-10 w-full rounded-md border border-gray-300 px-3 text-sm outline-none focus:border-[#26752C] focus:ring-2 focus:ring-green-100"
+                  className="app-input h-10 w-full rounded-md border px-3 text-sm outline-none focus:border-[var(--app-primary)] focus:ring-2 focus:ring-[var(--app-focus-ring)]"
                 />
               </div>
 
               <div className="grid grid-cols-[110px_1fr] items-center gap-4 max-sm:grid-cols-1 max-sm:gap-2">
-                <label className="text-sm font-medium text-[#0D1B2A]">
+                <label className="app-heading text-sm font-medium">
                   Event Logo
                 </label>
                 <div>
@@ -481,12 +481,12 @@ export default function EventsPage() {
                     type="file"
                     accept="image/*"
                     onChange={handleLogoChange}
-                    className="block w-full text-sm text-gray-600"
+                    className="app-text block w-full text-sm"
                   />
-                  <p className="mt-1 text-xs text-gray-500">
+                  <p className="app-muted mt-1 text-xs">
                     {form.logoName || "No logo selected."}
                   </p>
-                  <p className="text-xs text-gray-500">Max file size: 2 MB</p>
+                  <p className="app-muted text-xs">Max file size: 2 MB</p>
                 </div>
               </div>
 
@@ -494,13 +494,13 @@ export default function EventsPage() {
                 <button
                   type="button"
                   onClick={closeModal}
-                  className="h-10 rounded-md border border-gray-300 bg-white px-4 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                  className="app-card h-10 rounded-md border px-4 text-sm font-medium hover:bg-[var(--app-surface-elevated)]"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="h-10 rounded-md bg-[#26752C] px-4 text-sm font-semibold text-white hover:bg-[#1f6425]"
+                  className="app-success-btn h-10 rounded-md px-4 text-sm font-semibold hover:opacity-90"
                 >
                   {editingEvent ? "Update Event" : "Create Event"}
                 </button>
