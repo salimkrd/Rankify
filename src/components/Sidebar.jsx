@@ -21,6 +21,8 @@ import {
 import { getUserStorageKey } from "../utils/storage.js";
 import { getInitials } from "../utils/auth.js";
 import ThemeToggle from "./ThemeToggle.jsx";
+import logoDark from "../assets/logo/rankify-logo-dark.svg";
+import logoLight from "../assets/logo/rankify-logo-light.svg";
 
 const EVENTS_KEY = "rankify_events";
 const ACTIVE_EVENT_KEY = "rankify_active_event_id";
@@ -332,10 +334,18 @@ export default function Sidebar({ mobile = false, onNavigate, onClose }) {
         onClick={onNavigate}
         className="app-border flex h-[62px] shrink-0 cursor-pointer items-center gap-3 border-b px-4 transition-colors hover:bg-[var(--app-sidebar-active-bg)]"
       >
-        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--app-primary)] text-sm font-bold text-[var(--app-primary-text)]">
-          P
-        </div>
-        <div className="app-heading text-lg font-bold">PosterGen</div>
+        <span className="flex min-w-0 flex-1 items-center">
+          <img
+            src={logoLight}
+            alt="Rankify"
+            className="h-[38px] w-auto object-contain dark:hidden"
+          />
+          <img
+            src={logoDark}
+            alt="Rankify"
+            className="hidden h-[38px] w-auto object-contain dark:block"
+          />
+        </span>
         {mobile && (
           <button
             type="button"

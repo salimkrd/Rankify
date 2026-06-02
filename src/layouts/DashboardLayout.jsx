@@ -3,6 +3,8 @@ import { Outlet } from "react-router-dom";
 import { Menu } from "lucide-react";
 import Sidebar from "../components/Sidebar.jsx";
 import { getInitials } from "../utils/auth.js";
+import logoDark from "../assets/logo/rankify-logo-dark.svg";
+import logoLight from "../assets/logo/rankify-logo-light.svg";
 
 function safeJsonParse(value, fallback) {
   try {
@@ -38,11 +40,17 @@ export default function DashboardLayout() {
         >
           <Menu size={26} strokeWidth={2} aria-hidden="true" />
         </button>
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[var(--app-primary)] text-base font-bold text-[var(--app-primary-text)]">
-            P
-          </div>
-          <div className="app-heading text-xl font-extrabold">PosterGen</div>
+        <div className="flex min-w-0 items-center justify-center">
+          <img
+            src={logoLight}
+            alt="Rankify"
+            className="h-9 w-auto object-contain dark:hidden"
+          />
+          <img
+            src={logoDark}
+            alt="Rankify"
+            className="hidden h-9 w-auto object-contain dark:block"
+          />
         </div>
         <div className="app-badge flex h-11 w-11 items-center justify-center rounded-full text-sm font-bold">
           {getInitials(user)}

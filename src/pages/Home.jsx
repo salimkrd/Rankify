@@ -2,6 +2,8 @@ import React, { useState, useRef, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { getInitials } from "../utils/auth.js";
 import ThemeToggle from "../components/ThemeToggle.jsx";
+import logoDark from "../assets/logo/rankify-logo-dark.svg";
+import logoLight from "../assets/logo/rankify-logo-light.svg";
 import {
   Trophy,
   Palette,
@@ -87,28 +89,23 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen overflow-x-hidden bg-[#F8FAFC] pt-[76px] font-sans dark:bg-[#07111F] sm:pt-[104px]">
+    <div className={`${!isLoggedIn ? "force-light-page " : ""}min-h-screen overflow-x-hidden bg-[#F8FAFC] pt-[76px] font-sans dark:bg-[#07111F] sm:pt-[104px]`}>
       {/* Navbar */}
       <nav className="fixed left-0 right-0 top-0 z-[9999] border-b border-slate-200/80 bg-white/95 shadow-sm backdrop-blur dark:border-white/10 dark:bg-[#0D1B2A]/95">
         <div className="mx-auto max-w-none px-5 sm:px-10 lg:px-14">
           <div className="flex h-[76px] items-center justify-between sm:h-[104px]">
             {/* Left: Logo */}
             <Link to="/" className="flex items-center gap-3 transition-opacity hover:opacity-85">
-              <span className="relative flex h-12 w-12 items-center justify-center sm:h-16 sm:w-16">
-                <span className="text-[42px] font-black leading-none tracking-[-0.08em] text-[#0D1B2A] dark:text-white sm:text-[58px]">
-                  R
-                </span>
-                <Trophy
-                  className="absolute bottom-1 left-0 h-5 w-5 text-[#FFC107] sm:h-7 sm:w-7"
-                  fill="#FFC107"
-                  strokeWidth={2}
-                  aria-hidden="true"
-                />
-                <span className="absolute right-0 top-2 h-3 w-2 rounded-sm bg-[#FFC107] sm:right-1 sm:h-4 sm:w-2.5" />
-              </span>
-              <span className="text-3xl font-black tracking-tight text-[#0D1B2A] dark:text-white sm:text-5xl">
-                Rankify
-              </span>
+              <img
+                src={logoLight}
+                alt="Rankify"
+                className="h-[38px] w-auto object-contain dark:hidden md:h-[44px]"
+              />
+              <img
+                src={logoDark}
+                alt="Rankify"
+                className="hidden h-[38px] w-auto object-contain dark:block md:h-[44px]"
+              />
             </Link>
 
             {/* Right: User Menu */}
@@ -272,13 +269,13 @@ export default function Home() {
       </section>
 
       {/* Features Section */}
-      <section className="bg-gray-50 px-4 py-16 sm:py-24">
+      <section className="bg-[var(--app-bg)] px-4 py-16 sm:py-24">
         <div className="mx-auto max-w-7xl">
           <div className="mb-16 text-center">
-            <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-4">
+            <h2 className="mb-4 text-3xl font-bold text-[var(--app-heading)] sm:text-4xl">
               Everything You Need, All in One Place
             </h2>
-            <p className="text-lg text-gray-600">
+            <p className="text-lg text-[var(--app-muted)]">
               PosterGen simplifies poster creation with powerful, easy-to-use features.
             </p>
           </div>
@@ -324,15 +321,15 @@ export default function Home() {
             ].map((feature, idx) => (
               <div
                 key={idx}
-                className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm hover:shadow-md transition-shadow"
+                className="rounded-xl border border-[var(--app-border)] bg-[var(--app-surface)] p-6 shadow-sm transition-shadow hover:bg-[var(--app-surface-elevated)] hover:shadow-md"
               >
-                <div className="mb-4 h-12 w-12 rounded-lg bg-green-100 flex items-center justify-center">
-                  <feature.icon className="h-6 w-6 text-green-600" />
+                <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-[var(--app-primary)]/10 text-[var(--app-primary)]">
+                  <feature.icon className="h-6 w-6" />
                 </div>
-                <h3 className="mb-2 text-lg font-semibold text-gray-900">
+                <h3 className="mb-2 text-lg font-semibold text-[var(--app-heading)]">
                   {feature.title}
                 </h3>
-                <p className="text-gray-600">{feature.description}</p>
+                <p className="text-[var(--app-text)]">{feature.description}</p>
               </div>
             ))}
           </div>
@@ -340,13 +337,13 @@ export default function Home() {
       </section>
 
       {/* Steps Section */}
-      <section className="px-4 py-16 sm:py-24">
+      <section className="bg-[var(--app-bg)] px-4 py-16 sm:py-24">
         <div className="mx-auto max-w-7xl">
           <div className="mb-16 text-center">
-            <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-4">
+            <h2 className="mb-4 text-3xl font-bold text-[var(--app-heading)] sm:text-4xl">
               Get Stunning Posters in 4 Simple Steps
             </h2>
-            <p className="text-lg text-gray-600">
+            <p className="text-lg text-[var(--app-muted)]">
               From setting up your event to sharing eye-catching results.
             </p>
           </div>
@@ -377,19 +374,19 @@ export default function Home() {
               <div key={idx} className="relative">
                 {/* Connector line */}
                 {idx < 3 && (
-                  <div className="hidden absolute top-8 left-1/2 w-full h-1 bg-gradient-to-r from-green-600 to-green-200 lg:block transform -translate-x-1/2 translate-y-0"></div>
+                  <div className="absolute left-1/2 top-8 hidden h-1 w-full -translate-x-1/2 translate-y-0 transform bg-gradient-to-r from-[var(--app-primary)] to-[var(--app-success)]/30 lg:block"></div>
                 )}
 
-                <div className="relative bg-white rounded-xl border border-gray-200 p-6 shadow-sm hover:shadow-md transition-shadow">
-                  <div className="mb-4 h-16 w-16 rounded-full bg-green-600 flex items-center justify-center">
-                    <span className="text-2xl font-bold text-white">
+                <div className="relative rounded-xl border border-[var(--app-border)] bg-[var(--app-surface)] p-6 shadow-sm transition-shadow hover:bg-[var(--app-surface-elevated)] hover:shadow-md">
+                  <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-[var(--app-primary)]">
+                    <span className="text-2xl font-bold text-[var(--app-primary-text)]">
                       {item.step}
                     </span>
                   </div>
-                  <h3 className="mb-2 text-lg font-semibold text-gray-900">
+                  <h3 className="mb-2 text-lg font-semibold text-[var(--app-heading)]">
                     {item.title}
                   </h3>
-                  <p className="text-gray-600">{item.description}</p>
+                  <p className="text-[var(--app-text)]">{item.description}</p>
                 </div>
               </div>
             ))}
@@ -398,13 +395,13 @@ export default function Home() {
       </section>
 
       {/* Benefits Section */}
-      <section className="bg-gray-50 px-4 py-16 sm:py-24">
+      <section className="bg-[var(--app-bg)] px-4 py-16 sm:py-24">
         <div className="mx-auto max-w-7xl">
           <div className="mb-16 text-center">
-            <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-4">
+            <h2 className="mb-4 text-3xl font-bold text-[var(--app-heading)] sm:text-4xl">
               Unlock the Power of Visual Results
             </h2>
-            <p className="text-lg text-gray-600">
+            <p className="text-lg text-[var(--app-muted)]">
               PosterGen offers tangible benefits for any event organizer.
             </p>
           </div>
@@ -422,10 +419,10 @@ export default function Home() {
             ].map((benefit, idx) => (
               <div
                 key={idx}
-                className="rounded-full border border-green-200 bg-green-50 px-6 py-3 inline-flex items-center gap-2"
+                className="inline-flex items-center gap-2 rounded-full border border-[var(--app-success)]/30 bg-[var(--app-success)]/10 px-6 py-3"
               >
-                <Check className="h-5 w-5 text-green-600 flex-shrink-0" />
-                <span className="text-sm font-medium text-gray-900">{benefit}</span>
+                <Check className="h-5 w-5 flex-shrink-0 text-[var(--app-success)]" />
+                <span className="text-sm font-medium text-[var(--app-heading)]">{benefit}</span>
               </div>
             ))}
           </div>
@@ -433,18 +430,18 @@ export default function Home() {
       </section>
 
       {/* Final CTA Section */}
-      <section className="bg-gradient-to-br from-green-600 to-green-700 px-4 py-16 sm:py-24">
+      <section className="bg-gradient-to-br from-[var(--app-primary)] to-[var(--app-success)] px-4 py-16 sm:py-24">
         <div className="mx-auto max-w-4xl text-center">
-          <h2 className="text-3xl sm:text-4xl font-bold text-white mb-6">
+          <h2 className="mb-6 text-3xl font-bold text-white sm:text-4xl">
             Ready to Elevate Your Event Announcements?
           </h2>
-          <p className="text-lg text-green-50 mb-10 max-w-2xl mx-auto">
+          <p className="mx-auto mb-10 max-w-2xl text-lg text-white/90">
             Join PosterGen today and start creating result posters that captivate and
             celebrate. It's free to get started, and powerful enough to grow with you.
           </p>
           <button
             onClick={handleGetStarted}
-            className="inline-flex items-center gap-2 rounded-lg bg-white px-8 py-4 text-lg font-semibold text-green-600 hover:bg-green-50 transition-colors shadow-lg hover:shadow-xl"
+            className="inline-flex items-center gap-2 rounded-lg bg-[var(--app-surface)] px-8 py-4 text-lg font-semibold text-[var(--app-primary)] shadow-lg transition-colors hover:bg-[var(--app-surface-elevated)] hover:shadow-xl"
           >
             {isLoggedIn ? "Back to My Dashboard" : "Sign Up & Start Creating"}
             <ArrowRight className="h-5 w-5" />
@@ -453,19 +450,27 @@ export default function Home() {
       </section>
 
       {/* Footer */}
-      <footer className="border-t border-gray-200 bg-white px-4 py-12">
+      <footer className="border-t border-[var(--app-border)] bg-[var(--app-surface)] px-4 py-12">
         <div className="mx-auto max-w-7xl">
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-6">
+          <div className="flex flex-col items-center justify-between gap-6 sm:flex-row">
             <div className="flex items-center gap-2">
-              <Trophy className="h-6 w-6 text-green-600" />
-              <span className="text-lg font-bold text-gray-900">PosterGen</span>
+              <img
+                src={logoLight}
+                alt="Rankify"
+                className="h-9 w-auto object-contain dark:hidden"
+              />
+              <img
+                src={logoDark}
+                alt="Rankify"
+                className="hidden h-9 w-auto object-contain dark:block"
+              />
             </div>
 
-            <div className="text-sm text-gray-600 flex items-center gap-2">
+            <div className="flex items-center gap-2 text-sm text-[var(--app-muted)]">
               © 2026 PosterGen. All rights reserved.
             </div>
 
-            <div className="text-sm text-gray-600">
+            <div className="text-sm text-[var(--app-muted)]">
               by salimkrd.com
             </div>
           </div>
