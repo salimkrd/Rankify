@@ -467,7 +467,7 @@ export default function Home() {
             </div>
 
             <div className="flex items-center gap-2 text-sm text-[var(--app-muted)]">
-              © 2026 PosterGen. All rights reserved.
+              © 2026 Rankify. All rights reserved.
             </div>
 
             <div className="text-sm text-[var(--app-muted)]">
