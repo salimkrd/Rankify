@@ -2,10 +2,11 @@ import React, { useEffect, useMemo, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { BarChart3, Download, Edit, Eye, Plus, Trash2, X } from "lucide-react";
 import { getUserStorageKey } from "../utils/storage.js";
+import NoActiveEventState from "../components/NoActiveEventState.jsx";
 
 const STORAGE_KEY = "rankify_program_results";
-const FALLBACK_CATEGORIES = ["General", "Lower primary", "Upper primary", "High school", "Higher secondary", "Junior", "Senior"];
 const FALLBACK_TEAMS = ["Alpha"];
+const CUSTOM_WINNER_VALUE = "__custom__";
 const uid = () => `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 9)}`;
 const safeParse = (value, fallback = null) => {
   try {
@@ -22,7 +23,7 @@ const readStorageArray = (keys) => {
   }
   return [];
 };
-const readTeamsForActiveEvent = (activeEventId) => {
+const readTeamObjectsForActiveEvent = (activeEventId) => {
   const storedTeams = safeParse(localStorage.getItem(getUserStorageKey("rankify_teams")), null);
   let eventTeams = [];
 
@@ -37,8 +38,72 @@ const readTeamsForActiveEvent = (activeEventId) => {
   }
 
   return eventTeams
-    .map((team) => textOf(team, ["name", "teamName", "title"]))
+    .map((team, index) => {
+      const name = textOf(team, ["name", "teamName", "title"]);
+      if (!name) return null;
+      return {
+        id: String(team?.id || team?.teamId || name || `team-${index}`),
+        name,
+      };
+    })
     .filter(Boolean);
+};
+const readTeamsForActiveEvent = (activeEventId) =>
+  readTeamObjectsForActiveEvent(activeEventId).map((team) => team.name);
+const readCategoryOptionsForActiveEvent = (activeEventId) => {
+  const storedCategories = safeParse(
+    localStorage.getItem(getUserStorageKey("rankify_categories")),
+    null
+  );
+  let eventCategories = [];
+
+  if (Array.isArray(storedCategories)) {
+    eventCategories = storedCategories.filter(
+      (category) => String(category?.eventId) === String(activeEventId)
+    );
+  } else if (storedCategories && typeof storedCategories === "object") {
+    eventCategories = Array.isArray(storedCategories[activeEventId])
+      ? storedCategories[activeEventId]
+      : [];
+  }
+
+  return eventCategories
+    .map((category, index) => {
+      const name = textOf(category, ["name", "category", "title"]);
+      if (!name) return null;
+      return {
+        id: String(category?.id || category?.categoryId || name || `category-${index}`),
+        name,
+      };
+    })
+    .filter(Boolean);
+};
+const readParticipantsForActiveEvent = (activeEventId) => {
+  const storedParticipants = safeParse(
+    localStorage.getItem(getUserStorageKey("rankify_participants")),
+    null
+  );
+  let eventParticipants = [];
+
+  if (Array.isArray(storedParticipants)) {
+    eventParticipants = storedParticipants.filter(
+      (participant) => String(participant?.eventId) === String(activeEventId)
+    );
+  } else if (storedParticipants && typeof storedParticipants === "object") {
+    eventParticipants = Array.isArray(storedParticipants[activeEventId])
+      ? storedParticipants[activeEventId]
+      : [];
+  }
+
+  return eventParticipants
+    .map((participant) => ({
+      id: String(participant?.id || participant?.participantId || ""),
+      eventId: String(participant?.eventId || activeEventId),
+      name: textOf(participant, ["name", "participantName", "title"]),
+      teamId: String(participant?.teamId || ""),
+      teamName: textOf(participant, ["teamName", "team"]),
+    }))
+    .filter((participant) => participant.id && participant.name);
 };
 const isResultWinnerLike = (value) =>
   value &&
@@ -119,7 +184,9 @@ const defaultWinners = () => [1, 2, 3].map((position) => ({
 }));
 const emptyForm = () => ({
   programName: "New Program",
-  category: "General",
+  category: "",
+  categoryId: "",
+  categoryName: "",
   resultNumber: "1",
   winners: defaultWinners(),
 });
@@ -728,9 +795,11 @@ const renderTemplateWithResult = (template, result) => {
 
 function ProgramResultsPage() {
   const [results, setResults] = useState([]);
-  const [activeEvent, setActiveEvent] = useState({ id: "default", name: "Active Event" });
-  const [categories, setCategories] = useState(FALLBACK_CATEGORIES);
+  const [activeEvent, setActiveEvent] = useState(null);
+  const [categories, setCategories] = useState([]);
   const [teams, setTeams] = useState(FALLBACK_TEAMS);
+  const [teamOptions, setTeamOptions] = useState(FALLBACK_TEAMS.map((name) => ({ id: name, name })));
+  const [participants, setParticipants] = useState([]);
   const [templates, setTemplates] = useState([]);
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("All Status");
@@ -746,26 +815,44 @@ function ProgramResultsPage() {
       const events = readStorageArray(["rankify_events", "events"]);
       const activeRaw = safeParse(localStorage.getItem(getUserStorageKey("rankify_active_event")), null) || safeParse(localStorage.getItem("activeEvent"), null);
       const activeId = localStorage.getItem(getUserStorageKey("rankify_active_event_id")) || localStorage.getItem("activeEventId") || localStorage.getItem("active_event_id") || (typeof activeRaw === "string" ? activeRaw : activeRaw?.id);
-      const event = events.find((item) => String(item?.id) === String(activeId)) || (activeRaw && typeof activeRaw === "object" ? activeRaw : null) || events[0] || { id: "default", name: "Active Event" };
-      const normalizedEvent = { id: String(event.id ?? event.eventId ?? "default"), name: textOf(event, ["name", "eventName", "title"], "Active Event") };
+      const event = events.find((item) => String(item?.id) === String(activeId)) || null;
+      const normalizedEvent = event
+        ? { id: String(event.id ?? event.eventId), name: textOf(event, ["name", "eventName", "title"], "Active Event") }
+        : null;
 
-      const eventCategories = readStorageArray(["rankify_categories", "categories", "rankify_event_categories"])
-        .filter((item) => !item?.eventId || String(item.eventId) === normalizedEvent.id)
-        .map((item) => textOf(item, ["name", "category", "title"])).filter(Boolean);
-      const eventTeams = readTeamsForActiveEvent(
+      if (!normalizedEvent?.id) {
+        setActiveEvent(null);
+        setCategories([]);
+        setTeamOptions(FALLBACK_TEAMS.map((name) => ({ id: name, name })));
+        setTeams(FALLBACK_TEAMS);
+        setParticipants([]);
+        setTemplates([]);
+        setResults(asArray(safeParse(localStorage.getItem(getUserStorageKey(STORAGE_KEY)), [])));
+        return;
+      }
+
+      const eventCategories = readCategoryOptionsForActiveEvent(normalizedEvent.id);
+      const eventTeamOptions = readTeamObjectsForActiveEvent(
         localStorage.getItem(getUserStorageKey("rankify_active_event_id")) || normalizedEvent.id
       );
+      const eventParticipants = readParticipantsForActiveEvent(normalizedEvent.id);
       const eventTemplates = readSavedProgramTemplates(normalizedEvent.id);
 
       setActiveEvent(normalizedEvent);
-      setCategories(eventCategories.length ? eventCategories : FALLBACK_CATEGORIES);
-      setTeams(eventTeams.length ? eventTeams : FALLBACK_TEAMS);
+      setCategories(eventCategories);
+      setTeamOptions(eventTeamOptions.length ? eventTeamOptions : FALLBACK_TEAMS.map((name) => ({ id: name, name })));
+      setTeams(eventTeamOptions.length ? eventTeamOptions.map((team) => team.name) : FALLBACK_TEAMS);
+      setParticipants(eventParticipants);
       setTemplates(eventTemplates);
       setResults(asArray(safeParse(localStorage.getItem(getUserStorageKey(STORAGE_KEY)), [])));
     };
     load();
     window.addEventListener("storage", load);
-    return () => window.removeEventListener("storage", load);
+    window.addEventListener("rankify-data-changed", load);
+    return () => {
+      window.removeEventListener("storage", load);
+      window.removeEventListener("rankify-data-changed", load);
+    };
   }, []);
 
   const saveResults = (next) => {
@@ -774,16 +861,17 @@ function ProgramResultsPage() {
     window.dispatchEvent(new Event("storage"));
   };
   const openView = (result) => {
-    setTemplates(readSavedProgramTemplates(activeEvent.id));
+    setTemplates(readSavedProgramTemplates(activeEvent?.id));
     setViewing(result);
   };
 
-  const eventResults = useMemo(() => results.filter((item) => String(item.eventId) === String(activeEvent.id)), [results, activeEvent.id]);
+  const hasActiveEvent = Boolean(activeEvent?.id);
+  const eventResults = useMemo(() => (hasActiveEvent ? results.filter((item) => String(item.eventId) === String(activeEvent.id)) : []), [results, activeEvent?.id, hasActiveEvent]);
   const filteredResults = useMemo(() => {
     const query = search.trim().toLowerCase();
     let list = [...eventResults];
     if (query) {
-      list = list.filter((item) => [item.programName, item.category, item.resultNumber, ...(item.winners || []).flatMap((winner) => [winner.name, winner.team])].join(" ").toLowerCase().includes(query));
+      list = list.filter((item) => [item.programName, item.categoryName, item.category, item.resultNumber, ...(item.winners || []).flatMap((winner) => [winner.name, winner.team])].join(" ").toLowerCase().includes(query));
     }
     if (status === "Published") list = list.filter((item) => item.published);
     if (status === "Draft") list = list.filter((item) => !item.published);
@@ -793,28 +881,97 @@ function ProgramResultsPage() {
     return list;
   }, [eventResults, search, status, sort]);
 
+  const getTeamOption = (teamIdOrName) =>
+    teamOptions.find(
+      (team) =>
+        String(team.id) === String(teamIdOrName) ||
+        String(team.name) === String(teamIdOrName)
+    ) || null;
+  const getCategoryOption = (categoryIdOrName) =>
+    categories.find(
+      (category) =>
+        String(category.id) === String(categoryIdOrName) ||
+        String(category.name) === String(categoryIdOrName)
+    ) || null;
+  const getParticipantsForWinnerTeam = (winner) => {
+    const selectedTeam = getTeamOption(winner.teamId || winner.team);
+    if (!selectedTeam) return [];
+
+    return participants.filter(
+      (participant) =>
+        String(participant.eventId) === String(activeEvent.id) &&
+        String(participant.teamId) === String(selectedTeam.id)
+    );
+  };
+  const normalizeWinnerForForm = (winner) => {
+    const selectedTeam =
+      getTeamOption(winner.teamId) ||
+      getTeamOption(winner.teamName) ||
+      getTeamOption(winner.team) ||
+      teamOptions[0] ||
+      { id: teams[0] || "Alpha", name: teams[0] || "Alpha" };
+    const participant = winner.participantId
+      ? participants.find(
+          (item) =>
+            String(item.id) === String(winner.participantId) &&
+            String(item.teamId) === String(selectedTeam.id)
+        )
+      : null;
+    const isCustomName = Boolean(!participant && String(winner.name || "").trim());
+
+    return {
+      id: winner.id || uid(),
+      position: winner.position || "",
+      name: participant?.name || winner.name || "",
+      team: selectedTeam.name,
+      teamId: selectedTeam.id,
+      teamName: selectedTeam.name,
+      participantId: participant?.id || "",
+      isCustomName,
+      grade: winner.grade || "",
+      isGroupProgram: Boolean(winner.isGroupProgram),
+      imageName: winner.imageName || "",
+    };
+  };
+
   const openCreate = () => {
+    if (!hasActiveEvent) {
+      alert("Please select an active event first.");
+      return;
+    }
+
     const next = emptyForm();
-    next.category = categories[0] || "General";
-    next.winners = next.winners.map((winner) => ({ ...winner, team: teams[0] || "Alpha" }));
+    const firstTeam = teamOptions[0] || { id: teams[0] || "Alpha", name: teams[0] || "Alpha" };
+    const firstCategory = categories[0] || null;
+    next.category = firstCategory?.name || "";
+    next.categoryId = firstCategory?.id || "";
+    next.categoryName = firstCategory?.name || "";
+    next.winners = next.winners.map((winner) => ({
+      ...winner,
+      name: "",
+      team: firstTeam.name,
+      teamId: firstTeam.id,
+      teamName: firstTeam.name,
+      participantId: "",
+      isCustomName: false,
+    }));
     setForm(next);
     setEditingId(null);
     setModalMode("create");
   };
   const openEdit = (result) => {
+    const selectedCategory =
+      getCategoryOption(result.categoryId) ||
+      getCategoryOption(result.categoryName) ||
+      getCategoryOption(result.category);
+
     setForm({
       programName: result.programName || "",
-      category: result.category || categories[0] || "General",
+      category: selectedCategory?.name || result.categoryName || result.category || "",
+      categoryId: selectedCategory?.id || "",
+      categoryName: selectedCategory?.name || result.categoryName || result.category || "",
       resultNumber: result.resultNumber || "",
-      winners: (result.winners?.length ? result.winners : defaultWinners()).map((winner) => ({
-        id: winner.id || uid(),
-        position: winner.position || "",
-        name: winner.name || "",
-        team: winner.team || teams[0] || "Alpha",
-        grade: winner.grade || "",
-        isGroupProgram: Boolean(winner.isGroupProgram),
-        imageName: winner.imageName || "",
-      })),
+      winners: (result.winners?.length ? result.winners : defaultWinners()).map(normalizeWinnerForForm),
     });
     setEditingId(result.id);
     setModalMode("edit");
@@ -824,20 +981,78 @@ function ProgramResultsPage() {
     setEditingId(null);
   };
   const updateWinner = (id, patch) => setForm((current) => ({ ...current, winners: current.winners.map((winner) => winner.id === id ? { ...winner, ...patch } : winner) }));
+  const updateWinnerTeam = (id, teamId) => {
+    const selectedTeam = getTeamOption(teamId);
+    updateWinner(id, {
+      team: selectedTeam?.name || "",
+      teamId: selectedTeam?.id || "",
+      teamName: selectedTeam?.name || "",
+      participantId: "",
+      name: "",
+      isCustomName: false,
+    });
+  };
+  const updateWinnerParticipant = (id, participantId) => {
+    if (participantId === CUSTOM_WINNER_VALUE) {
+      updateWinner(id, { participantId: "", name: "", isCustomName: true });
+      return;
+    }
+
+    const participant = participants.find((item) => String(item.id) === String(participantId));
+    updateWinner(id, {
+      participantId: participant?.id || "",
+      name: participant?.name || "",
+      isCustomName: false,
+    });
+  };
   const removeWinner = (id) => setForm((current) => ({ ...current, winners: current.winners.length > 1 ? current.winners.filter((winner) => winner.id !== id) : current.winners }));
-  const addWinner = () => setForm((current) => ({ ...current, winners: [...current.winners, { id: uid(), position: String(current.winners.length + 1), name: "", team: teams[0] || "Alpha", grade: "", isGroupProgram: false, imageName: "" }] }));
+  const addWinner = () => setForm((current) => {
+    const firstTeam = teamOptions[0] || { id: teams[0] || "Alpha", name: teams[0] || "Alpha" };
+    return {
+      ...current,
+      winners: [
+        ...current.winners,
+        {
+          id: uid(),
+          position: String(current.winners.length + 1),
+          name: "",
+          team: firstTeam.name,
+          teamId: firstTeam.id,
+          teamName: firstTeam.name,
+          participantId: "",
+          isCustomName: false,
+          grade: "",
+          isGroupProgram: false,
+          imageName: "",
+        },
+      ],
+    };
+  });
 
   const submitResult = (event) => {
     event.preventDefault();
+    const selectedCategory = getCategoryOption(form.categoryId);
+
+    if (!selectedCategory) {
+      alert("Please create or select a category first.");
+      return;
+    }
+
     const cleaned = {
       programName: form.programName.trim() || "Untitled Program",
-      category: form.category || categories[0] || "General",
+      category: selectedCategory.name,
+      categoryId: selectedCategory.id,
+      categoryName: selectedCategory.name,
       resultNumber: String(form.resultNumber || "").trim() || "1",
       winners: form.winners.map((winner) => ({
         id: winner.id || uid(),
         position: String(winner.position || "").trim(),
         name: String(winner.name || "").trim(),
-        team: winner.team || teams[0] || "Alpha",
+        team: winner.teamName || winner.team || teams[0] || "Alpha",
+        teamId: winner.teamId || "",
+        teamName: winner.teamName || winner.team || teams[0] || "Alpha",
+        participantId: winner.isCustomName ? "" : winner.participantId || "",
+        isCustomName: Boolean(winner.isCustomName),
         grade: String(winner.grade || "").trim(),
         isGroupProgram: Boolean(winner.isGroupProgram),
         imageName: winner.imageName || "",
@@ -1039,12 +1254,14 @@ function ProgramResultsPage() {
       <div className="results-header">
         <div>
           <h1>Manage Results</h1>
-          <p>View, create, edit, and generate posters for event: {activeEvent.name}</p>
+          <p>View, create, edit, and generate posters for event: {activeEvent?.name || "No active event"}</p>
         </div>
-        <button className="primary-btn header-btn" onClick={openCreate}><Plus size={18} strokeWidth={2} aria-hidden="true" />Create New Result Poster</button>
+        <button className="primary-btn header-btn" onClick={openCreate} disabled={!hasActiveEvent}><Plus size={18} strokeWidth={2} aria-hidden="true" />Create New Result Poster</button>
       </div>
 
-      <section className="filter-card">
+      {!hasActiveEvent ? (
+        <NoActiveEventState />
+      ) : <><section className="filter-card">
         <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search your results..." />
         <select value={status} onChange={(event) => setStatus(event.target.value)}><option>All Status</option><option>Published</option><option>Draft</option></select>
         <select value={sort} onChange={(event) => setSort(event.target.value)}><option>Sort by Date</option><option>Newest First</option><option>Oldest First</option><option>Program Name</option></select>
@@ -1077,7 +1294,7 @@ function ProgramResultsPage() {
           <p>You haven't created any result posters yet. Get started by creating your first one!</p>
           <button className="primary-btn" onClick={openCreate}>Create Your First Result Poster</button>
         </section>
-      )}
+      )}</>}
 
       {modalMode && (
         <div className="modal-overlay">
@@ -1087,25 +1304,89 @@ function ProgramResultsPage() {
             <p className="modal-subtitle">{modalMode === "edit" ? "Make changes to your result poster here." : "Create a new result poster by filling in the details below."}</p>
             <div className="form-grid">
               <label>Program Name<input value={form.programName} onChange={(event) => setForm((current) => ({ ...current, programName: event.target.value }))} autoFocus /></label>
-              <label>Program Category<select value={form.category} onChange={(event) => setForm((current) => ({ ...current, category: event.target.value }))}>{categories.map((category) => <option key={category}>{category}</option>)}</select></label>
+              <label>
+                Program Category
+                <select
+                  value={form.categoryId || ""}
+                  onChange={(event) => {
+                    const selectedCategory = getCategoryOption(event.target.value);
+                    setForm((current) => ({
+                      ...current,
+                      category: selectedCategory?.name || "",
+                      categoryId: selectedCategory?.id || "",
+                      categoryName: selectedCategory?.name || "",
+                    }));
+                  }}
+                  disabled={categories.length === 0}
+                >
+                  <option value="" disabled>
+                    {categories.length ? "Select category" : "Create a category first"}
+                  </option>
+                  {categories.map((category) => (
+                    <option key={category.id} value={category.id}>
+                      {category.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
               <label>Result Number<input value={form.resultNumber} onChange={(event) => setForm((current) => ({ ...current, resultNumber: event.target.value }))} /></label>
             </div>
+            {categories.length === 0 && (
+              <p className="modal-subtitle">Create a category first.</p>
+            )}
             <h3>Winners</h3>
             <div className="winner-list">
-              {form.winners.map((winner) => (
-                <div className="winner-row" key={winner.id}>
-                  <label>Position<input value={winner.position} onChange={(event) => updateWinner(winner.id, { position: event.target.value })} /></label>
-                  <label>Name<input value={winner.name} onChange={(event) => updateWinner(winner.id, { name: event.target.value })} /></label>
-                  <label>Team<select value={winner.team} onChange={(event) => updateWinner(winner.id, { team: event.target.value })}>{teams.map((team) => <option key={team}>{team}</option>)}</select></label>
-                  <label>Grade (Optional)<input value={winner.grade} onChange={(event) => updateWinner(winner.id, { grade: event.target.value })} /></label>
-                  <label className="checkbox-label"><input type="checkbox" checked={winner.isGroupProgram} onChange={(event) => updateWinner(winner.id, { isGroupProgram: event.target.checked })} />Is Group Program?</label>
-                  <label>Winner Image (Optional)<input type="file" onChange={(event) => updateWinner(winner.id, { imageName: event.target.files?.[0]?.name || "" })} /></label>
-                  <button type="button" className="secondary-btn" onClick={() => removeWinner(winner.id)}>Remove</button>
-                </div>
-              ))}
+              {form.winners.map((winner) => {
+                const teamParticipants = getParticipantsForWinnerTeam(winner);
+                const winnerNameValue = winner.isCustomName
+                  ? CUSTOM_WINNER_VALUE
+                  : winner.participantId || "";
+
+                return (
+                  <div className="winner-row" key={winner.id}>
+                    <label>Position<input value={winner.position} onChange={(event) => updateWinner(winner.id, { position: event.target.value })} /></label>
+                    <label>
+                      Name
+                      <select
+                        value={winnerNameValue}
+                        onChange={(event) => updateWinnerParticipant(winner.id, event.target.value)}
+                        disabled={!winner.teamId}
+                      >
+                        <option value="" disabled>
+                          {!winner.teamId
+                            ? "Select team first"
+                            : teamParticipants.length
+                              ? "Select winner"
+                              : "No participants found"}
+                        </option>
+                        {teamParticipants.map((participant) => (
+                          <option key={participant.id} value={participant.id}>
+                            {participant.name}
+                          </option>
+                        ))}
+                        {winner.teamId && (
+                          <option value={CUSTOM_WINNER_VALUE}>Custom</option>
+                        )}
+                      </select>
+                      {winner.isCustomName && (
+                        <input
+                          value={winner.name}
+                          onChange={(event) => updateWinner(winner.id, { name: event.target.value })}
+                          placeholder="Type winner name"
+                        />
+                      )}
+                    </label>
+                    <label>Team<select value={winner.teamId || ""} onChange={(event) => updateWinnerTeam(winner.id, event.target.value)}>{teamOptions.map((team) => <option key={team.id} value={team.id}>{team.name}</option>)}</select></label>
+                    <label>Grade (Optional)<input value={winner.grade} onChange={(event) => updateWinner(winner.id, { grade: event.target.value })} /></label>
+                    <label className="checkbox-label"><input type="checkbox" checked={winner.isGroupProgram} onChange={(event) => updateWinner(winner.id, { isGroupProgram: event.target.checked })} />Is Group Program?</label>
+                    <label>Winner Image (Optional)<input type="file" onChange={(event) => updateWinner(winner.id, { imageName: event.target.files?.[0]?.name || "" })} /></label>
+                    <button type="button" className="secondary-btn" onClick={() => removeWinner(winner.id)}>Remove</button>
+                  </div>
+                );
+              })}
             </div>
             <button type="button" className="secondary-btn add-winner" onClick={addWinner}>Add Winner</button>
-            <div className="modal-actions"><button type="submit" className="primary-btn">{modalMode === "edit" ? "Update Result" : "Create Result"}</button><button type="button" className="secondary-btn" onClick={closeEditor}>Cancel</button></div>
+            <div className="modal-actions"><button type="submit" className="primary-btn" disabled={categories.length === 0}>{modalMode === "edit" ? "Update Result" : "Create Result"}</button><button type="button" className="secondary-btn" onClick={closeEditor}>Cancel</button></div>
           </form>
         </div>
       )}

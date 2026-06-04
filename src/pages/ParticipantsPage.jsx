@@ -1,0 +1,505 @@
+import React, { useEffect, useMemo, useState } from "react";
+import { Edit, MoreVertical, Plus, Trash2, X } from "lucide-react";
+import { getUserStorageKey } from "../utils/storage.js";
+import NoActiveEventState from "../components/NoActiveEventState.jsx";
+
+const EVENTS_KEY = "rankify_events";
+const ACTIVE_EVENT_KEY = "rankify_active_event_id";
+const TEAMS_KEY = "rankify_teams";
+const CATEGORIES_KEY = "rankify_categories";
+const PARTICIPANTS_KEY = "rankify_participants";
+
+function safeJsonParse(value, fallback) {
+  try {
+    const parsed = JSON.parse(value || "");
+    return parsed || fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function getStoredEvents() {
+  const storedEvents = safeJsonParse(localStorage.getItem(getUserStorageKey(EVENTS_KEY)), []);
+  return Array.isArray(storedEvents) ? storedEvents : [];
+}
+
+function getStoredTeams() {
+  const storedTeams = safeJsonParse(localStorage.getItem(getUserStorageKey(TEAMS_KEY)), {});
+  return storedTeams && typeof storedTeams === "object" && !Array.isArray(storedTeams)
+    ? storedTeams
+    : {};
+}
+
+function getStoredCategories() {
+  const storedCategories = safeJsonParse(
+    localStorage.getItem(getUserStorageKey(CATEGORIES_KEY)),
+    {}
+  );
+  return storedCategories &&
+    typeof storedCategories === "object" &&
+    !Array.isArray(storedCategories)
+    ? storedCategories
+    : {};
+}
+
+function getStoredParticipants() {
+  const storedParticipants = safeJsonParse(
+    localStorage.getItem(getUserStorageKey(PARTICIPANTS_KEY)),
+    {}
+  );
+  return storedParticipants &&
+    typeof storedParticipants === "object" &&
+    !Array.isArray(storedParticipants)
+    ? storedParticipants
+    : {};
+}
+
+function getValidActiveEventId(events) {
+  const storedActiveId = localStorage.getItem(getUserStorageKey(ACTIVE_EVENT_KEY));
+  const storedActiveEvent = events.find((event) => event.id === storedActiveId);
+
+  if (storedActiveEvent) {
+    return storedActiveId;
+  }
+
+  localStorage.removeItem(getUserStorageKey(ACTIVE_EVENT_KEY));
+  return "";
+}
+
+function getToday() {
+  return new Date().toLocaleDateString("en-US");
+}
+
+export default function ParticipantsPage() {
+  const [events, setEvents] = useState([]);
+  const [activeEventId, setActiveEventId] = useState("");
+  const [teamsByEvent, setTeamsByEvent] = useState({});
+  const [categoriesByEvent, setCategoriesByEvent] = useState({});
+  const [participantsByEvent, setParticipantsByEvent] = useState({});
+  const [openMenuId, setOpenMenuId] = useState("");
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editingParticipant, setEditingParticipant] = useState(null);
+  const [participantName, setParticipantName] = useState("");
+  const [teamId, setTeamId] = useState("");
+  const [categoryId, setCategoryId] = useState("");
+
+  useEffect(() => {
+    function syncFromLocalStorage() {
+      const storedEvents = getStoredEvents();
+      const validActiveId = getValidActiveEventId(storedEvents);
+      const storedTeams = getStoredTeams();
+      const storedCategories = getStoredCategories();
+      const storedParticipants = getStoredParticipants();
+
+      setEvents(storedEvents);
+      setActiveEventId(validActiveId);
+      setTeamsByEvent(storedTeams);
+      setCategoriesByEvent(storedCategories);
+      setParticipantsByEvent(storedParticipants);
+    }
+
+    syncFromLocalStorage();
+
+    window.addEventListener("focus", syncFromLocalStorage);
+    window.addEventListener("storage", syncFromLocalStorage);
+    window.addEventListener("rankify-active-event-changed", syncFromLocalStorage);
+    window.addEventListener("rankify-data-changed", syncFromLocalStorage);
+
+    return () => {
+      window.removeEventListener("focus", syncFromLocalStorage);
+      window.removeEventListener("storage", syncFromLocalStorage);
+      window.removeEventListener(
+        "rankify-active-event-changed",
+        syncFromLocalStorage
+      );
+      window.removeEventListener("rankify-data-changed", syncFromLocalStorage);
+    };
+  }, []);
+
+  const activeEvent = useMemo(
+    () => events.find((event) => event.id === activeEventId) || null,
+    [activeEventId, events]
+  );
+
+  const visibleTeams = useMemo(
+    () => (activeEventId ? teamsByEvent[activeEventId] || [] : []),
+    [activeEventId, teamsByEvent]
+  );
+
+  const visibleCategories = useMemo(
+    () => (activeEventId ? categoriesByEvent[activeEventId] || [] : []),
+    [activeEventId, categoriesByEvent]
+  );
+
+  const visibleParticipants = useMemo(
+    () => (activeEventId ? participantsByEvent[activeEventId] || [] : []),
+    [activeEventId, participantsByEvent]
+  );
+
+  function persistParticipantsForActiveEvent(nextParticipants) {
+    if (!activeEventId) return;
+
+    const storedParticipants = getStoredParticipants();
+    const updatedParticipantsByEvent = {
+      ...storedParticipants,
+      [activeEventId]: nextParticipants,
+    };
+
+    localStorage.setItem(
+      getUserStorageKey(PARTICIPANTS_KEY),
+      JSON.stringify(updatedParticipantsByEvent)
+    );
+    setParticipantsByEvent(updatedParticipantsByEvent);
+    window.dispatchEvent(new Event("rankify-data-changed"));
+  }
+
+  function openCreateModal() {
+    if (!activeEventId) {
+      alert("Please select an active event first.");
+      return;
+    }
+
+    setEditingParticipant(null);
+    setParticipantName("");
+    setTeamId(visibleTeams[0]?.id || "");
+    setCategoryId(visibleCategories[0]?.id || "");
+    setModalOpen(true);
+    setOpenMenuId("");
+  }
+
+  function openEditModal(participant) {
+    const matchingTeam = visibleTeams.find(
+      (team) => team.name === participant.teamName
+    );
+    const matchingCategory = visibleCategories.find(
+      (category) => category.name === participant.categoryName
+    );
+
+    setEditingParticipant(participant);
+    setParticipantName(participant.name || "");
+    setTeamId(participant.teamId || matchingTeam?.id || "");
+    setCategoryId(participant.categoryId || matchingCategory?.id || "");
+    setModalOpen(true);
+    setOpenMenuId("");
+  }
+
+  function closeModal() {
+    setModalOpen(false);
+    setEditingParticipant(null);
+    setParticipantName("");
+    setTeamId("");
+    setCategoryId("");
+  }
+
+  function handleSubmit(event) {
+    event.preventDefault();
+
+    if (!participantName.trim()) {
+      alert("Participant name is required");
+      return;
+    }
+
+    if (!activeEventId) {
+      alert("Please select an active event first.");
+      return;
+    }
+
+    if (!teamId) {
+      alert("Team is required");
+      return;
+    }
+
+    if (!categoryId) {
+      alert("Category is required");
+      return;
+    }
+
+    const selectedTeam = visibleTeams.find((team) => team.id === teamId);
+    const selectedCategory = visibleCategories.find(
+      (category) => category.id === categoryId
+    );
+
+    if (!selectedTeam) {
+      alert("Please select a valid team.");
+      return;
+    }
+
+    if (!selectedCategory) {
+      alert("Please select a valid category.");
+      return;
+    }
+
+    const currentParticipants = participantsByEvent[activeEventId] || [];
+
+    if (editingParticipant) {
+      const updatedParticipants = currentParticipants.map((participant) =>
+        participant.id === editingParticipant.id
+          ? {
+              ...participant,
+              name: participantName.trim(),
+              teamId: selectedTeam.id,
+              teamName: selectedTeam.name,
+              categoryId: selectedCategory.id,
+              categoryName: selectedCategory.name,
+            }
+          : participant
+      );
+
+      persistParticipantsForActiveEvent(updatedParticipants);
+      closeModal();
+      return;
+    }
+
+    const newParticipant = {
+      id: `participant_${Date.now()}`,
+      eventId: activeEventId,
+      name: participantName.trim(),
+      teamId: selectedTeam.id,
+      teamName: selectedTeam.name,
+      categoryId: selectedCategory.id,
+      categoryName: selectedCategory.name,
+      createdAt: getToday(),
+    };
+
+    persistParticipantsForActiveEvent([...currentParticipants, newParticipant]);
+    closeModal();
+  }
+
+  function handleDeleteParticipant(participantId) {
+    if (!activeEventId) return;
+
+    const confirmed = window.confirm(
+      "Are you sure you want to delete this participant?"
+    );
+    if (!confirmed) return;
+
+    const currentParticipants = participantsByEvent[activeEventId] || [];
+    const updatedParticipants = currentParticipants.filter(
+      (participant) => participant.id !== participantId
+    );
+
+    persistParticipantsForActiveEvent(updatedParticipants);
+    setOpenMenuId("");
+  }
+
+  return (
+    <div className="app-page overflow-x-hidden px-6 py-6 max-sm:px-4">
+      <div className="max-w-[1080px] space-y-5">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div className="min-w-0">
+            <h1 className="app-heading text-2xl font-bold tracking-tight">
+              Manage Participants
+            </h1>
+            <p className="app-muted mt-1">
+              View, create, edit, and delete participants for event:{" "}
+              <span className="font-semibold">
+                {activeEvent?.name || "No active event"}
+              </span>
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={openCreateModal}
+            disabled={!activeEventId}
+            className="app-success-btn inline-flex h-10 items-center justify-center gap-2 rounded-md px-4 text-sm font-semibold shadow-sm hover:opacity-90"
+          >
+            <Plus size={18} strokeWidth={2} aria-hidden="true" />
+            Add Participant
+          </button>
+        </div>
+
+        {!activeEventId ? (
+          <NoActiveEventState />
+        ) : visibleParticipants.length === 0 ? (
+          <div className="app-card rounded-xl border p-6 shadow-sm">
+            <h2 className="app-heading text-lg font-bold">
+              No participants found.
+            </h2>
+            <p className="app-muted mt-1 text-sm">
+              Add your first participant to this event.
+            </p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
+            {visibleParticipants.map((participant) => (
+              <div
+                key={participant.id}
+                className="app-card relative flex min-h-[140px] flex-col rounded-xl border p-6 shadow-sm"
+              >
+                <button
+                  type="button"
+                  onClick={() =>
+                    setOpenMenuId((current) =>
+                      current === participant.id ? "" : participant.id
+                    )
+                  }
+                  className="absolute right-6 top-6 flex h-8 w-8 items-center justify-center rounded-md text-xl leading-none text-[var(--app-heading)] hover:bg-[var(--app-surface-elevated)]"
+                  aria-label="Participant actions"
+                >
+                  <MoreVertical size={18} strokeWidth={1.9} aria-hidden="true" />
+                </button>
+
+                {openMenuId === participant.id && (
+                  <div className="app-dropdown absolute right-6 top-14 z-50 w-[150px] rounded-md border py-2 shadow-lg">
+                    <p className="app-heading px-4 pb-2 text-sm font-semibold">
+                      Actions
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => openEditModal(participant)}
+                      className="app-text block w-full px-4 py-3 text-left text-sm hover:bg-[var(--app-sidebar-active-bg)] hover:text-[var(--app-sidebar-active-text)]"
+                    >
+                      <Edit className="mr-2 inline-block align-[-2px]" size={15} strokeWidth={1.9} aria-hidden="true" />
+                      Edit
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteParticipant(participant.id)}
+                      className="block w-full border-t border-[var(--app-border)] px-4 py-3 text-left text-sm text-[var(--app-danger)] hover:bg-[var(--app-danger-bg-soft)]"
+                    >
+                      <Trash2 className="mr-2 inline-block align-[-2px]" size={15} strokeWidth={1.9} aria-hidden="true" />
+                      Delete
+                    </button>
+                  </div>
+                )}
+
+                <div className="pr-10">
+                  <h2 className="app-heading text-lg font-bold">
+                    {participant.name}
+                  </h2>
+                  <p className="app-muted mt-1 text-sm">
+                    Team: {participant.teamName || "No team"}
+                  </p>
+                  <p className="app-muted mt-1 text-sm">
+                    Category: {participant.categoryName || "No category"}
+                  </p>
+                  <p className="app-muted mt-1 text-sm">
+                    Created: {participant.createdAt}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {modalOpen && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center overflow-y-auto bg-black/50 p-4">
+          <div className="app-modal relative w-full max-w-[520px] rounded-xl p-6 shadow-2xl max-sm:max-w-[calc(100vw-24px)] max-sm:p-5">
+            <button
+              type="button"
+              onClick={closeModal}
+              className="app-muted absolute right-4 top-4 text-2xl leading-none hover:text-[var(--app-heading)]"
+              aria-label="Close modal"
+            >
+              <X size={20} strokeWidth={2} aria-hidden="true" />
+            </button>
+
+            <h2 className="app-heading text-xl font-bold">
+              {editingParticipant ? "Edit Participant" : "Add Participant"}
+            </h2>
+            <p className="app-muted mt-1 max-w-[360px] text-sm">
+              {editingParticipant
+                ? "Make changes to your participant here. Click save when you're done."
+                : "Add a participant and assign them to a team and category."}
+            </p>
+
+            <form onSubmit={handleSubmit} className="mt-8 space-y-4">
+              <div className="grid grid-cols-[110px_minmax(0,1fr)] items-center gap-4 max-sm:grid-cols-1 max-sm:gap-2">
+                <label className="app-heading min-w-0 text-sm font-medium leading-tight">
+                  Participant
+                  <br />
+                  Name
+                </label>
+                <input
+                  value={participantName}
+                  onChange={(event) => setParticipantName(event.target.value)}
+                  placeholder="e.g., Ahmed"
+                  autoFocus
+                  required
+                  className="app-input h-10 w-full max-w-full rounded-md border px-3 text-sm outline-none focus:border-[var(--app-primary)] focus:ring-2 focus:ring-[var(--app-focus-ring)]"
+                />
+              </div>
+
+              <div className="grid grid-cols-[110px_minmax(0,1fr)] items-center gap-4 max-sm:grid-cols-1 max-sm:gap-2">
+                <label className="app-heading min-w-0 text-sm font-medium leading-tight">
+                  Team
+                </label>
+                <select
+                  value={teamId}
+                  onChange={(event) => setTeamId(event.target.value)}
+                  required
+                  disabled={visibleTeams.length === 0}
+                  className="app-select h-10 w-full max-w-full rounded-md border px-3 text-sm shadow-sm outline-none focus:border-[var(--app-primary)] focus:ring-2 focus:ring-[var(--app-focus-ring)] disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  <option value="" disabled>
+                    Select team
+                  </option>
+                  {visibleTeams.map((team) => (
+                    <option key={team.id} value={team.id}>
+                      {team.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {visibleTeams.length === 0 && (
+                <p className="app-muted text-sm">
+                  Create a team first before adding participants.
+                </p>
+              )}
+
+              <div className="grid grid-cols-[110px_minmax(0,1fr)] items-center gap-4 max-sm:grid-cols-1 max-sm:gap-2">
+                <label className="app-heading min-w-0 text-sm font-medium leading-tight">
+                  Category
+                </label>
+                <select
+                  value={categoryId}
+                  onChange={(event) => setCategoryId(event.target.value)}
+                  required
+                  disabled={visibleCategories.length === 0}
+                  className="app-select h-10 w-full max-w-full rounded-md border px-3 text-sm shadow-sm outline-none focus:border-[var(--app-primary)] focus:ring-2 focus:ring-[var(--app-focus-ring)] disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  <option value="" disabled>
+                    Select category
+                  </option>
+                  {visibleCategories.map((category) => (
+                    <option key={category.id} value={category.id}>
+                      {category.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {visibleCategories.length === 0 && (
+                <p className="app-muted text-sm">
+                  Create a category first before adding participants.
+                </p>
+              )}
+
+              <div className="flex flex-wrap justify-end gap-2 pt-2">
+                <button
+                  type="submit"
+                  disabled={
+                    visibleTeams.length === 0 || visibleCategories.length === 0
+                  }
+                  className="app-success-btn h-10 rounded-md px-4 text-sm font-semibold hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {editingParticipant ? "Update Participant" : "Add Participant"}
+                </button>
+                <button
+                  type="button"
+                  onClick={closeModal}
+                  className="app-card h-10 rounded-md border px-4 text-sm font-medium hover:bg-[var(--app-surface-elevated)]"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

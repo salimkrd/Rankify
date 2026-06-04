@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 import { BarChart3, Download, Edit, Eye, MoreVertical, Plus, Trash2, X } from "lucide-react";
 import TeamStatusTemplatePreview from "../components/TeamStatusTemplatePreview";
 import { getUserStorageKey } from "../utils/storage.js";
+import NoActiveEventState from "../components/NoActiveEventState.jsx";
 
 const STORAGE_KEY = "rankify_team_status_results";
 const TEMPLATES_KEY = "rankify_team_status_templates";
@@ -74,7 +75,7 @@ function injectResultIntoTemplate(template, result) {
 export default function TeamStatusResultsPage() {
   const [results, setResults] = useState([]);
   const [templates, setTemplates] = useState([]);
-  const [activeEvent, setActiveEvent] = useState({ id: "default", name: "Active Event" });
+  const [activeEvent, setActiveEvent] = useState(null);
   const [teams, setTeams] = useState([]);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("All Status");
@@ -88,8 +89,16 @@ export default function TeamStatusResultsPage() {
   useEffect(() => {
     function load() {
       const events = asArray(safeParse(localStorage.getItem(getUserStorageKey(EVENTS_KEY)), []));
-      const activeId = localStorage.getItem(getUserStorageKey(ACTIVE_EVENT_KEY)) || events[0]?.id || "default";
-      const event = events.find((e) => String(e.id) === String(activeId)) || { id: activeId, name: "Active Event" };
+      const activeId = localStorage.getItem(getUserStorageKey(ACTIVE_EVENT_KEY)) || "";
+      const event = events.find((e) => String(e.id) === String(activeId)) || null;
+
+      if (!event?.id) {
+        setActiveEvent(null);
+        setTemplates([]);
+        setTeams([]);
+        setResults([]);
+        return;
+      }
 
       setActiveEvent({ id: String(event.id || activeId), name: event.name || event.title || "Active Event" });
       setTemplates(flattenTemplatesStorage(TEMPLATES_KEY));
@@ -114,6 +123,8 @@ export default function TeamStatusResultsPage() {
   }, []);
 
   const saveResults = (next) => {
+    if (!activeEvent?.id) return;
+
     setResults(next);
     // write grouped by eventId if existing stored as object
     const raw = safeParse(localStorage.getItem(getUserStorageKey(STORAGE_KEY)), null);
@@ -132,6 +143,11 @@ export default function TeamStatusResultsPage() {
   };
 
   const openCreate = () => {
+    if (!activeEvent?.id) {
+      alert("Please select an active event first.");
+      return;
+    }
+
     const next = { statusName: "New Team Point Status", templateId: templates[0]?.id || "", titleParts: ["Final", "Point", "Status"], teams: [{ id: uid(), teamName: teams[0]?.name || "Alpha", score: "0" }] };
     setForm(next);
     setEditingId(null);
@@ -151,6 +167,11 @@ export default function TeamStatusResultsPage() {
 
   const submit = (e) => {
     e.preventDefault();
+    if (!activeEvent?.id) {
+      alert("Please select an active event first.");
+      return;
+    }
+
     const cleaned = {
       id: editingId || uid(),
       eventId: activeEvent.id,
@@ -263,7 +284,7 @@ export default function TeamStatusResultsPage() {
     }
   };
 
-  const eventResults = useMemo(() => (results || []).filter((r) => String(r.eventId) === String(activeEvent.id)), [results, activeEvent.id]);
+  const eventResults = useMemo(() => (activeEvent?.id ? (results || []).filter((r) => String(r.eventId) === String(activeEvent.id)) : []), [results, activeEvent?.id]);
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     let list = [...eventResults];
@@ -280,17 +301,20 @@ export default function TeamStatusResultsPage() {
       <style>{teamStatusResultsStyles}</style>
       <header className="flex flex-wrap items-start gap-4">
         <div className="min-w-0">
-          <h1 className="app-heading text-2xl font-bold">Team Point Statuses for {activeEvent.name}</h1>
+          <h1 className="app-heading text-2xl font-bold">Team Point Statuses for {activeEvent?.name || "No active event"}</h1>
           <p className="app-muted">Manage and generate point status posters.</p>
         </div>
         <div className="ml-auto max-sm:ml-0">
-          <button onClick={openCreate} className="app-success-btn inline-flex items-center gap-2 rounded-md px-4 py-2 font-semibold shadow-sm hover:opacity-90">
+          <button onClick={openCreate} disabled={!activeEvent?.id} className="app-success-btn inline-flex items-center gap-2 rounded-md px-4 py-2 font-semibold shadow-sm hover:opacity-90">
             <Plus size={16} strokeWidth={1.9} aria-hidden="true" />
             Create New Status
           </button>
         </div>
       </header>
 
+      {!activeEvent?.id ? (
+        <NoActiveEventState />
+      ) : <>
       <div className="app-card mt-6 rounded-lg border p-4 shadow-sm">
         <div className="flex flex-wrap gap-3">
           <input placeholder="Search your statuses..." value={search} onChange={(e) => setSearch(e.target.value)} className="app-input min-w-[220px] flex-1 rounded-md border px-3 py-2 max-sm:min-w-0 max-sm:basis-full" />
@@ -364,6 +388,7 @@ export default function TeamStatusResultsPage() {
           </div>
         )}
       </div>
+      </>}
 
       {/* Create/Edit Modal */}
       {modalMode && (

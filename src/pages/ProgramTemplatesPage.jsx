@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Copy, Edit, FilePlus2, ImageIcon, Plus, Trash2, X } from "lucide-react";
 import { getUserStorageKey } from "../utils/storage.js";
+import NoActiveEventState from "../components/NoActiveEventState.jsx";
 
 const EVENTS_KEY = "rankify_events";
 const ACTIVE_EVENT_KEY = "rankify_active_event_id";
@@ -429,15 +430,8 @@ function getActiveEventId(events) {
 
   if (isValid) return storedActiveId;
 
-  const firstEventId = events[0]?.id || "";
-
-  if (firstEventId) {
-    localStorage.setItem(getUserStorageKey(ACTIVE_EVENT_KEY), firstEventId);
-  } else {
-    localStorage.removeItem(getUserStorageKey(ACTIVE_EVENT_KEY));
-  }
-
-  return firstEventId;
+  localStorage.removeItem(getUserStorageKey(ACTIVE_EVENT_KEY));
+  return "";
 }
 
 function getTemplatesByEvent() {
@@ -510,6 +504,11 @@ export default function ProgramTemplatesPage() {
   }
 
   function handleCreateTemplate() {
+    if (!activeEventId) {
+      alert("Please select an active event first.");
+      return;
+    }
+
     navigate("/dashboard/program-templates/new");
   }
 
@@ -538,6 +537,11 @@ export default function ProgramTemplatesPage() {
   }
 
   function handleDuplicateTemplate(template) {
+    if (!activeEventId) {
+      alert("Please select an active event first.");
+      return;
+    }
+
     const duplicatedTemplate = {
       ...template,
       id: `template_${Date.now()}`,
@@ -570,36 +574,47 @@ export default function ProgramTemplatesPage() {
   return (
     <div className="app-page overflow-x-hidden px-6 py-6 max-sm:px-4">
       <div className="space-y-8">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div className="min-w-0">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0 flex-1">
             <h1 className="app-heading text-2xl font-bold tracking-tight">
               Poster Templates
             </h1>
             <p className="app-muted mt-1">
               Design and manage reusable poster templates
+              {activeEvent?.name ? ` for event: ${activeEvent.name}` : ""}
             </p>
           </div>
 
-          <div className="flex min-w-0 flex-wrap items-center gap-2">
+          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center sm:justify-end">
             <button
               type="button"
               onClick={handleCreateTemplate}
-              className="app-success-btn inline-flex min-h-10 max-w-full items-center justify-center gap-2 rounded-md px-4 py-2 text-sm font-semibold shadow-sm hover:opacity-90"
+              disabled={!activeEventId}
+              className="app-success-btn inline-flex min-h-10 w-full max-w-full items-center justify-center gap-2 rounded-md px-4 py-2 text-sm font-semibold shadow-sm hover:opacity-90 sm:w-auto"
             >
               <Plus size={18} strokeWidth={2} aria-hidden="true" />
               Create New Template
             </button>
             <button
               type="button"
-              onClick={() => setPublicModalOpen(true)}
-              className="app-success-btn inline-flex min-h-10 max-w-full items-center justify-center rounded-md px-4 py-2 text-sm font-semibold shadow-sm hover:opacity-90"
+              onClick={() => {
+                if (!activeEventId) {
+                  alert("Please select an active event first.");
+                  return;
+                }
+                setPublicModalOpen(true);
+              }}
+              disabled={!activeEventId}
+              className="app-card inline-flex min-h-10 w-full max-w-full items-center justify-center rounded-md border px-4 py-2 text-sm font-semibold shadow-sm hover:bg-[var(--app-surface-elevated)] sm:w-auto"
             >
               Explore Public Templates
             </button>
           </div>
         </div>
 
-        {visibleTemplates.length === 0 ? (
+        {!activeEventId ? (
+          <NoActiveEventState />
+        ) : visibleTemplates.length === 0 ? (
           <div className="flex min-h-[520px] flex-col items-center justify-center text-center">
             <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-full bg-[var(--app-surface-elevated)] text-[var(--app-muted)]">
               <FilePlus2 size={42} strokeWidth={1.8} aria-hidden="true" />

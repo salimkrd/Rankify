@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Download, Eye, FileSearch, Trash2 } from "lucide-react";
 import { getUserStorageKey } from "../utils/storage.js";
+import NoActiveEventState from "../components/NoActiveEventState.jsx";
 
 const EVENTS_KEY = "rankify_events";
 const ACTIVE_EVENT_KEY = "rankify_active_event_id";
@@ -99,7 +100,9 @@ export default function CertificateResultsPage() {
             : "View generated certificates"}
         </p>
 
-        {eventResults.length === 0 ? (
+        {!activeEvent?.id ? (
+          <NoActiveEventState />
+        ) : eventResults.length === 0 ? (
           <div className="app-surface mt-12 flex min-h-[220px] w-full items-center justify-center rounded-xl border border-dashed border-[var(--app-border)] px-6 text-center max-sm:px-4">
             <div>
               <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-full bg-[var(--app-surface-elevated)] text-[var(--app-muted)]">

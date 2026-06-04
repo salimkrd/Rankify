@@ -15,6 +15,7 @@ import {
   ScrollText,
   TrendingUp,
   Trophy,
+  UserRoundPlus,
   Users,
   X,
 } from "lucide-react";
@@ -27,6 +28,7 @@ import logoLight from "../assets/logo/rankify-logo-light.svg";
 const EVENTS_KEY = "rankify_events";
 const ACTIVE_EVENT_KEY = "rankify_active_event_id";
 const TEAMS_KEY = "rankify_teams";
+const PARTICIPANTS_KEY = "rankify_participants";
 const CATEGORIES_KEY = "rankify_categories";
 const PROGRAM_TEMPLATES_KEY = "rankify_program_templates";
 const CERTIFICATE_TEMPLATES_KEY = "rankify_certificate_templates";
@@ -118,6 +120,7 @@ const sections = [
     label: "DATA",
     links: [
       { label: "Teams", to: "/dashboard/teams", icon: Users, countKey: "teams" },
+      { label: "Participants", to: "/dashboard/participants", icon: UserRoundPlus, countKey: "participants" },
       { label: "Categories", to: "/dashboard/categories", icon: FolderOpen, countKey: "categories" },
     ],
   },
@@ -248,6 +251,7 @@ export default function Sidebar({ mobile = false, onNavigate, onClose }) {
   const [counts, setCounts] = useState({
     events: 0,
     teams: 0,
+    participants: 0,
     categories: 0,
     programTemplates: 0,
     teamStatusTemplates: 0,
@@ -267,6 +271,7 @@ export default function Sidebar({ mobile = false, onNavigate, onClose }) {
       setCounts({
         events: getEventsCount(),
         teams: getGroupedCount(getUserStorageKey(TEAMS_KEY), validActiveEventId),
+        participants: getGroupedCount(getUserStorageKey(PARTICIPANTS_KEY), validActiveEventId),
         categories: getGroupedCount(getUserStorageKey(CATEGORIES_KEY), validActiveEventId),
         programTemplates: getGroupedCount(
           getUserStorageKey(PROGRAM_TEMPLATES_KEY),

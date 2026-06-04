@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Edit, MoreVertical, Plus, Trash2, X } from "lucide-react";
 import { getUserStorageKey } from "../utils/storage.js";
+import NoActiveEventState from "../components/NoActiveEventState.jsx";
 
 const EVENTS_KEY = "rankify_events";
 const ACTIVE_EVENT_KEY = "rankify_active_event_id";
@@ -54,15 +55,8 @@ function getValidActiveEventId(events) {
     return storedActiveId;
   }
 
-  const firstEventId = events[0]?.id || "";
-
-  if (firstEventId) {
-    localStorage.setItem(getUserStorageKey(ACTIVE_EVENT_KEY), firstEventId);
-  } else {
-    localStorage.removeItem(getUserStorageKey(ACTIVE_EVENT_KEY));
-  }
-
-  return firstEventId;
+  localStorage.removeItem(getUserStorageKey(ACTIVE_EVENT_KEY));
+  return "";
 }
 
 function getToday() {
@@ -130,6 +124,11 @@ export default function TeamsPage() {
   }
 
   function openCreateModal() {
+    if (!activeEventId) {
+      alert("Please select an active event first.");
+      return;
+    }
+
     setEditingTeam(null);
     setTeamName("");
     setModalOpen(true);
@@ -216,6 +215,7 @@ export default function TeamsPage() {
           <button
             type="button"
             onClick={openCreateModal}
+            disabled={!activeEventId}
             className="app-success-btn inline-flex h-10 items-center justify-center gap-2 rounded-md px-4 text-sm font-semibold shadow-sm hover:opacity-90"
           >
             <Plus size={18} strokeWidth={2} aria-hidden="true" />
@@ -223,7 +223,9 @@ export default function TeamsPage() {
           </button>
         </div>
 
-        <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
+        {!activeEventId && <NoActiveEventState />}
+
+        {activeEventId && <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
           {visibleTeams.map((team) => (
             <div
               key={team.id}
@@ -272,7 +274,7 @@ export default function TeamsPage() {
               </div>
             </div>
           ))}
-        </div>
+        </div>}
       </div>
 
       {modalOpen && (

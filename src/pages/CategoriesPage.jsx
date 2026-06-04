@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Edit, FolderOpen, Plus, Trash2, X } from "lucide-react";
 import { getUserStorageKey } from "../utils/storage.js";
+import NoActiveEventState from "../components/NoActiveEventState.jsx";
 
 const EVENTS_KEY = "rankify_events";
 const ACTIVE_EVENT_KEY = "rankify_active_event_id";
@@ -66,15 +67,8 @@ function getValidActiveEventId(events) {
     return storedActiveId;
   }
 
-  const firstEventId = events[0]?.id || "";
-
-  if (firstEventId) {
-    localStorage.setItem(ACTIVE_EVENT_KEY, firstEventId);
-  } else {
-    localStorage.removeItem(ACTIVE_EVENT_KEY);
-  }
-
-  return firstEventId;
+  localStorage.removeItem(getUserStorageKey(ACTIVE_EVENT_KEY));
+  return "";
 }
 
 function today() {
@@ -145,6 +139,11 @@ export default function CategoriesPage() {
   }
 
   function openCreateModal() {
+    if (!activeEventId) {
+      alert("Please select an active event first.");
+      return;
+    }
+
     setEditingCategory(null);
     setCategoryName("");
     setModalOpen(true);
@@ -263,6 +262,7 @@ export default function CategoriesPage() {
             <button
               type="button"
               onClick={openCreateModal}
+              disabled={!activeEventId}
               className="app-success-btn inline-flex h-10 items-center justify-center gap-2 rounded-md px-4 text-sm font-semibold shadow-sm hover:opacity-90"
             >
               <Plus size={18} strokeWidth={2} aria-hidden="true" />
@@ -271,6 +271,7 @@ export default function CategoriesPage() {
             <button
               type="button"
               onClick={handleAddSahityolsavCategories}
+              disabled={!activeEventId}
               className="app-card h-10 max-w-full rounded-md border px-5 text-sm font-semibold shadow-sm hover:bg-[var(--app-surface-elevated)]"
             >
               Add Sahityolsav Categories
@@ -278,7 +279,9 @@ export default function CategoriesPage() {
           </div>
         </div>
 
-        {visibleCategories.length === 0 ? (
+        {!activeEventId ? (
+          <NoActiveEventState />
+        ) : visibleCategories.length === 0 ? (
           <div className="flex min-h-[520px] flex-col items-center justify-center text-center">
             <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-full bg-[var(--app-surface-elevated)] text-[var(--app-muted)]">
               <FolderOpen size={42} strokeWidth={1.8} aria-hidden="true" />

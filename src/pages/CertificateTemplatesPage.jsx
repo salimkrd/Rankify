@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Copy, Edit, FileText, Plus, Trash2, X } from "lucide-react";
 import { getUserStorageKey } from "../utils/storage.js";
+import NoActiveEventState from "../components/NoActiveEventState.jsx";
 
 const EVENTS_KEY = "rankify_events";
 const ACTIVE_EVENT_KEY = "rankify_active_event_id";
@@ -190,7 +191,7 @@ export default function CertificateTemplatesPage() {
 
   function handleCreate() {
     if (!activeEvent?.id) {
-      navigate("/dashboard/events");
+      alert("Please select an active event first.");
       return;
     }
     navigate("/dashboard/certificate-templates/new");
@@ -226,24 +227,39 @@ export default function CertificateTemplatesPage() {
 
   return (
     <section className="app-page min-h-screen w-full overflow-x-hidden px-6 py-7 max-sm:px-4">
-      <div className="mb-10 flex w-full max-w-full min-w-0 flex-wrap items-start justify-between gap-4 overflow-hidden">
-        <h1 className="app-heading min-w-0 flex-1 break-words text-[30px] font-extrabold leading-tight">
-          {activeEvent?.name ? `Certificate Templates for ${activeEvent.name}` : "Certificate Templates"}
-        </h1>
+      <div className="mb-10 flex w-full max-w-full min-w-0 flex-col gap-4 overflow-hidden sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0 flex-1">
+          <h1 className="app-heading break-words text-[30px] font-extrabold leading-tight">
+            Certificate Templates
+          </h1>
+          <p className="app-muted mt-2 break-words text-sm">
+            {activeEvent?.name
+              ? `Create and manage certificate templates for event: ${activeEvent.name}`
+              : "Create and manage certificate templates"}
+          </p>
+        </div>
 
-        <div className="flex min-w-0 flex-wrap items-center gap-3">
+        <div className="flex w-full min-w-0 flex-col gap-2 sm:w-auto sm:flex-row sm:items-center sm:justify-end">
           <button
             type="button"
             onClick={handleCreate}
-            className="app-success-btn inline-flex min-h-[46px] max-w-full items-center justify-center gap-3 rounded-md px-5 py-2 text-base font-bold shadow-sm transition hover:opacity-90"
+            disabled={!activeEvent?.id}
+            className="app-success-btn inline-flex min-h-[46px] w-full max-w-full items-center justify-center gap-3 rounded-md px-5 py-2 text-base font-bold shadow-sm transition hover:opacity-90 sm:w-auto"
           >
             <Plus size={20} />
             Create New Template
           </button>
           <button
             type="button"
-            onClick={() => setPublicModalOpen(true)}
-            className="app-success-btn inline-flex min-h-[46px] max-w-full items-center justify-center rounded-md px-6 py-2 text-base font-bold shadow-sm transition hover:opacity-90"
+            onClick={() => {
+              if (!activeEvent?.id) {
+                alert("Please select an active event first.");
+                return;
+              }
+              setPublicModalOpen(true);
+            }}
+            disabled={!activeEvent?.id}
+            className="app-card inline-flex min-h-[46px] w-full max-w-full items-center justify-center rounded-md border px-6 py-2 text-base font-bold shadow-sm transition hover:bg-[var(--app-surface-elevated)] sm:w-auto"
           >
             Explore Public Templates
           </button>
@@ -251,26 +267,7 @@ export default function CertificateTemplatesPage() {
       </div>
 
       {!activeEvent?.id ? (
-        <div className="flex min-h-[calc(100vh-200px)] items-center justify-center text-center">
-          <div className="mx-auto max-w-[720px] px-4">
-            <div className="mx-auto mb-7 flex h-20 w-20 items-center justify-center rounded-full bg-[var(--app-surface-elevated)] text-[var(--app-muted)]">
-              <FileText size={34} strokeWidth={1.8} />
-            </div>
-            <h2 className="app-heading text-2xl font-extrabold leading-tight">
-              No active event selected
-            </h2>
-            <p className="app-muted mt-4 text-lg">
-              Please select or create an event before creating certificate templates.
-            </p>
-            <button
-              type="button"
-              onClick={() => navigate("/dashboard/events")}
-              className="app-success-btn mt-9 inline-flex min-h-[50px] items-center justify-center rounded-md px-6 text-base font-bold shadow-sm transition hover:opacity-90"
-            >
-              Go to Events
-            </button>
-          </div>
-        </div>
+        <NoActiveEventState />
       ) : eventTemplates.length === 0 ? (
         <div className="flex min-h-[calc(100vh-200px)] items-center justify-center text-center">
           <div className="mx-auto max-w-[820px] px-4">

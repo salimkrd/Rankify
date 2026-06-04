@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Copy, Edit, FileText, Plus, Trash2, X } from "lucide-react";
 import TeamStatusTemplatePreview from "../components/TeamStatusTemplatePreview";
 import { getUserStorageKey } from "../utils/storage.js";
+import NoActiveEventState from "../components/NoActiveEventState.jsx";
 
 const EVENTS_KEY = "rankify_events";
 const ACTIVE_EVENT_KEY = "rankify_active_event_id";
@@ -59,13 +60,7 @@ function getEvents() {
 
 function getActiveEvent(events) {
   const activeEventId = localStorage.getItem(getUserStorageKey(ACTIVE_EVENT_KEY)) || "";
-  return (
-    events.find((event) => String(event.id) === String(activeEventId)) ||
-    events[0] || {
-      id: activeEventId || "default",
-      name: "Active Event",
-    }
-  );
+  return events.find((event) => String(event.id) === String(activeEventId)) || null;
 }
 
 function getTemplatesByEvent() {
@@ -236,7 +231,7 @@ function SchemaPreview({ template }) {
 
 export default function TeamStatusTemplatesPage() {
   const navigate = useNavigate();
-  const [activeEvent, setActiveEvent] = useState({ id: "default", name: "Active Event" });
+  const [activeEvent, setActiveEvent] = useState(null);
   const [templatesByEvent, setTemplatesByEvent] = useState({});
   const [publicModalOpen, setPublicModalOpen] = useState(false);
   const [toast, setToast] = useState("");
@@ -263,12 +258,12 @@ export default function TeamStatusTemplatesPage() {
   }, []);
 
   const templates = useMemo(
-    () => (activeEvent.id ? templatesByEvent[activeEvent.id] || [] : []),
-    [activeEvent.id, templatesByEvent]
+    () => (activeEvent?.id ? templatesByEvent[activeEvent.id] || [] : []),
+    [activeEvent?.id, templatesByEvent]
   );
 
   function persist(nextTemplates) {
-    const activeEventId = localStorage.getItem(getUserStorageKey(ACTIVE_EVENT_KEY)) || activeEvent.id;
+    const activeEventId = localStorage.getItem(getUserStorageKey(ACTIVE_EVENT_KEY)) || activeEvent?.id;
     if (!activeEventId) return;
 
     const stored = getTemplatesByEvent();
@@ -288,11 +283,21 @@ export default function TeamStatusTemplatesPage() {
   }
 
   function handleCreate() {
+    if (!activeEvent?.id) {
+      alert("Please select an active event first.");
+      return;
+    }
+
     navigate("/dashboard/team-status-templates/new");
   }
 
   function handleUsePublic(template) {
-    const activeEventId = localStorage.getItem(getUserStorageKey(ACTIVE_EVENT_KEY)) || activeEvent.id;
+    const activeEventId = localStorage.getItem(getUserStorageKey(ACTIVE_EVENT_KEY)) || activeEvent?.id;
+    if (!activeEventId) {
+      alert("Please select an active event first.");
+      return;
+    }
+
     const currentTemplates = templatesByEvent[activeEventId] || [];
     persist([...currentTemplates, createTemplateFromPublic(template, activeEventId)]);
     setPublicModalOpen(false);
@@ -300,6 +305,11 @@ export default function TeamStatusTemplatesPage() {
   }
 
   function handleDuplicate(template) {
+    if (!activeEvent?.id) {
+      alert("Please select an active event first.");
+      return;
+    }
+
     const now = today();
     persist([
       ...templates,
@@ -325,19 +335,34 @@ export default function TeamStatusTemplatesPage() {
       <style>{styles}</style>
 
       <div className="team-status-header">
-        <h1>Team Status Templates for {activeEvent.name}</h1>
+        <div className="header-copy">
+          <h1>Team Status Templates</h1>
+          <p>
+            {activeEvent?.name
+              ? `Create and manage team status templates for event: ${activeEvent.name}`
+              : "Create and manage team status templates"}
+          </p>
+        </div>
         <div className="header-actions">
-          <button type="button" className="primary-btn" onClick={handleCreate}>
+          <button type="button" className="primary-btn" onClick={handleCreate} disabled={!activeEvent?.id}>
             <Plus size={18} />
             Create New Template
           </button>
-          <button type="button" className="primary-btn" onClick={() => setPublicModalOpen(true)}>
+          <button type="button" className="secondary-header-btn" onClick={() => {
+            if (!activeEvent?.id) {
+              alert("Please select an active event first.");
+              return;
+            }
+            setPublicModalOpen(true);
+          }} disabled={!activeEvent?.id}>
             Explore Public Templates
           </button>
         </div>
       </div>
 
-      {templates.length === 0 ? (
+      {!activeEvent?.id ? (
+        <NoActiveEventState />
+      ) : templates.length === 0 ? (
         <div className="empty-state">
           <div className="empty-icon">
             <FileText size={28} />
@@ -428,10 +453,14 @@ export default function TeamStatusTemplatesPage() {
 const styles = `
 .team-status-page{min-height:100vh;background:var(--app-bg);padding:28px 26px 48px;color:var(--app-text);font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;overflow-x:hidden}
 .team-status-header{display:flex;align-items:flex-start;justify-content:space-between;gap:24px;margin-bottom:32px}
+.header-copy{min-width:0;flex:1}
 .team-status-header h1{margin:0;font-size:28px;line-height:1.2;font-weight:800;color:var(--app-heading);overflow-wrap:anywhere}
-.header-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap;min-width:0}
+.team-status-header p{margin:8px 0 0;color:var(--app-muted);font-size:14px;line-height:1.45;overflow-wrap:anywhere}
+.header-actions{display:flex;gap:10px;align-items:center;justify-content:flex-end;min-width:max-content}
 .primary-btn{min-height:38px;border:0;border-radius:6px;background:var(--app-success);color:var(--app-success-text);padding:8px 18px;display:inline-flex;align-items:center;justify-content:center;gap:10px;font-size:16px;font-weight:700;cursor:pointer;box-shadow:var(--app-shadow-sm);max-width:100%;white-space:normal;text-align:center}
 .primary-btn:hover{filter:brightness(.95)}
+.secondary-header-btn{min-height:38px;border:1px solid var(--app-border);border-radius:6px;background:var(--app-surface);color:var(--app-text);padding:8px 18px;display:inline-flex;align-items:center;justify-content:center;gap:10px;font-size:16px;font-weight:700;cursor:pointer;box-shadow:var(--app-shadow-sm);max-width:100%;white-space:normal;text-align:center}
+.secondary-header-btn:hover{background:var(--app-surface-elevated);color:var(--app-heading)}
 .templates-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,320px),516px));gap:24px;max-width:100%}
 .template-card,.public-card{overflow:hidden;border:1px solid var(--app-border);border-radius:10px;background:var(--app-surface);box-shadow:var(--app-shadow-sm);min-width:0}
 .template-preview-wrap{height:418px;background:var(--app-surface-elevated);display:flex;align-items:center;justify-content:center;border-bottom:1px solid var(--app-border)}
@@ -477,5 +506,5 @@ const styles = `
 .preview-signature.dark{right:62px;bottom:118px;border-color:#111}
 .toast{position:fixed;right:24px;bottom:26px;z-index:60;min-width:380px;border:1px solid var(--app-border);border-radius:8px;background:var(--app-surface);padding:18px 20px;display:flex;align-items:center;gap:12px;color:var(--app-heading);font-size:14px;font-weight:700;box-shadow:var(--app-shadow-lg)}
 .toast span{width:18px;height:18px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;background:var(--app-heading);color:var(--app-bg);font-size:12px}
-@media(max-width:900px){.team-status-page{padding:24px 16px 42px}.team-status-header{flex-direction:column}.header-actions{flex-wrap:wrap}.public-grid{grid-template-columns:1fr}.public-modal{min-height:0}.modal-overlay{align-items:center;padding:24px 12px}.templates-grid{grid-template-columns:1fr}.template-preview-wrap{height:340px}.toast{left:12px;right:12px;bottom:16px;min-width:0}.card-actions{justify-content:flex-start}}
+@media(max-width:900px){.team-status-page{padding:24px 16px 42px}.team-status-header{flex-direction:column}.header-actions{width:100%;min-width:0;flex-direction:column;align-items:stretch}.header-actions .primary-btn,.header-actions .secondary-header-btn{width:100%}.public-grid{grid-template-columns:1fr}.public-modal{min-height:0}.modal-overlay{align-items:center;padding:24px 12px}.templates-grid{grid-template-columns:1fr}.template-preview-wrap{height:340px}.toast{left:12px;right:12px;bottom:16px;min-width:0}.card-actions{justify-content:flex-start}}
 `;

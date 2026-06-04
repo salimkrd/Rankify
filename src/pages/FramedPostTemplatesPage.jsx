@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Edit, Grid3X3, Plus, Trash2 } from "lucide-react";
 import { getUserStorageKey } from "../utils/storage.js";
+import NoActiveEventState from "../components/NoActiveEventState.jsx";
 
 const STORAGE_KEY = "rankify_framed_post_templates";
 const ACTIVE_EVENT_KEY = "rankify_active_event_id";
@@ -73,6 +74,7 @@ export default function FramedPostTemplatesPage() {
   }, []);
 
   const hasTemplates = templates.length > 0;
+  const hasActiveEvent = Boolean(activeEventId);
 
   function persistTemplatesRaw(value) {
     localStorage.setItem(getUserStorageKey(STORAGE_KEY), JSON.stringify(value));
@@ -112,15 +114,22 @@ export default function FramedPostTemplatesPage() {
 
   return (
     <div className="app-page min-h-screen overflow-x-hidden px-6 py-6 max-sm:px-4">
-      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="min-w-0">
+      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0 flex-1">
           <h1 className="app-heading break-words text-3xl font-bold">Framed Post Templates</h1>
           <p className="app-muted mt-2 text-sm">Manage templates for the current active event.</p>
         </div>
         <button
           type="button"
-          onClick={() => navigate("/dashboard/framed-posts/new")}
-          className="app-success-btn inline-flex items-center justify-center rounded-md px-4 py-2 text-sm font-semibold shadow-sm transition hover:opacity-90"
+          onClick={() => {
+            if (!hasActiveEvent) {
+              alert("Please select an active event first.");
+              return;
+            }
+            navigate("/dashboard/framed-posts/new");
+          }}
+          disabled={!hasActiveEvent}
+          className="app-success-btn inline-flex w-full items-center justify-center rounded-md px-4 py-2 text-sm font-semibold shadow-sm transition hover:opacity-90 sm:w-auto"
         >
           <Plus className="mr-2" size={18} strokeWidth={2} aria-hidden="true" />
           Create New
@@ -128,7 +137,9 @@ export default function FramedPostTemplatesPage() {
       </div>
 
       <div className="space-y-4">
-        {hasTemplates ? (
+        {!hasActiveEvent ? (
+          <NoActiveEventState />
+        ) : hasTemplates ? (
           <div className="grid gap-4 xl:grid-cols-2">
             {templates.map((template) => (
               <div key={template.id} className="app-card min-w-0 rounded-2xl border p-6 shadow-sm">
@@ -171,7 +182,13 @@ export default function FramedPostTemplatesPage() {
               <p className="app-muted mt-2 text-sm">Start by creating your first framed post template.</p>
               <button
                 type="button"
-                onClick={() => navigate("/dashboard/framed-posts/new")}
+                onClick={() => {
+                  if (!hasActiveEvent) {
+                    alert("Please select an active event first.");
+                    return;
+                  }
+                  navigate("/dashboard/framed-posts/new");
+                }}
                 className="app-success-btn mt-6 inline-flex items-center justify-center rounded-md px-5 py-2 text-sm font-semibold shadow-sm hover:opacity-90"
               >
                 Create New Template

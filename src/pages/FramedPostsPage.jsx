@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import html2canvas from "html2canvas";
 import { Download, Edit, Eye, FilePlus2, Plus, RefreshCw, Trash2, X } from "lucide-react";
 import { getUserStorageKey } from "../utils/storage.js";
+import NoActiveEventState from "../components/NoActiveEventState.jsx";
 
 const EVENTS_KEY = "rankify_events";
 const ACTIVE_EVENT_KEY = "rankify_active_event_id";
@@ -13,6 +14,8 @@ const SORT_OPTIONS = [
   { value: "newest", label: "Newest first" },
   { value: "oldest", label: "Oldest first" },
 ];
+const MAX_CONTENT_IMAGE_DIMENSION = 1080;
+const CONTENT_IMAGE_QUALITY = 0.85;
 
 const fallbackEvents = [
   {
@@ -97,27 +100,20 @@ function getStoredEvents() {
   if (Array.isArray(stored) && stored.length > 0) {
     return stored;
   }
-  return fallbackEvents;
+  return [];
 }
 
 function getValidActiveEventId(events) {
   const storedId = localStorage.getItem(getUserStorageKey(ACTIVE_EVENT_KEY));
   const hasStored = events.some((event) => String(event.id) === String(storedId));
   if (hasStored) return storedId;
-  const next = events[0]?.id || "";
-  if (next) {
-    localStorage.setItem(getUserStorageKey(ACTIVE_EVENT_KEY), next);
-  }
-  return next;
+  localStorage.removeItem(getUserStorageKey(ACTIVE_EVENT_KEY));
+  return "";
 }
 
 function getActiveEvent(activeEventId) {
   const events = getStoredEvents();
-  return (
-    events.find((event) => String(event.id) === String(activeEventId)) ||
-    events[0] ||
-    { id: "", name: "Active Event" }
-  );
+  return events.find((event) => String(event.id) === String(activeEventId)) || null;
 }
 
 function getEventTemplates(activeEventId) {
@@ -225,7 +221,7 @@ function buildFormState(template) {
     aspectRatio: 1.33,
     cropX: 0,
     cropY: 0,
-    imageFit: "contain",
+    imageFit: "cover",
     status: "Published",
     fieldValues: initialFieldValues(template),
   };
@@ -236,6 +232,101 @@ function getTemplatePreviewSize(template) {
     width: Number(template?.canvasWidth || template?.width || 800),
     height: Number(template?.canvasHeight || template?.height || 600),
   };
+}
+
+function getContentImageTargetSize(template) {
+  const { width, height } = getTemplatePreviewSize(template || {});
+  const safeWidth = Number.isFinite(width) && width > 0 ? width : MAX_CONTENT_IMAGE_DIMENSION;
+  const safeHeight = Number.isFinite(height) && height > 0 ? height : MAX_CONTENT_IMAGE_DIMENSION;
+  const scale = Math.min(1, MAX_CONTENT_IMAGE_DIMENSION / Math.max(safeWidth, safeHeight));
+
+  return {
+    width: Math.max(1, Math.round(safeWidth * scale)),
+    height: Math.max(1, Math.round(safeHeight * scale)),
+  };
+}
+
+function loadImage(src) {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => resolve(image);
+    image.onerror = () => reject(new Error("Unable to load image."));
+    image.src = src;
+  });
+}
+
+async function resizeImageToFrame(file, targetWidth, targetHeight, quality = CONTENT_IMAGE_QUALITY) {
+  if (!file?.type?.startsWith("image/")) {
+    throw new Error("Please upload a valid image file.");
+  }
+
+  const objectUrl = URL.createObjectURL(file);
+
+  try {
+    const image = await loadImage(objectUrl);
+    const sourceWidth = image.naturalWidth || image.width;
+    const sourceHeight = image.naturalHeight || image.height;
+
+    if (!sourceWidth || !sourceHeight) {
+      throw new Error("Unable to read image dimensions.");
+    }
+
+    const sourceAspect = sourceWidth / sourceHeight;
+    const targetAspect = targetWidth / targetHeight;
+    let cropWidth = sourceWidth;
+    let cropHeight = sourceHeight;
+    let cropX = 0;
+    let cropY = 0;
+
+    if (sourceAspect > targetAspect) {
+      cropWidth = sourceHeight * targetAspect;
+      cropX = (sourceWidth - cropWidth) / 2;
+    } else {
+      cropHeight = sourceWidth / targetAspect;
+      cropY = (sourceHeight - cropHeight) / 2;
+    }
+
+    const canvas = document.createElement("canvas");
+    canvas.width = targetWidth;
+    canvas.height = targetHeight;
+    const context = canvas.getContext("2d", { alpha: false });
+
+    if (!context) {
+      throw new Error("Unable to process image.");
+    }
+
+    context.fillStyle = "#ffffff";
+    context.fillRect(0, 0, targetWidth, targetHeight);
+    context.drawImage(
+      image,
+      cropX,
+      cropY,
+      cropWidth,
+      cropHeight,
+      0,
+      0,
+      targetWidth,
+      targetHeight
+    );
+
+    return canvas.toDataURL("image/jpeg", quality);
+  } finally {
+    URL.revokeObjectURL(objectUrl);
+  }
+}
+
+function waitForImages(root) {
+  const images = Array.from(root?.querySelectorAll?.("img") || []);
+  return Promise.all(
+    images.map((image) => {
+      if (image.complete && image.naturalWidth > 0) return Promise.resolve();
+      return new Promise((resolve) => {
+        const finish = () => resolve();
+        image.addEventListener("load", finish, { once: true });
+        image.addEventListener("error", finish, { once: true });
+      });
+    })
+  );
 }
 
 export default function FramedPostsPage() {
@@ -253,6 +344,8 @@ export default function FramedPostsPage() {
   const [viewingPost, setViewingPost] = useState(null);
   const [formState, setFormState] = useState(buildFormState(templates[0]));
   const [isExporting, setIsExporting] = useState(false);
+  const [isProcessingImage, setIsProcessingImage] = useState(false);
+  const [imageUploadError, setImageUploadError] = useState("");
   const exportRef = useRef(null);
   const adjustDragState = useRef({ isDragging: false, startX: 0, startY: 0, startCropX: 0, startCropY: 0 });
 
@@ -325,15 +418,24 @@ export default function FramedPostsPage() {
   }
 
   function openCreateModal() {
+    if (!activeEventId) {
+      alert("Please select an active event first.");
+      return;
+    }
+
     const firstTemplate = templates[0];
     setEditingPost(null);
     setFormState(buildFormState(firstTemplate));
+    setImageUploadError("");
+    setIsProcessingImage(false);
     setIsFormOpen(true);
   }
 
   function openEditModal(post) {
     const template = getTemplateById(templates, post.templateId) || templates[0];
     setEditingPost(post);
+    setImageUploadError("");
+    setIsProcessingImage(false);
     setFormState({
       name: post.name || "New Framed Post",
       templateId: post.templateId || template?.id || "",
@@ -344,7 +446,7 @@ export default function FramedPostsPage() {
       aspectRatio: post.aspectRatio || 1.33,
       cropX: post.cropX || 0,
       cropY: post.cropY || 0,
-      imageFit: post.imageFit || "contain",
+      imageFit: post.imageFit || "cover",
       status: post.status || "Published",
       fieldValues: post.fieldValues || initialFieldValues(template),
     });
@@ -355,6 +457,8 @@ export default function FramedPostsPage() {
   function closeForm() {
     setIsFormOpen(false);
     setEditingPost(null);
+    setImageUploadError("");
+    setIsProcessingImage(false);
   }
 
   function openViewModal(post) {
@@ -400,14 +504,38 @@ export default function FramedPostsPage() {
     }));
   }
 
-  function handleImageUpload(event) {
+  async function handleImageUpload(event) {
     const file = event.target.files?.[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      handleFormFieldChange("contentImageSrc", reader.result || "");
-    };
-    reader.readAsDataURL(file);
+    setIsProcessingImage(true);
+    setImageUploadError("");
+
+    try {
+      const template = selectedTemplate || getTemplateById(templates, formState.templateId) || templates[0];
+      const { width, height } = getContentImageTargetSize(template);
+      const resizedImage = await resizeImageToFrame(file, width, height);
+
+      setFormState((prev) => ({
+        ...prev,
+        contentImageSrc: resizedImage,
+        zoom: 1,
+        rotation: 0,
+        cropX: 0,
+        cropY: 0,
+        imageFit: "cover",
+      }));
+    } catch (error) {
+      console.error("Failed to process content image.", error);
+      const message =
+        error instanceof Error && error.message
+          ? error.message
+          : "Unable to process this image. Please try another image.";
+      setImageUploadError(message);
+      alert(message);
+    } finally {
+      setIsProcessingImage(false);
+      event.target.value = "";
+    }
   }
 
   function getContentImageStyle(zoom, rotation, imageFit, cropX, cropY) {
@@ -417,7 +545,7 @@ export default function FramedPostsPage() {
       top: "50%",
       width: "100%",
       height: "100%",
-      objectFit: imageFit || "contain",
+      objectFit: imageFit || "cover",
       transform: `translate(calc(-50% + ${cropX}px), calc(-50% + ${cropY}px)) scale(${zoom}) rotate(${rotation}deg)`,
       transformOrigin: "center center",
       opacity: 1,
@@ -459,6 +587,11 @@ export default function FramedPostsPage() {
   }
 
   function savePost() {
+    if (isProcessingImage) {
+      alert("Please wait for the image to finish processing.");
+      return;
+    }
+
     if (!formState.name.trim()) {
       alert("Result name is required.");
       return;
@@ -485,7 +618,7 @@ export default function FramedPostsPage() {
       aspectRatio: formState.aspectRatio,
       cropX: formState.cropX || 0,
       cropY: formState.cropY || 0,
-      imageFit: formState.imageFit || "contain",
+      imageFit: formState.imageFit || "cover",
       status: formState.status,
       fieldValues: formState.fieldValues,
       createdAt: editingPost?.createdAt || now,
@@ -496,9 +629,16 @@ export default function FramedPostsPage() {
       ? posts.map((post) => (String(post.id) === String(editingPost.id) ? nextPost : post))
       : [nextPost, ...posts];
 
-    persistPosts(activeEventId, nextPosts);
-    setPosts(nextPosts);
-    closeForm();
+    try {
+      persistPosts(activeEventId, nextPosts);
+      setPosts(nextPosts);
+      closeForm();
+    } catch (error) {
+      console.error("Failed to save framed post.", error);
+      alert(
+        "Unable to save this framed post. Please remove older oversized posts or try a smaller image."
+      );
+    }
   }
 
   function deletePost(postId) {
@@ -514,10 +654,33 @@ export default function FramedPostsPage() {
     if (!exportRef.current || !viewingPost) return;
     setIsExporting(true);
     try {
-      const canvas = await html2canvas(exportRef.current, {
-        backgroundColor: null,
+      const exportNode =
+        exportRef.current.querySelector('[data-framed-post-export="true"]') ||
+        exportRef.current;
+
+      await waitForImages(exportNode);
+      await new Promise((resolve) => requestAnimationFrame(resolve));
+      const canvas = await html2canvas(exportNode, {
+        backgroundColor: "#f8f2ff",
         scale: 2,
         useCORS: true,
+        allowTaint: false,
+        imageTimeout: 15000,
+        onclone: (clonedDocument) => {
+          const clonedExportNode = clonedDocument.querySelector(
+            '[data-framed-post-export="true"]'
+          );
+          if (!clonedExportNode) return;
+
+          clonedExportNode.style.border = "0";
+          clonedExportNode.style.outline = "0";
+          clonedExportNode.style.boxShadow = "none";
+          clonedExportNode
+            .querySelectorAll("[data-export-guide]")
+            .forEach((node) => {
+              node.style.display = "none";
+            });
+        },
       });
       const url = canvas.toDataURL("image/png");
       const link = document.createElement("a");
@@ -579,7 +742,7 @@ export default function FramedPostsPage() {
     aspectRatio = 1.33,
     cropX = 0,
     cropY = 0,
-    imageFit = "contain",
+    imageFit = "cover",
     scale = 1,
     isExport = false,
   }) {
@@ -599,7 +762,14 @@ export default function FramedPostsPage() {
 
     return (
       <div
-        style={{ width: scaledWidth, height: scaledHeight }}
+        data-framed-post-export={isExport ? "true" : undefined}
+        style={{
+          width: scaledWidth,
+          height: scaledHeight,
+          border: isExport ? 0 : undefined,
+          outline: isExport ? 0 : undefined,
+          boxShadow: isExport ? "none" : undefined,
+        }}
         className={isExport ? "framed-post-canvas relative overflow-hidden bg-[#f8f2ff]" : "framed-post-canvas relative overflow-hidden rounded-[24px] border border-gray-200 bg-[#f8f2ff] shadow-sm"}
       >
         <div className="absolute inset-0 overflow-hidden bg-[#f8f2ff]">
@@ -624,11 +794,14 @@ export default function FramedPostsPage() {
             className="absolute inset-0 h-full w-full object-cover"
             style={{ zIndex: 2, opacity: 1, mixBlendMode: "normal", filter: "none" }}
           />
-        ) : (
+        ) : !isExport ? (
           <div
+            data-export-guide="true"
             className="absolute inset-0 border border-dashed border-gray-300"
             style={{ zIndex: 2, background: "transparent" }}
           />
+        ) : (
+          <div className="absolute inset-0" style={{ zIndex: 2, background: "transparent" }} />
         )}
 
         {(template.customFields || []).map((field, index) => {
@@ -671,7 +844,7 @@ export default function FramedPostsPage() {
     );
   }
 
-  function renderPreview(template, contentImageSrc, fieldValues, zoom, rotation, aspectRatio, cropX, cropY, imageFit = "contain", scale = 0.65) {
+  function renderPreview(template, contentImageSrc, fieldValues, zoom, rotation, aspectRatio, cropX, cropY, imageFit = "cover", scale = 0.65) {
     return renderFramedPostCanvas({
       template,
       contentImageSrc,
@@ -716,7 +889,7 @@ export default function FramedPostsPage() {
           aspectRatio: post.aspectRatio ?? 1.33,
           cropX: post.cropX ?? 0,
           cropY: post.cropY ?? 0,
-          imageFit: post.imageFit || "contain",
+          imageFit: post.imageFit || "cover",
           scale: 1,
           isExport: true,
         })}
@@ -724,7 +897,8 @@ export default function FramedPostsPage() {
     );
   }
 
-  const activeEventName = activeEvent?.name || "Active Event";
+  const activeEventName = activeEvent?.name || "No active event";
+  const hasActiveEvent = Boolean(activeEventId);
   const hasPosts = filteredPosts.length > 0;
 
   return (
@@ -741,6 +915,7 @@ export default function FramedPostsPage() {
           <button
             type="button"
             onClick={openCreateModal}
+            disabled={!hasActiveEvent}
             className="app-success-btn inline-flex h-12 items-center justify-center rounded-md px-5 text-sm font-semibold shadow-sm transition hover:opacity-90"
           >
             <Plus className="mr-2" size={18} strokeWidth={2} aria-hidden="true" />
@@ -748,6 +923,9 @@ export default function FramedPostsPage() {
           </button>
         </div>
 
+        {!hasActiveEvent ? (
+          <NoActiveEventState />
+        ) : <>
         <div className="app-card mb-6 rounded-3xl border p-5 shadow-sm">
           <div className="grid gap-4 xl:grid-cols-[1.5fr_0.8fr_0.8fr]">
             <label className="block">
@@ -858,6 +1036,7 @@ export default function FramedPostsPage() {
             </div>
           </div>
         )}
+        </>}
       </div>
 
       {isFormOpen && (
@@ -918,8 +1097,19 @@ export default function FramedPostsPage() {
                     type="file"
                     accept="image/*"
                     onChange={handleImageUpload}
+                    disabled={isProcessingImage}
                     className="mt-2 w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm outline-none"
                   />
+                  <p className="mt-2 text-xs text-gray-500">
+                    {isProcessingImage
+                      ? "Resizing image to fit the frame..."
+                      : "Large images will be automatically resized to fit the frame."}
+                  </p>
+                  {imageUploadError && (
+                    <p className="mt-2 text-xs font-semibold text-red-600">
+                      {imageUploadError}
+                    </p>
+                  )}
                 </label>
 
                 {!selectedTemplate ? (
@@ -1118,9 +1308,14 @@ export default function FramedPostsPage() {
                   <button
                     type="button"
                     onClick={savePost}
-                    className="inline-flex h-12 items-center justify-center rounded-xl bg-[#26752C] px-5 text-sm font-semibold text-white hover:bg-[#1f6425]"
+                    disabled={isProcessingImage}
+                    className="inline-flex h-12 items-center justify-center rounded-xl bg-[#26752C] px-5 text-sm font-semibold text-white hover:bg-[#1f6425] disabled:cursor-not-allowed disabled:opacity-60"
                   >
-                    {editingPost ? "Update Framed Post" : "Create Framed Post"}
+                    {isProcessingImage
+                      ? "Processing Image..."
+                      : editingPost
+                        ? "Update Framed Post"
+                        : "Create Framed Post"}
                   </button>
                   <button
                     type="button"
@@ -1163,7 +1358,7 @@ export default function FramedPostsPage() {
                   viewingPost.aspectRatio,
                   viewingPost.cropX,
                   viewingPost.cropY,
-                  viewingPost.imageFit || "contain",
+                  viewingPost.imageFit || "cover",
                   0.75
                 )}
               </div>

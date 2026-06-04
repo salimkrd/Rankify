@@ -7,6 +7,7 @@ import DashboardLayout from "./layouts/DashboardLayout.jsx";
 import DashboardHome from "./pages/DashboardHome.jsx";
 import EventsPage from "./pages/EventsPage.jsx";
 import TeamsPage from "./pages/TeamsPage.jsx";
+import ParticipantsPage from "./pages/ParticipantsPage.jsx";
 import CategoriesPage from "./pages/CategoriesPage.jsx";
 import ProgramTemplatesPage from "./pages/ProgramTemplatesPage.jsx";
 import ProgramResultsPage from "./pages/ProgramResultsPage.jsx";
@@ -86,6 +87,7 @@ export default function App() {
         <Route path="certificate-results" element={<CertificateResultsPage />} />
         <Route path="certificates/results" element={<Navigate to="/dashboard/certificate-results" replace />} />
         <Route path="teams" element={<TeamsPage />} />
+        <Route path="participants" element={<ParticipantsPage />} />
         <Route path="categories" element={<CategoriesPage />} />
       </Route>
 
