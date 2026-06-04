@@ -2,72 +2,26 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Edit, MoreVertical, Plus, Trash2, X } from "lucide-react";
 import { getUserStorageKey } from "../utils/storage.js";
 import NoActiveEventState from "../components/NoActiveEventState.jsx";
+import { getEvents } from "../services/eventsService.js";
+import { getTeamsByEvent } from "../services/teamsService.js";
+import { getCategoriesByEvent } from "../services/categoriesService.js";
+import {
+  createParticipant,
+  deleteParticipant,
+  getParticipantsByEvent,
+  updateParticipant,
+} from "../services/participantsService.js";
 
-const EVENTS_KEY = "rankify_events";
 const ACTIVE_EVENT_KEY = "rankify_active_event_id";
-const TEAMS_KEY = "rankify_teams";
-const CATEGORIES_KEY = "rankify_categories";
-const PARTICIPANTS_KEY = "rankify_participants";
-
-function safeJsonParse(value, fallback) {
-  try {
-    const parsed = JSON.parse(value || "");
-    return parsed || fallback;
-  } catch {
-    return fallback;
-  }
-}
-
-function getStoredEvents() {
-  const storedEvents = safeJsonParse(localStorage.getItem(getUserStorageKey(EVENTS_KEY)), []);
-  return Array.isArray(storedEvents) ? storedEvents : [];
-}
-
-function getStoredTeams() {
-  const storedTeams = safeJsonParse(localStorage.getItem(getUserStorageKey(TEAMS_KEY)), {});
-  return storedTeams && typeof storedTeams === "object" && !Array.isArray(storedTeams)
-    ? storedTeams
-    : {};
-}
-
-function getStoredCategories() {
-  const storedCategories = safeJsonParse(
-    localStorage.getItem(getUserStorageKey(CATEGORIES_KEY)),
-    {}
-  );
-  return storedCategories &&
-    typeof storedCategories === "object" &&
-    !Array.isArray(storedCategories)
-    ? storedCategories
-    : {};
-}
-
-function getStoredParticipants() {
-  const storedParticipants = safeJsonParse(
-    localStorage.getItem(getUserStorageKey(PARTICIPANTS_KEY)),
-    {}
-  );
-  return storedParticipants &&
-    typeof storedParticipants === "object" &&
-    !Array.isArray(storedParticipants)
-    ? storedParticipants
-    : {};
-}
 
 function getValidActiveEventId(events) {
   const storedActiveId = localStorage.getItem(getUserStorageKey(ACTIVE_EVENT_KEY));
   const storedActiveEvent = events.find((event) => event.id === storedActiveId);
 
-  if (storedActiveEvent) {
-    return storedActiveId;
-  }
+  if (storedActiveEvent) return storedActiveId;
 
   localStorage.removeItem(getUserStorageKey(ACTIVE_EVENT_KEY));
   return "";
-}
-
-function getToday() {
-  return new Date().toLocaleDateString("en-US");
 }
 
 export default function ParticipantsPage() {
@@ -82,37 +36,47 @@ export default function ParticipantsPage() {
   const [participantName, setParticipantName] = useState("");
   const [teamId, setTeamId] = useState("");
   const [categoryId, setCategoryId] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
-  useEffect(() => {
-    function syncFromLocalStorage() {
-      const storedEvents = getStoredEvents();
+  async function syncFromSupabase() {
+    setLoading(true);
+    setError("");
+    try {
+      const storedEvents = await getEvents();
       const validActiveId = getValidActiveEventId(storedEvents);
-      const storedTeams = getStoredTeams();
-      const storedCategories = getStoredCategories();
-      const storedParticipants = getStoredParticipants();
+      const [eventTeams, eventCategories, eventParticipants] = validActiveId
+        ? await Promise.all([
+            getTeamsByEvent(validActiveId),
+            getCategoriesByEvent(validActiveId),
+            getParticipantsByEvent(validActiveId),
+          ])
+        : [[], [], []];
 
       setEvents(storedEvents);
       setActiveEventId(validActiveId);
-      setTeamsByEvent(storedTeams);
-      setCategoriesByEvent(storedCategories);
-      setParticipantsByEvent(storedParticipants);
+      setTeamsByEvent(validActiveId ? { [validActiveId]: eventTeams } : {});
+      setCategoriesByEvent(validActiveId ? { [validActiveId]: eventCategories } : {});
+      setParticipantsByEvent(validActiveId ? { [validActiveId]: eventParticipants } : {});
+    } catch (loadError) {
+      setError(loadError.message || "Unable to load participants.");
+    } finally {
+      setLoading(false);
     }
+  }
 
-    syncFromLocalStorage();
+  useEffect(() => {
+    syncFromSupabase();
 
-    window.addEventListener("focus", syncFromLocalStorage);
-    window.addEventListener("storage", syncFromLocalStorage);
-    window.addEventListener("rankify-active-event-changed", syncFromLocalStorage);
-    window.addEventListener("rankify-data-changed", syncFromLocalStorage);
-
+    window.addEventListener("focus", syncFromSupabase);
+    window.addEventListener("storage", syncFromSupabase);
+    window.addEventListener("rankify-active-event-changed", syncFromSupabase);
+    window.addEventListener("rankify-data-changed", syncFromSupabase);
     return () => {
-      window.removeEventListener("focus", syncFromLocalStorage);
-      window.removeEventListener("storage", syncFromLocalStorage);
-      window.removeEventListener(
-        "rankify-active-event-changed",
-        syncFromLocalStorage
-      );
-      window.removeEventListener("rankify-data-changed", syncFromLocalStorage);
+      window.removeEventListener("focus", syncFromSupabase);
+      window.removeEventListener("storage", syncFromSupabase);
+      window.removeEventListener("rankify-active-event-changed", syncFromSupabase);
+      window.removeEventListener("rankify-data-changed", syncFromSupabase);
     };
   }, []);
 
@@ -136,20 +100,9 @@ export default function ParticipantsPage() {
     [activeEventId, participantsByEvent]
   );
 
-  function persistParticipantsForActiveEvent(nextParticipants) {
+  function setParticipantsForActiveEvent(nextParticipants) {
     if (!activeEventId) return;
-
-    const storedParticipants = getStoredParticipants();
-    const updatedParticipantsByEvent = {
-      ...storedParticipants,
-      [activeEventId]: nextParticipants,
-    };
-
-    localStorage.setItem(
-      getUserStorageKey(PARTICIPANTS_KEY),
-      JSON.stringify(updatedParticipantsByEvent)
-    );
-    setParticipantsByEvent(updatedParticipantsByEvent);
+    setParticipantsByEvent((current) => ({ ...current, [activeEventId]: nextParticipants }));
     window.dispatchEvent(new Event("rankify-data-changed"));
   }
 
@@ -168,17 +121,10 @@ export default function ParticipantsPage() {
   }
 
   function openEditModal(participant) {
-    const matchingTeam = visibleTeams.find(
-      (team) => team.name === participant.teamName
-    );
-    const matchingCategory = visibleCategories.find(
-      (category) => category.name === participant.categoryName
-    );
-
     setEditingParticipant(participant);
     setParticipantName(participant.name || "");
-    setTeamId(participant.teamId || matchingTeam?.id || "");
-    setCategoryId(participant.categoryId || matchingCategory?.id || "");
+    setTeamId(participant.teamId || "");
+    setCategoryId(participant.categoryId || "");
     setModalOpen(true);
     setOpenMenuId("");
   }
@@ -191,7 +137,7 @@ export default function ParticipantsPage() {
     setCategoryId("");
   }
 
-  function handleSubmit(event) {
+  async function handleSubmit(event) {
     event.preventDefault();
 
     if (!participantName.trim()) {
@@ -215,9 +161,7 @@ export default function ParticipantsPage() {
     }
 
     const selectedTeam = visibleTeams.find((team) => team.id === teamId);
-    const selectedCategory = visibleCategories.find(
-      (category) => category.id === categoryId
-    );
+    const selectedCategory = visibleCategories.find((category) => category.id === categoryId);
 
     if (!selectedTeam) {
       alert("Please select a valid team.");
@@ -230,56 +174,46 @@ export default function ParticipantsPage() {
     }
 
     const currentParticipants = participantsByEvent[activeEventId] || [];
-
-    if (editingParticipant) {
-      const updatedParticipants = currentParticipants.map((participant) =>
-        participant.id === editingParticipant.id
-          ? {
-              ...participant,
-              name: participantName.trim(),
-              teamId: selectedTeam.id,
-              teamName: selectedTeam.name,
-              categoryId: selectedCategory.id,
-              categoryName: selectedCategory.name,
-            }
-          : participant
-      );
-
-      persistParticipantsForActiveEvent(updatedParticipants);
-      closeModal();
-      return;
-    }
-
-    const newParticipant = {
-      id: `participant_${Date.now()}`,
-      eventId: activeEventId,
+    const payload = {
       name: participantName.trim(),
       teamId: selectedTeam.id,
       teamName: selectedTeam.name,
       categoryId: selectedCategory.id,
       categoryName: selectedCategory.name,
-      createdAt: getToday(),
     };
 
-    persistParticipantsForActiveEvent([...currentParticipants, newParticipant]);
-    closeModal();
+    try {
+      if (editingParticipant) {
+        const updatedParticipant = await updateParticipant(editingParticipant.id, payload);
+        setParticipantsForActiveEvent(
+          currentParticipants.map((participant) =>
+            participant.id === editingParticipant.id ? updatedParticipant : participant
+          )
+        );
+      } else {
+        const newParticipant = await createParticipant(activeEventId, payload);
+        setParticipantsForActiveEvent([newParticipant, ...currentParticipants]);
+      }
+      closeModal();
+    } catch (saveError) {
+      setError(saveError.message || "Unable to save participant.");
+    }
   }
 
-  function handleDeleteParticipant(participantId) {
+  async function handleDeleteParticipant(participantId) {
     if (!activeEventId) return;
 
-    const confirmed = window.confirm(
-      "Are you sure you want to delete this participant?"
-    );
+    const confirmed = window.confirm("Are you sure you want to delete this participant?");
     if (!confirmed) return;
 
-    const currentParticipants = participantsByEvent[activeEventId] || [];
-    const updatedParticipants = currentParticipants.filter(
-      (participant) => participant.id !== participantId
-    );
-
-    persistParticipantsForActiveEvent(updatedParticipants);
-    setOpenMenuId("");
+    try {
+      await deleteParticipant(participantId);
+      const currentParticipants = participantsByEvent[activeEventId] || [];
+      setParticipantsForActiveEvent(currentParticipants.filter((participant) => participant.id !== participantId));
+      setOpenMenuId("");
+    } catch (deleteError) {
+      setError(deleteError.message || "Unable to delete participant.");
+    }
   }
 
   return (
@@ -309,8 +243,18 @@ export default function ParticipantsPage() {
           </button>
         </div>
 
+        {error && (
+          <div className="app-card rounded-lg border border-[var(--app-danger)] p-4 text-sm text-[var(--app-danger)]">
+            {error}
+          </div>
+        )}
+
         {!activeEventId ? (
           <NoActiveEventState />
+        ) : loading ? (
+          <div className="app-card rounded-xl border p-8 text-center">
+            <p className="app-muted text-sm font-semibold">Loading participants...</p>
+          </div>
         ) : visibleParticipants.length === 0 ? (
           <div className="app-card rounded-xl border p-6 shadow-sm">
             <h2 className="app-heading text-lg font-bold">
@@ -481,9 +425,7 @@ export default function ParticipantsPage() {
               <div className="flex flex-wrap justify-end gap-2 pt-2">
                 <button
                   type="submit"
-                  disabled={
-                    visibleTeams.length === 0 || visibleCategories.length === 0
-                  }
+                  disabled={visibleTeams.length === 0 || visibleCategories.length === 0}
                   className="app-success-btn h-10 rounded-md px-4 text-sm font-semibold hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {editingParticipant ? "Update Participant" : "Add Participant"}
@@ -503,3 +445,4 @@ export default function ParticipantsPage() {
     </div>
   );
 }
+

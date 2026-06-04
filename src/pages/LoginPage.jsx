@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { authRequest, hashPassword, saveUserSession } from "../utils/auth.js";
+import { loginWithSupabase } from "../utils/auth.js";
 import logoDark from "../assets/logo/rankify-logo-dark.svg";
 import logoLight from "../assets/logo/rankify-logo-light.svg";
 
@@ -40,25 +40,10 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      const passwordHash = await hashPassword(password);
-      const result = await authRequest("login", {
+      await loginWithSupabase({
         email: email.trim(),
-        password: passwordHash,
-        passwordHash,
+        password,
       });
-
-      if (!result.success) {
-        setError(result.message || "Invalid email or password");
-        setLoading(false);
-        return;
-      }
-
-      const user = {
-        name: result.user?.name || "User",
-        email: result.user?.email || email.trim(),
-      };
-
-      saveUserSession(user);
       navigate("/dashboard");
     } catch (error_) {
       setError(error_.message || "Invalid email or password");

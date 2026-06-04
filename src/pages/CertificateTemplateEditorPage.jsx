@@ -376,6 +376,22 @@ export default function CertificateTemplateEditorPage() {
     navigate("/dashboard/certificate-templates");
   }
 
+  async function copyTemplateJson() {
+    const exportTemplate = {
+      ...template,
+      id: template.id || "certificate_template_export",
+      type: "certificate",
+      canvas: {
+        width: Number(template.canvasWidth) || 1,
+        height: Number(template.canvasHeight) || 1,
+        backgroundImage: template.backgroundImage || "",
+      },
+    };
+
+    await navigator.clipboard.writeText(JSON.stringify(exportTemplate, null, 2));
+    alert("Template JSON copied to clipboard.");
+  }
+
   const inputClass = "app-input h-9 rounded-md border px-3 text-sm outline-none focus:border-[var(--app-primary)] focus:ring-2 focus:ring-[var(--app-focus-ring)]";
 
   return (
@@ -398,14 +414,24 @@ export default function CertificateTemplateEditorPage() {
             </h1>
           </div>
         </div>
-        <button
-          type="button"
-          onClick={handleSave}
-          className="app-success-btn inline-flex h-10 shrink-0 items-center gap-2 rounded-md px-4 text-sm font-bold shadow-sm hover:opacity-90"
-        >
-          <Save size={16} />
-          {isEditMode ? "Save changes" : "Create template"}
-        </button>
+        <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
+          <button
+            type="button"
+            onClick={copyTemplateJson}
+            className="app-card inline-flex h-10 items-center gap-2 rounded-md border px-4 text-sm font-bold shadow-sm hover:bg-[var(--app-surface-elevated)]"
+          >
+            <Copy size={16} />
+            Copy Template JSON
+          </button>
+          <button
+            type="button"
+            onClick={handleSave}
+            className="app-success-btn inline-flex h-10 items-center gap-2 rounded-md px-4 text-sm font-bold shadow-sm hover:opacity-90"
+          >
+            <Save size={16} />
+            {isEditMode ? "Save changes" : "Create template"}
+          </button>
+        </div>
       </header>
 
       <div className="grid w-full max-w-full min-h-[calc(100vh-156px)] grid-cols-[minmax(240px,280px)_minmax(420px,1fr)_minmax(320px,380px)] gap-6 overflow-x-hidden p-5 max-[1180px]:grid-cols-1">

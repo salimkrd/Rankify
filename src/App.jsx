@@ -4,6 +4,8 @@ import Home from "./pages/Home.jsx";
 import LoginPage from "./pages/LoginPage.jsx";
 import RegisterPage from "./pages/RegisterPage.jsx";
 import DashboardLayout from "./layouts/DashboardLayout.jsx";
+import AdminLayout from "./layouts/AdminLayout.jsx";
+import AdminRoute from "./components/AdminRoute.jsx";
 import DashboardHome from "./pages/DashboardHome.jsx";
 import EventsPage from "./pages/EventsPage.jsx";
 import TeamsPage from "./pages/TeamsPage.jsx";
@@ -21,6 +23,10 @@ import FramedPostsPage from "./pages/FramedPostsPage.jsx";
 import CertificateTemplatesPage from "./pages/CertificateTemplatesPage.jsx";
 import CertificateTemplateEditorPage from "./pages/CertificateTemplateEditorPage.jsx";
 import CertificateResultsPage from "./pages/CertificateResultsPage.jsx";
+import AdminLoginPage from "./pages/AdminLoginPage.jsx";
+import AdminDashboardPage from "./pages/AdminDashboardPage.jsx";
+import AdminPublicTemplatesPage from "./pages/AdminPublicTemplatesPage.jsx";
+import AdminPublicTemplateEditorPage from "./pages/AdminPublicTemplateEditorPage.jsx";
 import { COMMON_GOOGLE_FONTS_URL } from "./constants/fontFamilies.js";
 
 if (typeof document !== "undefined" && !document.querySelector('link[data-rankify-fonts="true"]')) {
@@ -51,6 +57,21 @@ export default function App() {
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
       <Route path="/signup" element={<Navigate to="/register" replace />} />
+      <Route path="/admin/login" element={<AdminLoginPage />} />
+      <Route
+        path="/admin"
+        element={
+          <AdminRoute>
+            <AdminLayout />
+          </AdminRoute>
+        }
+      >
+        <Route index element={<Navigate to="/admin/dashboard" replace />} />
+        <Route path="dashboard" element={<AdminDashboardPage />} />
+        <Route path="public-templates" element={<AdminPublicTemplatesPage />} />
+        <Route path="public-templates/new" element={<AdminPublicTemplateEditorPage />} />
+        <Route path="public-templates/:id/edit" element={<AdminPublicTemplateEditorPage />} />
+      </Route>
 
       <Route
         path="/dashboard"

@@ -418,6 +418,24 @@ export default function FramedPostTemplateEditorPage() {
     navigate("/dashboard/framed-posts");
   }
 
+  async function copyTemplateJson() {
+    const exportTemplate = {
+      id: isEdit && existingTemplate ? existingTemplate.id : "framed_post_template_export",
+      name: templateName.trim() || "Framed Post Template",
+      type: "framed-post",
+      frameImage: frameImageUrl,
+      frameImageUrl,
+      frameSrc: frameImageUrl,
+      canvasWidth,
+      canvasHeight,
+      customFields,
+      previewData: normalizedPreview,
+    };
+
+    await navigator.clipboard.writeText(JSON.stringify(exportTemplate, null, 2));
+    alert("Template JSON copied to clipboard.");
+  }
+
   if (!isLoaded) {
     return null;
   }
@@ -442,14 +460,24 @@ export default function FramedPostTemplateEditorPage() {
               </h1>
             </div>
           </div>
-          <button
-            type="button"
-            onClick={handleSave}
-            className="app-success-btn inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-md px-4 text-sm font-semibold shadow-sm hover:opacity-90"
-          >
-            <Save size={16} />
-            {isEdit ? "Save changes" : "Create template"}
-          </button>
+          <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
+            <button
+              type="button"
+              onClick={copyTemplateJson}
+              className="app-card inline-flex h-10 items-center justify-center gap-2 rounded-md border px-4 text-sm font-semibold shadow-sm hover:bg-[var(--app-surface-elevated)]"
+            >
+              <Copy size={16} />
+              Copy Template JSON
+            </button>
+            <button
+              type="button"
+              onClick={handleSave}
+              className="app-success-btn inline-flex h-10 items-center justify-center gap-2 rounded-md px-4 text-sm font-semibold shadow-sm hover:opacity-90"
+            >
+              <Save size={16} />
+              {isEdit ? "Save changes" : "Create template"}
+            </button>
+          </div>
         </div>
       </header>
 

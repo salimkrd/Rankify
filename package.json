@@ -11,6 +11,7 @@
     "start": "node server/index.js"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.107.0",
     "@vitejs/plugin-react": "^5.0.0",
     "autoprefixer": "^10.4.21",
     "html2canvas": "^1.4.1",

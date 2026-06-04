@@ -387,28 +387,7 @@ if (typeof window !== "undefined" && !window.__rankifyPublicTemplateSchemaPatch)
   }
 }
 
-const PUBLIC_TEMPLATES = [
-  {
-    id: "public_template_1",
-    name: "Sahityolsav Poster Template 1",
-    previewImage: makePreview("21", "#111827", "#FFC107"),
-  },
-  {
-    id: "public_template_2",
-    name: "Sahityolsav Poster Template 2",
-    previewImage: makePreview("22", "#F8FAFC", "#26752C"),
-  },
-  {
-    id: "public_template_3",
-    name: "Sahityolsav Poster Template 3",
-    previewImage: makePreview("23", "#FDE68A", "#B91C1C"),
-  },
-  {
-    id: "public_template_4",
-    name: "Sahityolsav Poster Template 4",
-    previewImage: makePreview("23", "#F87171", "#0D1B2A"),
-  },
-];
+const PUBLIC_TEMPLATES = [];
 
 function safeJsonParse(value, fallback) {
   try {
@@ -708,34 +687,43 @@ export default function ProgramTemplatesPage() {
             </h2>
 
             <div className="mt-5 max-h-[66vh] overflow-y-auto pr-2">
-              <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-                {PUBLIC_TEMPLATES.map((template) => (
-                  <div
-                    key={template.id}
-                    className="app-card overflow-hidden rounded-xl border shadow-sm"
-                  >
-                    <div className="flex h-[270px] items-center justify-center bg-[var(--app-surface-elevated)] p-2">
-                      <img
-                        src={template.previewImage}
-                        alt={template.name}
-                        className="h-full w-full object-contain"
-                      />
+              {PUBLIC_TEMPLATES.length === 0 ? (
+                <div className="flex min-h-[260px] flex-col items-center justify-center rounded-xl border border-dashed border-[var(--app-border)] bg-[var(--app-surface)] px-6 text-center">
+                  <h3 className="app-heading text-xl font-extrabold">No Public Templates Available</h3>
+                  <p className="app-muted mt-3 max-w-[420px] text-sm">
+                    Public templates will appear here after admin publishes them.
+                  </p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+                  {PUBLIC_TEMPLATES.map((template) => (
+                    <div
+                      key={template.id}
+                      className="app-card overflow-hidden rounded-xl border shadow-sm"
+                    >
+                      <div className="flex h-[270px] items-center justify-center bg-[var(--app-surface-elevated)] p-2">
+                        <img
+                          src={template.previewImage}
+                          alt={template.name}
+                          className="h-full w-full object-contain"
+                        />
+                      </div>
+                      <div className="p-4">
+                        <h3 className="app-heading truncate text-lg font-bold">
+                          {template.name}
+                        </h3>
+                        <button
+                          type="button"
+                          onClick={() => handleUsePublicTemplate(template)}
+                          className="app-success-btn mt-4 h-9 w-full rounded-md text-sm font-bold hover:opacity-90"
+                        >
+                          USE
+                        </button>
+                      </div>
                     </div>
-                    <div className="p-4">
-                      <h3 className="app-heading truncate text-lg font-bold">
-                        {template.name}
-                      </h3>
-                      <button
-                        type="button"
-                        onClick={() => handleUsePublicTemplate(template)}
-                        className="app-success-btn mt-4 h-9 w-full rounded-md text-sm font-bold hover:opacity-90"
-                      >
-                        USE
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         </div>

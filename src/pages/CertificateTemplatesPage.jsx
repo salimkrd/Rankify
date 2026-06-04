@@ -184,10 +184,7 @@ export default function CertificateTemplatesPage() {
     [activeEvent?.id, templates]
   );
 
-  const publicTemplates = useMemo(
-    () => templates.filter((template) => template.isPublic === true),
-    [templates]
-  );
+  const publicTemplates = useMemo(() => [], []);
 
   function handleCreate() {
     if (!activeEvent?.id) {
@@ -360,8 +357,11 @@ export default function CertificateTemplatesPage() {
             </h2>
 
             {publicTemplates.length === 0 ? (
-              <div className="app-muted flex flex-1 items-center justify-center text-center text-lg">
-                No public templates available yet.
+              <div className="flex flex-1 flex-col items-center justify-center rounded-xl border border-dashed border-[var(--app-border)] bg-[var(--app-surface)] px-6 text-center">
+                <h3 className="app-heading text-xl font-extrabold">No Public Templates Available</h3>
+                <p className="app-muted mt-3 max-w-[420px] text-sm">
+                  Public templates will appear here after admin publishes them.
+                </p>
               </div>
             ) : (
               <div className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2">

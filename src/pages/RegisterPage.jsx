@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { authRequest, hashPassword, saveUserSession } from "../utils/auth.js";
+import { registerWithSupabase } from "../utils/auth.js";
 import logoDark from "../assets/logo/rankify-logo-dark.svg";
 import logoLight from "../assets/logo/rankify-logo-light.svg";
 
@@ -47,28 +47,11 @@ export default function RegisterPage() {
     setLoading(true);
 
     try {
-      const passwordHash = await hashPassword(password);
-      const payload = {
+      await registerWithSupabase({
         name: name.trim(),
         email: email.trim(),
-        password: passwordHash,
-        passwordHash,
-      };
-
-      const result = await authRequest("register", payload);
-
-      if (!result.success) {
-        setError(result.message || "Email already registered");
-        setLoading(false);
-        return;
-      }
-
-      const user = {
-        name: result.user?.name || name.trim(),
-        email: result.user?.email || email.trim(),
-      };
-
-      saveUserSession(user);
+        password,
+      });
       navigate("/dashboard");
     } catch (error_) {
       setError(error_.message || "Unable to register right now. Please try again.");

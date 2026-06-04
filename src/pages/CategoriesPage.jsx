@@ -2,29 +2,10 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Edit, FolderOpen, Plus, Trash2, X } from "lucide-react";
 import { getUserStorageKey } from "../utils/storage.js";
 import NoActiveEventState from "../components/NoActiveEventState.jsx";
+import { getEvents } from "../services/eventsService.js";
+import { createCategory, deleteCategory, getCategoriesByEvent, updateCategory } from "../services/categoriesService.js";
 
-const EVENTS_KEY = "rankify_events";
 const ACTIVE_EVENT_KEY = "rankify_active_event_id";
-const CATEGORIES_KEY = "rankify_categories";
-
-const fallbackEvents = [
-  {
-    id: "event_panangara",
-    name: "SSF PANANGARA UNIT SAHITYOLSAV",
-    organizer: "Panangara Unit",
-    date: "May 25",
-    location: "Panangara",
-    created: "5/24/2026",
-  },
-  {
-    id: "event_cherikallu",
-    name: "SSF CHERIKALLU UNIT SAHITYOLSAV",
-    organizer: "Cherikallu Unit",
-    date: "May 22",
-    location: "Nambram",
-    created: "5/22/2026",
-  },
-];
 
 const sahityolsavCategories = [
   "Lower primary",
@@ -36,43 +17,14 @@ const sahityolsavCategories = [
   "General",
 ];
 
-function safeJsonParse(value, fallback) {
-  try {
-    const parsed = JSON.parse(value || "");
-    return parsed || fallback;
-  } catch {
-    return fallback;
-  }
-}
-
-function getStoredEvents() {
-  const storedEvents = safeJsonParse(localStorage.getItem(getUserStorageKey(EVENTS_KEY)), []);
-  return Array.isArray(storedEvents) ? storedEvents : [];
-}
-
-function getStoredCategories() {
-  const storedCategories = safeJsonParse(localStorage.getItem(getUserStorageKey(CATEGORIES_KEY)), {});
-  return storedCategories &&
-    typeof storedCategories === "object" &&
-    !Array.isArray(storedCategories)
-    ? storedCategories
-    : {};
-}
-
 function getValidActiveEventId(events) {
   const storedActiveId = localStorage.getItem(getUserStorageKey(ACTIVE_EVENT_KEY));
   const isValid = events.some((event) => event.id === storedActiveId);
 
-  if (isValid) {
-    return storedActiveId;
-  }
+  if (isValid) return storedActiveId;
 
   localStorage.removeItem(getUserStorageKey(ACTIVE_EVENT_KEY));
   return "";
-}
-
-function today() {
-  return new Date().toLocaleDateString("en-US");
 }
 
 export default function CategoriesPage() {
@@ -83,29 +35,35 @@ export default function CategoriesPage() {
   const [editingCategory, setEditingCategory] = useState(null);
   const [categoryName, setCategoryName] = useState("");
   const [toast, setToast] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
-  useEffect(() => {
-    function syncFromLocalStorage() {
-      const storedEvents = getStoredEvents();
+  async function syncFromSupabase() {
+    setLoading(true);
+    setError("");
+    try {
+      const storedEvents = await getEvents();
       const validActiveId = getValidActiveEventId(storedEvents);
-      const storedCategories = getStoredCategories();
+      const eventCategories = validActiveId ? await getCategoriesByEvent(validActiveId) : [];
 
       setEvents(storedEvents);
       setActiveEventId(validActiveId);
-      setCategoriesByEvent(storedCategories);
+      setCategoriesByEvent(validActiveId ? { [validActiveId]: eventCategories } : {});
+    } catch (loadError) {
+      setError(loadError.message || "Unable to load categories.");
+    } finally {
+      setLoading(false);
     }
+  }
 
-    syncFromLocalStorage();
+  useEffect(() => {
+    syncFromSupabase();
 
-    window.addEventListener("storage", syncFromLocalStorage);
-    window.addEventListener("rankify-active-event-changed", syncFromLocalStorage);
-
+    window.addEventListener("storage", syncFromSupabase);
+    window.addEventListener("rankify-active-event-changed", syncFromSupabase);
     return () => {
-      window.removeEventListener("storage", syncFromLocalStorage);
-      window.removeEventListener(
-        "rankify-active-event-changed",
-        syncFromLocalStorage
-      );
+      window.removeEventListener("storage", syncFromSupabase);
+      window.removeEventListener("rankify-active-event-changed", syncFromSupabase);
     };
   }, []);
 
@@ -124,17 +82,9 @@ export default function CategoriesPage() {
     window.setTimeout(() => setToast(""), 2600);
   }
 
-  function persistCategoriesForActiveEvent(nextCategories) {
+  function setCategoriesForActiveEvent(nextCategories) {
     if (!activeEventId) return;
-
-    const storedCategories = getStoredCategories();
-    const updatedCategoriesByEvent = {
-      ...storedCategories,
-      [activeEventId]: nextCategories,
-    };
-
-    localStorage.setItem(getUserStorageKey(CATEGORIES_KEY), JSON.stringify(updatedCategoriesByEvent));
-    setCategoriesByEvent(updatedCategoriesByEvent);
+    setCategoriesByEvent((current) => ({ ...current, [activeEventId]: nextCategories }));
     window.dispatchEvent(new Event("rankify-data-changed"));
   }
 
@@ -161,7 +111,7 @@ export default function CategoriesPage() {
     setCategoryName("");
   }
 
-  function handleSubmit(event) {
+  async function handleSubmit(event) {
     event.preventDefault();
 
     if (!categoryName.trim()) {
@@ -176,70 +126,62 @@ export default function CategoriesPage() {
 
     const currentCategories = categoriesByEvent[activeEventId] || [];
 
-    if (editingCategory) {
-      const updatedCategories = currentCategories.map((category) =>
-        category.id === editingCategory.id
-          ? { ...category, name: categoryName.trim() }
-          : category
-      );
-
-      persistCategoriesForActiveEvent(updatedCategories);
+    try {
+      if (editingCategory) {
+        const updatedCategory = await updateCategory(editingCategory.id, { name: categoryName.trim() });
+        setCategoriesForActiveEvent(
+          currentCategories.map((category) => (category.id === editingCategory.id ? updatedCategory : category))
+        );
+      } else {
+        const newCategory = await createCategory(activeEventId, { name: categoryName.trim() });
+        setCategoriesForActiveEvent([newCategory, ...currentCategories]);
+      }
       closeModal();
-      return;
+    } catch (saveError) {
+      setError(saveError.message || "Unable to save category.");
     }
-
-    const newCategory = {
-      id: `category_${Date.now()}`,
-      name: categoryName.trim(),
-      createdAt: today(),
-    };
-
-    persistCategoriesForActiveEvent([...currentCategories, newCategory]);
-    closeModal();
   }
 
-  function handleDeleteCategory(categoryId) {
+  async function handleDeleteCategory(categoryId) {
     if (!activeEventId) return;
 
-    const confirmed = window.confirm(
-      "Are you sure you want to delete this category?"
-    );
+    const confirmed = window.confirm("Are you sure you want to delete this category?");
     if (!confirmed) return;
 
-    const currentCategories = categoriesByEvent[activeEventId] || [];
-    const updatedCategories = currentCategories.filter(
-      (category) => category.id !== categoryId
-    );
-
-    persistCategoriesForActiveEvent(updatedCategories);
+    try {
+      await deleteCategory(categoryId);
+      const currentCategories = categoriesByEvent[activeEventId] || [];
+      setCategoriesForActiveEvent(currentCategories.filter((category) => category.id !== categoryId));
+    } catch (deleteError) {
+      setError(deleteError.message || "Unable to delete category.");
+    }
   }
 
-  function handleAddSahityolsavCategories() {
+  async function handleAddSahityolsavCategories() {
     if (!activeEventId) {
       alert("Please select an active event first.");
       return;
     }
 
     const currentCategories = categoriesByEvent[activeEventId] || [];
-    const existingNames = new Set(
-      currentCategories.map((category) => category.name.toLowerCase())
-    );
+    const existingNames = new Set(currentCategories.map((category) => category.name.toLowerCase()));
+    const namesToAdd = sahityolsavCategories.filter((name) => !existingNames.has(name.toLowerCase()));
 
-    const categoriesToAdd = sahityolsavCategories
-      .filter((name) => !existingNames.has(name.toLowerCase()))
-      .map((name, index) => ({
-        id: `category_${Date.now()}_${index}`,
-        name,
-        createdAt: today(),
-      }));
-
-    if (categoriesToAdd.length === 0) {
+    if (namesToAdd.length === 0) {
       showToast("Sahityolsav categories added successfully!");
       return;
     }
 
-    persistCategoriesForActiveEvent([...currentCategories, ...categoriesToAdd]);
-    showToast("Sahityolsav categories added successfully!");
+    try {
+      const createdCategories = [];
+      for (const name of namesToAdd) {
+        createdCategories.push(await createCategory(activeEventId, { name }));
+      }
+      setCategoriesForActiveEvent([...createdCategories, ...currentCategories]);
+      showToast("Sahityolsav categories added successfully!");
+    } catch (saveError) {
+      setError(saveError.message || "Unable to add categories.");
+    }
   }
 
   return (
@@ -279,8 +221,18 @@ export default function CategoriesPage() {
           </div>
         </div>
 
+        {error && (
+          <div className="app-card rounded-lg border border-[var(--app-danger)] p-4 text-sm text-[var(--app-danger)]">
+            {error}
+          </div>
+        )}
+
         {!activeEventId ? (
           <NoActiveEventState />
+        ) : loading ? (
+          <div className="app-card rounded-xl border p-8 text-center">
+            <p className="app-muted text-sm font-semibold">Loading categories...</p>
+          </div>
         ) : visibleCategories.length === 0 ? (
           <div className="flex min-h-[520px] flex-col items-center justify-center text-center">
             <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-full bg-[var(--app-surface-elevated)] text-[var(--app-muted)]">
@@ -405,3 +357,4 @@ export default function CategoriesPage() {
     </div>
   );
 }
+

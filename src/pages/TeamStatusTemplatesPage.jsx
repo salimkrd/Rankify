@@ -9,26 +9,7 @@ const EVENTS_KEY = "rankify_events";
 const ACTIVE_EVENT_KEY = "rankify_active_event_id";
 const STORAGE_KEY = "rankify_team_status_templates";
 
-const publicTemplates = [
-  {
-    id: "public_team_status_01",
-    name: "Public Template 01",
-    elementsCount: 6,
-    teamScoresCount: 10,
-    source: "public",
-    type: "team-status",
-    variant: "light",
-  },
-  {
-    id: "public_team_status_02",
-    name: "Public Template 2",
-    elementsCount: 6,
-    teamScoresCount: 10,
-    source: "public",
-    type: "team-status",
-    variant: "green",
-  },
-];
+const publicTemplates = [];
 
 function publicBackgroundImage(variant = "green") {
   const isLight = variant === "light";
@@ -423,19 +404,26 @@ export default function TeamStatusTemplatesPage() {
               <X size={18} />
             </button>
             <h2>Explore Public Team Status Templates</h2>
-            <div className="public-grid">
-              {publicTemplates.map((template) => (
-                <article className="public-card" key={template.id}>
-                  <Preview variant={template.variant} />
-                  <div className="public-body">
-                    <h3>{template.name}</h3>
-                    <button type="button" className="use-btn" onClick={() => handleUsePublic(template)}>
-                      USE
-                    </button>
-                  </div>
-                </article>
-              ))}
-            </div>
+            {publicTemplates.length === 0 ? (
+              <div className="public-empty-state">
+                <h3>No Public Templates Available</h3>
+                <p>Public templates will appear here after admin publishes them.</p>
+              </div>
+            ) : (
+              <div className="public-grid">
+                {publicTemplates.map((template) => (
+                  <article className="public-card" key={template.id}>
+                    <Preview variant={template.variant} />
+                    <div className="public-body">
+                      <h3>{template.name}</h3>
+                      <button type="button" className="use-btn" onClick={() => handleUsePublic(template)}>
+                        USE
+                      </button>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -484,6 +472,9 @@ const styles = `
 .close-btn{position:absolute;right:12px;top:14px;width:26px;height:26px;border:1px solid var(--app-success);border-radius:6px;background:var(--app-surface);color:var(--app-text);display:flex;align-items:center;justify-content:center;cursor:pointer}
 .public-modal h2{margin:0 38px 16px 0;font-size:21px;line-height:1.3;font-weight:800;color:var(--app-heading)}
 .public-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:24px}
+.public-empty-state{min-height:260px;border:1px dashed var(--app-border);border-radius:12px;background:var(--app-surface);display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:28px}
+.public-empty-state h3{margin:0;font-size:22px;font-weight:800;color:var(--app-heading)}
+.public-empty-state p{margin:10px 0 0;max-width:420px;color:var(--app-muted);font-size:15px;line-height:1.5}
 .public-card{border-radius:10px}
 .public-card .team-status-preview{width:100%;height:310px;border-radius:0;box-shadow:none}
 .public-body{padding:44px 18px}

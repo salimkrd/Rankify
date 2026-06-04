@@ -21,11 +21,11 @@ import {
 } from "lucide-react";
 import { getUserStorageKey } from "../utils/storage.js";
 import { getInitials } from "../utils/auth.js";
+import { getEvents as getSupabaseEvents } from "../services/eventsService.js";
 import ThemeToggle from "./ThemeToggle.jsx";
 import logoDark from "../assets/logo/rankify-logo-dark.svg";
 import logoLight from "../assets/logo/rankify-logo-light.svg";
 
-const EVENTS_KEY = "rankify_events";
 const ACTIVE_EVENT_KEY = "rankify_active_event_id";
 const TEAMS_KEY = "rankify_teams";
 const PARTICIPANTS_KEY = "rankify_participants";
@@ -33,25 +33,6 @@ const CATEGORIES_KEY = "rankify_categories";
 const PROGRAM_TEMPLATES_KEY = "rankify_program_templates";
 const CERTIFICATE_TEMPLATES_KEY = "rankify_certificate_templates";
 const CERTIFICATE_RESULTS_KEY = "rankify_certificate_results";
-
-const fallbackEvents = [
-  {
-    id: "event_panangara",
-    name: "SSF PANANGARA UNIT SAHITYOLSAV",
-    organizer: "Panangara Unit",
-    date: "May 25",
-    location: "Panangara",
-    created: "5/24/2026",
-  },
-  {
-    id: "event_cherikallu",
-    name: "SSF CHERIKALLU UNIT SAHITYOLSAV",
-    organizer: "Cherikallu Unit",
-    date: "May 22",
-    location: "Nambram",
-    created: "5/22/2026",
-  },
-];
 
 const sections = [
   {
@@ -133,21 +114,6 @@ function safeJsonParse(value, fallback) {
   } catch {
     return fallback;
   }
-}
-
-function getStoredEvents() {
-  const storedEvents = safeJsonParse(localStorage.getItem(getUserStorageKey(EVENTS_KEY)), []);
-  return Array.isArray(storedEvents) ? storedEvents : [];
-}
-
-function getEventsCount() {
-  const storedEvents = safeJsonParse(localStorage.getItem(getUserStorageKey(EVENTS_KEY)), []);
-
-  if (Array.isArray(storedEvents)) {
-    return storedEvents.length;
-  }
-
-  return 0;
 }
 
 function getValidActiveEventId(events) {
@@ -262,14 +228,21 @@ export default function Sidebar({ mobile = false, onNavigate, onClose }) {
   });
 
   useEffect(() => {
-    function syncActiveEvent() {
-      const storedEvents = getStoredEvents();
-      const validActiveEventId = getValidActiveEventId(storedEvents);
+    async function syncActiveEvent() {
+      let supabaseEvents = [];
 
-      setEvents(storedEvents);
+      try {
+        supabaseEvents = await getSupabaseEvents();
+      } catch (error) {
+        console.error("Unable to load sidebar events.", error);
+      }
+
+      const validActiveEventId = getValidActiveEventId(supabaseEvents);
+
+      setEvents(supabaseEvents);
       setActiveEventId(validActiveEventId);
       setCounts({
-        events: getEventsCount(),
+        events: supabaseEvents.length,
         teams: getGroupedCount(getUserStorageKey(TEAMS_KEY), validActiveEventId),
         participants: getGroupedCount(getUserStorageKey(PARTICIPANTS_KEY), validActiveEventId),
         categories: getGroupedCount(getUserStorageKey(CATEGORIES_KEY), validActiveEventId),

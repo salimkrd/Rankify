@@ -1,4 +1,4 @@
-export const GOOGLE_SCRIPT_URL = import.meta.env.VITE_GOOGLE_SCRIPT_URL || "";
+import { supabase } from "../lib/supabaseClient.js";
 
 export function saveUserSession({ name, email }) {
   localStorage.setItem("rankify_user", JSON.stringify({ name, email }));
@@ -49,41 +49,48 @@ export async function hashPassword(password) {
   return hashArray.map((byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
-export async function authRequest(action, payload) {
-  if (!GOOGLE_SCRIPT_URL) {
-    throw new Error("Google Script URL is not configured");
-  }
+export function userFromSupabaseUser(user, fallback = {}) {
+  const metadata = user?.user_metadata || {};
+  const name =
+    metadata.full_name ||
+    metadata.name ||
+    fallback.name ||
+    user?.email?.split("@")[0] ||
+    "User";
 
-  let response;
+  return {
+    name,
+    email: user?.email || fallback.email || "",
+  };
+}
 
-  try {
-    response = await fetch(GOOGLE_SCRIPT_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "text/plain;charset=utf-8",
+export async function registerWithSupabase({ name, email, password }) {
+  const { data, error } = await supabase.auth.signUp({
+    email,
+    password,
+    options: {
+      data: {
+        full_name: name,
       },
-      body: JSON.stringify({ action, ...payload }),
-    });
-  } catch (fetchError) {
-    throw new Error(
-      "Unable to connect to auth server. Please check Apps Script deployment URL."
-    );
-  }
+    },
+  });
 
-  let data;
-  try {
-    data = await response.json();
-  } catch (parseError) {
-    throw new Error(
-      "Unable to connect to auth server. Please check Apps Script deployment URL."
-    );
-  }
+  if (error) throw error;
 
-  if (!data || typeof data !== "object") {
-    throw new Error(
-      "Unable to connect to auth server. Please check Apps Script deployment URL."
-    );
-  }
+  const user = userFromSupabaseUser(data.user, { name, email });
+  saveUserSession(user);
+  return user;
+}
 
-  return data;
+export async function loginWithSupabase({ email, password }) {
+  const { data, error } = await supabase.auth.signInWithPassword({
+    email,
+    password,
+  });
+
+  if (error) throw error;
+
+  const user = userFromSupabaseUser(data.user, { email });
+  saveUserSession(user);
+  return user;
 }

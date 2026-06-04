@@ -685,6 +685,23 @@ export default function TeamStatusTemplateEditorPage() {
     }
   }
 
+  async function copyTemplateJson() {
+    const exportTemplate = {
+      ...template,
+      id: template.id || "team_status_template_export",
+      type: "team-status",
+      canvas: {
+        ...template.canvas,
+        width: Number(template.canvas.width) || 1,
+        height: Number(template.canvas.height) || 1,
+      },
+      previewImage: makePreviewImage(template),
+    };
+
+    await navigator.clipboard.writeText(JSON.stringify(exportTemplate, null, 2));
+    alert("Template JSON copied to clipboard.");
+  }
+
   function renderToolbar() {
     if (!selected.element) {
       return (
@@ -815,14 +832,24 @@ export default function TeamStatusTemplateEditorPage() {
               <h1 className="app-heading truncate text-2xl font-bold">{isEdit ? "Edit Team Status Template" : "Create Team Status Template"}</h1>
             </div>
           </div>
-          <button
-            type="button"
-            onClick={saveTemplate}
-            className="app-success-btn inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-md px-4 text-sm font-semibold shadow-sm hover:opacity-90"
-          >
-            <Save size={16} strokeWidth={1.9} aria-hidden="true" />
-            {isEdit ? "Save changes" : "Create template"}
-          </button>
+          <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
+            <button
+              type="button"
+              onClick={copyTemplateJson}
+              className="app-card inline-flex h-10 items-center justify-center gap-2 rounded-md border px-4 text-sm font-semibold shadow-sm hover:bg-[var(--app-surface-elevated)]"
+            >
+              <Copy size={16} strokeWidth={1.9} aria-hidden="true" />
+              Copy Template JSON
+            </button>
+            <button
+              type="button"
+              onClick={saveTemplate}
+              className="app-success-btn inline-flex h-10 items-center justify-center gap-2 rounded-md px-4 text-sm font-semibold shadow-sm hover:opacity-90"
+            >
+              <Save size={16} strokeWidth={1.9} aria-hidden="true" />
+              {isEdit ? "Save changes" : "Create template"}
+            </button>
+          </div>
         </div>
       </header>
 

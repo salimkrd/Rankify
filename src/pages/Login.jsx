@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { loginWithSupabase } from "../utils/auth.js";
 import logoDark from "../assets/logo/rankify-logo-dark.svg";
 import logoLight from "../assets/logo/rankify-logo-light.svg";
 
@@ -8,6 +9,7 @@ export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
   const isLoggedIn = localStorage.getItem("rankify_is_logged_in") === "true";
 
   useEffect(() => {
@@ -17,7 +19,7 @@ export default function Login() {
     }
   }, [isLoggedIn]);
 
-  function handleLogin(e) {
+  async function handleLogin(e) {
     e.preventDefault();
     setError("");
 
@@ -26,18 +28,18 @@ export default function Login() {
       return;
     }
 
-    const stored = localStorage.getItem("rankify_user");
-    let user = stored ? JSON.parse(stored) : null;
-
-    if (!user) {
-      const namePart = email.split("@")[0] || "User";
-      const name = namePart.charAt(0).toUpperCase() + namePart.slice(1);
-      user = { name, email };
-      localStorage.setItem("rankify_user", JSON.stringify(user));
+    setLoading(true);
+    try {
+      await loginWithSupabase({
+        email: email.trim(),
+        password,
+      });
+      navigate("/dashboard");
+    } catch (error_) {
+      setError(error_.message || "Invalid email or password");
+    } finally {
+      setLoading(false);
     }
-
-    localStorage.setItem("rankify_is_logged_in", "true");
-    navigate("/dashboard");
   }
 
   return (
@@ -83,9 +85,10 @@ export default function Login() {
 
           <button
             type="submit"
-            className="mt-6 w-full rounded-lg bg-[var(--app-primary)] px-4 py-2 font-semibold text-white transition-colors hover:opacity-90"
+            disabled={loading}
+            className="mt-6 w-full rounded-lg bg-[var(--app-primary)] px-4 py-2 font-semibold text-white transition-colors hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            Sign In
+            {loading ? "Signing in..." : "Sign In"}
           </button>
 
           <p className="mt-4 text-sm text-[var(--app-muted)]">

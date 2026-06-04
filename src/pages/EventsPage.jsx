@@ -5,28 +5,9 @@ import {
   setUserStorageItem,
   removeUserStorageItem,
 } from "../utils/storage.js";
+import { createEvent, deleteEvent, getEvents, updateEvent } from "../services/eventsService.js";
 
-const EVENTS_KEY = "rankify_events";
 const ACTIVE_EVENT_KEY = "rankify_active_event_id";
-
-const demoEvents = [
-  {
-    id: "event_panangara",
-    name: "SSF PANANGARA UNIT SAHITYOLSAV",
-    organizer: "Panangara Unit",
-    date: "May 25",
-    location: "Panangara",
-    created: "5/24/2026",
-  },
-  {
-    id: "event_cherikallu",
-    name: "SSF CHERIKALLU UNIT SAHITYOLSAV",
-    organizer: "Cherikallu Unit",
-    date: "May 22",
-    location: "Nambram",
-    created: "5/22/2026",
-  },
-];
 
 const emptyForm = {
   name: "",
@@ -35,27 +16,6 @@ const emptyForm = {
   location: "",
   logoName: "",
 };
-
-function readStoredEvents() {
-  try {
-    const raw = getUserStorageItem(EVENTS_KEY);
-    const parsed = JSON.parse(raw || "[]");
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
-}
-
-function hasInvalidTestEvents(events) {
-  return events.some(
-    (event) =>
-      !event ||
-      !event.name ||
-      !event.organizer ||
-      !event.date ||
-      !event.location
-  );
-}
 
 function getValidActiveEventId(events) {
   const storedActiveId = getUserStorageItem(ACTIVE_EVENT_KEY);
@@ -69,8 +29,9 @@ function getValidActiveEventId(events) {
   return "";
 }
 
-function getToday() {
-  return new Date().toLocaleDateString("en-US");
+function notifyEventsChanged() {
+  window.dispatchEvent(new Event("rankify-events-changed"));
+  window.dispatchEvent(new Event("rankify-data-changed"));
 }
 
 export default function EventsPage() {
@@ -81,12 +42,22 @@ export default function EventsPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editingEvent, setEditingEvent] = useState(null);
   const [form, setForm] = useState(emptyForm);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   useEffect(() => {
-    function syncEventsAndActiveEvent() {
-      const stored = readStoredEvents();
-      setEvents(stored);
-      setActiveEventId(getValidActiveEventId(stored));
+    async function syncEventsAndActiveEvent() {
+      setLoading(true);
+      setError("");
+      try {
+        const stored = await getEvents();
+        setEvents(stored);
+        setActiveEventId(getValidActiveEventId(stored));
+      } catch (loadError) {
+        setError(loadError.message || "Unable to load events.");
+      } finally {
+        setLoading(false);
+      }
     }
 
     syncEventsAndActiveEvent();
@@ -113,11 +84,6 @@ export default function EventsPage() {
       )
     );
   }, [events, search]);
-
-  function persistEvents(nextEvents) {
-    setUserStorageItem(EVENTS_KEY, JSON.stringify(nextEvents));
-    setEvents(nextEvents);
-  }
 
   function openCreateModal() {
     setEditingEvent(null);
@@ -155,7 +121,7 @@ export default function EventsPage() {
     setForm((current) => ({ ...current, logoName: file?.name || "" }));
   }
 
-  function handleSubmitEvent(event) {
+  async function handleSubmitEvent(event) {
     event.preventDefault();
 
     if (!form.name.trim()) {
@@ -164,44 +130,42 @@ export default function EventsPage() {
     }
 
     if (editingEvent) {
-      const updatedEvents = events.map((item) =>
-        item.id === editingEvent.id
-          ? {
-              ...item,
-              name: form.name.trim(),
-              organizer: form.organizer.trim(),
-              date: form.date.trim(),
-              location: form.location.trim(),
-              logoName: form.logoName,
-            }
-          : item
-      );
-
-      persistEvents(updatedEvents);
-      closeModal();
+      try {
+        const updated = await updateEvent(editingEvent.id, {
+          name: form.name.trim(),
+          organizer: form.organizer.trim(),
+          date: form.date.trim(),
+          location: form.location.trim(),
+        });
+        setEvents((current) => current.map((item) => (item.id === editingEvent.id ? updated : item)));
+        notifyEventsChanged();
+        closeModal();
+      } catch (saveError) {
+        setError(saveError.message || "Unable to update event.");
+      }
       return;
     }
 
-    const newEvent = {
-      id: `event_${Date.now()}`,
-      name: form.name.trim(),
-      organizer: form.organizer.trim(),
-      date: form.date.trim(),
-      location: form.location.trim(),
-      logoName: form.logoName,
-      created: getToday(),
-    };
+    try {
+      const newEvent = await createEvent({
+        name: form.name.trim(),
+        organizer: form.organizer.trim(),
+        date: form.date.trim(),
+        location: form.location.trim(),
+      });
+      setEvents((current) => [newEvent, ...current]);
+      notifyEventsChanged();
 
-    const updatedEvents = [...events, newEvent];
-    persistEvents(updatedEvents);
+      if (!activeEventId) {
+        setUserStorageItem(ACTIVE_EVENT_KEY, newEvent.id);
+        setActiveEventId(newEvent.id);
+        window.dispatchEvent(new Event("rankify-active-event-changed"));
+      }
 
-    if (!activeEventId) {
-      setUserStorageItem(ACTIVE_EVENT_KEY, newEvent.id);
-      setActiveEventId(newEvent.id);
-      window.dispatchEvent(new Event("rankify-active-event-changed"));
+      closeModal();
+    } catch (saveError) {
+      setError(saveError.message || "Unable to create event.");
     }
-
-    closeModal();
   }
 
   function handleSelectEvent(eventId) {
@@ -211,25 +175,26 @@ export default function EventsPage() {
     window.dispatchEvent(new Event("rankify-active-event-changed"));
   }
 
-  function handleDeleteEvent(eventId) {
+  async function handleDeleteEvent(eventId) {
     const confirmed = window.confirm("Are you sure you want to delete this event?");
     if (!confirmed) return;
 
-    const updatedEvents = events.filter((event) => event.id !== eventId);
-    persistEvents(updatedEvents);
+    try {
+      await deleteEvent(eventId);
+      const updatedEvents = events.filter((event) => event.id !== eventId);
+      setEvents(updatedEvents);
+      notifyEventsChanged();
 
-    if (activeEventId === eventId) {
-      const nextActiveId = updatedEvents[0]?.id || "";
-      if (nextActiveId) {
-        setUserStorageItem(ACTIVE_EVENT_KEY, nextActiveId);
-      } else {
+      if (activeEventId === eventId) {
         removeUserStorageItem(ACTIVE_EVENT_KEY);
+        setActiveEventId("");
+        window.dispatchEvent(new Event("rankify-active-event-changed"));
       }
-      setActiveEventId(nextActiveId);
-      window.dispatchEvent(new Event("rankify-active-event-changed"));
-    }
 
-    setOpenMenuId("");
+      setOpenMenuId("");
+    } catch (deleteError) {
+      setError(deleteError.message || "Unable to delete event.");
+    }
   }
 
   function handleCopyUrl(eventId) {
@@ -286,7 +251,17 @@ export default function EventsPage() {
           </button>
         </div>
 
-        {filteredEvents.length === 0 ? (
+        {error && (
+          <div className="app-card rounded-lg border border-[var(--app-danger)] p-4 text-sm text-[var(--app-danger)]">
+            {error}
+          </div>
+        )}
+
+        {loading ? (
+          <div className="app-card rounded-xl border p-8 text-center">
+            <p className="app-muted text-sm font-semibold">Loading events...</p>
+          </div>
+        ) : filteredEvents.length === 0 ? (
           <div className="app-card rounded-xl border border-dashed p-8 text-center">
             <p className="app-heading text-lg font-semibold">
               {events.length === 0 ? "No events yet" : "No events found"}

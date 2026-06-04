@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { registerWithSupabase } from "../utils/auth.js";
 import logoDark from "../assets/logo/rankify-logo-dark.svg";
 import logoLight from "../assets/logo/rankify-logo-light.svg";
 
@@ -10,6 +11,7 @@ export default function Signup() {
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
   const isLoggedIn = localStorage.getItem("rankify_is_logged_in") === "true";
 
   useEffect(() => {
@@ -19,7 +21,7 @@ export default function Signup() {
     }
   }, [isLoggedIn]);
 
-  function handleSignup(e) {
+  async function handleSignup(e) {
     e.preventDefault();
     setError("");
 
@@ -33,10 +35,19 @@ export default function Signup() {
       return;
     }
 
-    const user = { name, email };
-    localStorage.setItem("rankify_user", JSON.stringify(user));
-    localStorage.setItem("rankify_is_logged_in", "true");
-    navigate("/dashboard");
+    setLoading(true);
+    try {
+      await registerWithSupabase({
+        name: name.trim(),
+        email: email.trim(),
+        password,
+      });
+      navigate("/dashboard");
+    } catch (error_) {
+      setError(error_.message || "Unable to register right now. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
@@ -99,9 +110,10 @@ export default function Signup() {
 
           <button
             type="submit"
-            className="mt-6 w-full rounded-lg bg-[var(--app-primary)] px-4 py-2 font-semibold text-white transition-colors hover:opacity-90"
+            disabled={loading}
+            className="mt-6 w-full rounded-lg bg-[var(--app-primary)] px-4 py-2 font-semibold text-white transition-colors hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            Create Account
+            {loading ? "Creating account..." : "Create Account"}
           </button>
 
           <p className="mt-4 text-sm text-[var(--app-muted)]">

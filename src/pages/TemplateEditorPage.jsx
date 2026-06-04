@@ -540,6 +540,27 @@ export default function TemplateEditorPage() {
     navigate("/dashboard/program-templates");
   }
 
+  async function copyTemplateJson() {
+    const normalizedCanvas = {
+      ...canvas,
+      width: Number(canvas.width) || 1,
+      height: Number(canvas.height) || 1,
+      backgroundImage: canvas.backgroundImage || "",
+    };
+    const exportTemplate = {
+      id: templateId || "program_template_export",
+      name: templateName.trim() || "Program Template",
+      type: "program",
+      canvas: normalizedCanvas,
+      elements,
+      previewData,
+      previewImage: normalizedCanvas.backgroundImage || makePreviewImage(templateName.trim() || "Program Template", normalizedCanvas),
+    };
+
+    await navigator.clipboard.writeText(JSON.stringify(exportTemplate, null, 2));
+    alert("Template JSON copied to clipboard.");
+  }
+
   function beginDrag(event, elementId) {
     event.stopPropagation();
     setSelectedElementId(elementId);
@@ -691,14 +712,24 @@ export default function TemplateEditorPage() {
               <h1 className="app-heading truncate text-2xl font-bold">{templateId ? `Edit - ${templateName || "New Template"}` : "Create poster template"}</h1>
             </div>
           </div>
-          <button
-            type="button"
-            onClick={saveTemplate}
-            className="app-success-btn inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-md px-4 text-sm font-semibold shadow-sm hover:opacity-90"
-          >
-            <Save size={16} strokeWidth={1.9} aria-hidden="true" />
-            {templateId ? "Save changes" : "Create template"}
-          </button>
+          <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
+            <button
+              type="button"
+              onClick={copyTemplateJson}
+              className="app-card inline-flex h-10 items-center justify-center gap-2 rounded-md border px-4 text-sm font-semibold shadow-sm hover:bg-[var(--app-surface-elevated)]"
+            >
+              <Copy size={16} strokeWidth={1.9} aria-hidden="true" />
+              Copy Template JSON
+            </button>
+            <button
+              type="button"
+              onClick={saveTemplate}
+              className="app-success-btn inline-flex h-10 items-center justify-center gap-2 rounded-md px-4 text-sm font-semibold shadow-sm hover:opacity-90"
+            >
+              <Save size={16} strokeWidth={1.9} aria-hidden="true" />
+              {templateId ? "Save changes" : "Create template"}
+            </button>
+          </div>
         </div>
       </header>
 

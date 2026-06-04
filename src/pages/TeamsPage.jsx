@@ -2,29 +2,11 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Edit, MoreVertical, Plus, Trash2, X } from "lucide-react";
 import { getUserStorageKey } from "../utils/storage.js";
 import NoActiveEventState from "../components/NoActiveEventState.jsx";
+import { getEvents } from "../services/eventsService.js";
+import { createTeam, deleteTeam, getTeamsByEvent, updateTeam } from "../services/teamsService.js";
 
 const EVENTS_KEY = "rankify_events";
 const ACTIVE_EVENT_KEY = "rankify_active_event_id";
-const TEAMS_KEY = "rankify_teams";
-
-const fallbackEvents = [
-  {
-    id: "event_panangara",
-    name: "SSF PANANGARA UNIT SAHITYOLSAV",
-    organizer: "Panangara Unit",
-    date: "May 25",
-    location: "Panangara",
-    created: "5/24/2026",
-  },
-  {
-    id: "event_cherikallu",
-    name: "SSF CHERIKALLU UNIT SAHITYOLSAV",
-    organizer: "Cherikallu Unit",
-    date: "May 22",
-    location: "Nambram",
-    created: "5/22/2026",
-  },
-];
 
 function safeJsonParse(value, fallback) {
   try {
@@ -33,18 +15,6 @@ function safeJsonParse(value, fallback) {
   } catch {
     return fallback;
   }
-}
-
-function getStoredEvents() {
-  const storedEvents = safeJsonParse(localStorage.getItem(getUserStorageKey(EVENTS_KEY)), []);
-  return Array.isArray(storedEvents) ? storedEvents : [];
-}
-
-function getStoredTeams() {
-  const storedTeams = safeJsonParse(localStorage.getItem(getUserStorageKey(TEAMS_KEY)), {});
-  return storedTeams && typeof storedTeams === "object" && !Array.isArray(storedTeams)
-    ? storedTeams
-    : {};
 }
 
 function getValidActiveEventId(events) {
@@ -59,10 +29,6 @@ function getValidActiveEventId(events) {
   return "";
 }
 
-function getToday() {
-  return new Date().toLocaleDateString("en-US");
-}
-
 export default function TeamsPage() {
   const [events, setEvents] = useState([]);
   const [activeEventId, setActiveEventId] = useState("");
@@ -71,30 +37,40 @@ export default function TeamsPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editingTeam, setEditingTeam] = useState(null);
   const [teamName, setTeamName] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   useEffect(() => {
-    function syncFromLocalStorage() {
-      const storedEvents = getStoredEvents();
-      const validActiveId = getValidActiveEventId(storedEvents);
-      const storedTeams = getStoredTeams();
+    async function syncFromSupabase() {
+      setLoading(true);
+      setError("");
+      try {
+        const storedEvents = await getEvents();
+        const validActiveId = getValidActiveEventId(storedEvents);
+        const eventTeams = validActiveId ? await getTeamsByEvent(validActiveId) : [];
 
-      setEvents(storedEvents);
-      setActiveEventId(validActiveId);
-      setTeamsByEvent(storedTeams);
+        setEvents(storedEvents);
+        setActiveEventId(validActiveId);
+        setTeamsByEvent(validActiveId ? { [validActiveId]: eventTeams } : {});
+      } catch (loadError) {
+        setError(loadError.message || "Unable to load teams.");
+      } finally {
+        setLoading(false);
+      }
     }
 
-    syncFromLocalStorage();
+    syncFromSupabase();
 
-    window.addEventListener("focus", syncFromLocalStorage);
-    window.addEventListener("storage", syncFromLocalStorage);
-    window.addEventListener("rankify-active-event-changed", syncFromLocalStorage);
+    window.addEventListener("focus", syncFromSupabase);
+    window.addEventListener("storage", syncFromSupabase);
+    window.addEventListener("rankify-active-event-changed", syncFromSupabase);
 
     return () => {
-      window.removeEventListener("focus", syncFromLocalStorage);
-      window.removeEventListener("storage", syncFromLocalStorage);
+      window.removeEventListener("focus", syncFromSupabase);
+      window.removeEventListener("storage", syncFromSupabase);
       window.removeEventListener(
         "rankify-active-event-changed",
-        syncFromLocalStorage
+        syncFromSupabase
       );
     };
   }, []);
@@ -109,17 +85,9 @@ export default function TeamsPage() {
     [activeEventId, teamsByEvent]
   );
 
-  function persistTeamsForActiveEvent(nextTeams) {
+  function setTeamsForActiveEvent(nextTeams) {
     if (!activeEventId) return;
-
-    const storedTeams = getStoredTeams();
-    const updatedTeamsByEvent = {
-      ...storedTeams,
-      [activeEventId]: nextTeams,
-    };
-
-    localStorage.setItem(getUserStorageKey(TEAMS_KEY), JSON.stringify(updatedTeamsByEvent));
-    setTeamsByEvent(updatedTeamsByEvent);
+    setTeamsByEvent((current) => ({ ...current, [activeEventId]: nextTeams }));
     window.dispatchEvent(new Event("rankify-data-changed"));
   }
 
@@ -148,7 +116,7 @@ export default function TeamsPage() {
     setTeamName("");
   }
 
-  function handleSubmit(event) {
+  async function handleSubmit(event) {
     event.preventDefault();
 
     if (!teamName.trim()) {
@@ -164,36 +132,43 @@ export default function TeamsPage() {
     const currentTeams = teamsByEvent[activeEventId] || [];
 
     if (editingTeam) {
-      const updatedTeams = currentTeams.map((team) =>
-        team.id === editingTeam.id ? { ...team, name: teamName.trim() } : team
-      );
-
-      persistTeamsForActiveEvent(updatedTeams);
-      closeModal();
+      try {
+        const updatedTeam = await updateTeam(editingTeam.id, { name: teamName.trim() });
+        const updatedTeams = currentTeams.map((team) =>
+          team.id === editingTeam.id ? updatedTeam : team
+        );
+        setTeamsForActiveEvent(updatedTeams);
+        closeModal();
+      } catch (saveError) {
+        setError(saveError.message || "Unable to update team.");
+      }
       return;
     }
 
-    const newTeam = {
-      id: `team_${Date.now()}`,
-      name: teamName.trim(),
-      created: getToday(),
-    };
-
-    persistTeamsForActiveEvent([...currentTeams, newTeam]);
-    closeModal();
+    try {
+      const newTeam = await createTeam(activeEventId, { name: teamName.trim() });
+      setTeamsForActiveEvent([newTeam, ...currentTeams]);
+      closeModal();
+    } catch (saveError) {
+      setError(saveError.message || "Unable to create team.");
+    }
   }
 
-  function handleDeleteTeam(teamId) {
+  async function handleDeleteTeam(teamId) {
     if (!activeEventId) return;
 
     const confirmed = window.confirm("Are you sure you want to delete this team?");
     if (!confirmed) return;
 
-    const currentTeams = teamsByEvent[activeEventId] || [];
-    const updatedTeams = currentTeams.filter((team) => team.id !== teamId);
-
-    persistTeamsForActiveEvent(updatedTeams);
-    setOpenMenuId("");
+    try {
+      await deleteTeam(teamId);
+      const currentTeams = teamsByEvent[activeEventId] || [];
+      const updatedTeams = currentTeams.filter((team) => team.id !== teamId);
+      setTeamsForActiveEvent(updatedTeams);
+      setOpenMenuId("");
+    } catch (deleteError) {
+      setError(deleteError.message || "Unable to delete team.");
+    }
   }
 
   return (
@@ -223,9 +198,19 @@ export default function TeamsPage() {
           </button>
         </div>
 
+        {error && (
+          <div className="app-card rounded-lg border border-[var(--app-danger)] p-4 text-sm text-[var(--app-danger)]">
+            {error}
+          </div>
+        )}
+
         {!activeEventId && <NoActiveEventState />}
 
-        {activeEventId && <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
+        {activeEventId && loading ? (
+          <div className="app-card rounded-xl border p-8 text-center">
+            <p className="app-muted text-sm font-semibold">Loading teams...</p>
+          </div>
+        ) : activeEventId && <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
           {visibleTeams.map((team) => (
             <div
               key={team.id}
