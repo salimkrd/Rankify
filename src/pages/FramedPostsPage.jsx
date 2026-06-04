@@ -15,7 +15,8 @@ const SORT_OPTIONS = [
   { value: "oldest", label: "Oldest first" },
 ];
 const MAX_CONTENT_IMAGE_DIMENSION = 1080;
-const CONTENT_IMAGE_QUALITY = 0.85;
+const CONTENT_IMAGE_QUALITY = 0.92;
+const DOWNLOAD_IMAGE_QUALITY = 0.9;
 
 const fallbackEvents = [
   {
@@ -287,6 +288,8 @@ async function resizeImageToFrame(file, targetWidth, targetHeight, quality = CON
       throw new Error("Unable to process image.");
     }
 
+    context.imageSmoothingEnabled = true;
+    context.imageSmoothingQuality = "high";
     context.fillStyle = "#ffffff";
     context.fillRect(0, 0, outputWidth, outputHeight);
     context.drawImage(
@@ -698,9 +701,14 @@ export default function FramedPostsPage() {
 
       await waitForImages(exportNode);
       await new Promise((resolve) => requestAnimationFrame(resolve));
+      const templateSize = getTemplatePreviewSize(currentViewTemplate || {});
       const canvas = await html2canvas(exportNode, {
         backgroundColor: "#f8f2ff",
-        scale: 2,
+        scale: 1,
+        width: templateSize.width,
+        height: templateSize.height,
+        windowWidth: templateSize.width,
+        windowHeight: templateSize.height,
         useCORS: true,
         allowTaint: false,
         imageTimeout: 15000,
@@ -717,16 +725,28 @@ export default function FramedPostsPage() {
             .querySelectorAll("[data-export-guide]")
             .forEach((node) => {
               node.style.display = "none";
-            });
+          });
         },
       });
-      const url = canvas.toDataURL("image/png");
+
+      const blob = await new Promise((resolve, reject) => {
+        canvas.toBlob(
+          (nextBlob) => {
+            if (nextBlob) resolve(nextBlob);
+            else reject(new Error("Unable to create JPEG download."));
+          },
+          "image/jpeg",
+          DOWNLOAD_IMAGE_QUALITY
+        );
+      });
+      const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
-      link.download = `${viewingPost.name || "framed-post"}.png`;
+      link.download = `${viewingPost.name || "framed-post"}.jpg`;
       document.body.appendChild(link);
       link.click();
       link.remove();
+      URL.revokeObjectURL(url);
     } catch (error) {
       console.error(error);
       alert("Unable to download the framed post. Please try again.");
