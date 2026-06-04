@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeft, ChevronDown, ChevronUp, Copy, Plus, Save, Trash2 } from "lucide-react";
 import { useNavigate, useParams } from "react-router-dom";
 import FontFamilySelect from "../components/FontFamilySelect.jsx";
@@ -189,6 +189,7 @@ export default function CertificateTemplateEditorPage() {
   const [selectedId, setSelectedId] = useState("");
   const [scalePercent, setScalePercent] = useState(60);
   const [exampleOpen, setExampleOpen] = useState(true);
+  const dragRef = useRef(null);
 
   useEffect(() => {
     const currentEvent = getActiveEvent();
@@ -208,6 +209,40 @@ export default function CertificateTemplateEditorPage() {
 
   const scale = scalePercent / 100;
 
+  useEffect(() => {
+    function onKeyDown(event) {
+      if (!selectedId) return;
+      const target = event.target;
+      if (target instanceof HTMLElement) {
+        const tagName = target.tagName;
+        if (["INPUT", "TEXTAREA", "SELECT"].includes(tagName) || target.isContentEditable) return;
+      }
+      const keys = ["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"];
+      if (!keys.includes(event.key)) return;
+
+      event.preventDefault();
+      const step = event.shiftKey ? 10 : 1;
+      const dx = event.key === "ArrowLeft" ? -step : event.key === "ArrowRight" ? step : 0;
+      const dy = event.key === "ArrowUp" ? -step : event.key === "ArrowDown" ? step : 0;
+
+      setTemplate((current) => ({
+        ...current,
+        elements: current.elements.map((element) =>
+          element.id === selectedId
+            ? {
+                ...element,
+                x: Math.max(0, Math.round((Number(element.x || 0) + dx) * 10) / 10),
+                y: Math.max(0, Math.round((Number(element.y || 0) + dy) * 10) / 10),
+              }
+            : element
+        ),
+      }));
+    }
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [selectedId]);
+
   function updateTemplate(patch) {
     setTemplate((current) => ({ ...current, ...patch }));
   }
@@ -220,6 +255,52 @@ export default function CertificateTemplateEditorPage() {
         element.id === selectedElement.id ? { ...element, ...patch } : element
       ),
     }));
+  }
+
+  function beginDrag(event, elementId) {
+    event.preventDefault();
+    event.stopPropagation();
+    const element = template.elements.find((item) => item.id === elementId);
+    if (!element) return;
+
+    setSelectedId(elementId);
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+    dragRef.current = {
+      id: elementId,
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      originalX: Number(element.x || 0),
+      originalY: Number(element.y || 0),
+    };
+  }
+
+  function handlePointerMove(event) {
+    if (!dragRef.current) return;
+    event.preventDefault();
+    const drag = dragRef.current;
+    const dx = (event.clientX - drag.startX) / scale;
+    const dy = (event.clientY - drag.startY) / scale;
+
+    setTemplate((current) => ({
+      ...current,
+      elements: current.elements.map((element) =>
+        element.id === drag.id
+          ? {
+              ...element,
+              x: Math.max(0, Math.round((drag.originalX + dx) * 10) / 10),
+              y: Math.max(0, Math.round((drag.originalY + dy) * 10) / 10),
+            }
+          : element
+      ),
+    }));
+  }
+
+  function endDrag(event) {
+    if (dragRef.current && event?.currentTarget?.hasPointerCapture?.(dragRef.current.pointerId)) {
+      event.currentTarget.releasePointerCapture(dragRef.current.pointerId);
+    }
+    dragRef.current = null;
   }
 
   function addTextElement() {
@@ -399,7 +480,13 @@ export default function CertificateTemplateEditorPage() {
             </label>
           </div>
 
-          <div className="h-[calc(100vh-314px)] w-full max-w-full overflow-auto border-t border-[var(--app-border)] px-6 py-5">
+          <div
+            className="h-[calc(100vh-314px)] w-full max-w-full overflow-auto border-t border-[var(--app-border)] px-6 py-5"
+            onPointerMove={handlePointerMove}
+            onPointerUp={endDrag}
+            onPointerCancel={endDrag}
+            onPointerLeave={endDrag}
+          >
             <div className="flex w-max min-w-full items-start justify-center">
               <div
                 className="shrink-0"
@@ -410,6 +497,7 @@ export default function CertificateTemplateEditorPage() {
               >
                 <div
                   className="relative overflow-hidden bg-[#ECECEC] shadow-lg"
+                  onPointerDown={() => setSelectedId("")}
                   style={{
                     width: template.canvasWidth,
                     height: template.canvasHeight,
@@ -425,7 +513,7 @@ export default function CertificateTemplateEditorPage() {
                     <button
                       key={element.id}
                       type="button"
-                      onClick={() => setSelectedId(element.id)}
+                      onPointerDown={(event) => beginDrag(event, element.id)}
                       className="absolute m-0 border-0 bg-transparent p-0 text-left whitespace-pre-wrap"
                       style={{
                         left: element.x,
@@ -441,6 +529,10 @@ export default function CertificateTemplateEditorPage() {
                         outline: element.id === selectedId ? "2px solid #26752C" : "1px solid transparent",
                         overflow: "visible",
                         minHeight: element.fontSize * element.lineHeight,
+                        cursor: element.id === selectedId ? "move" : "grab",
+                        touchAction: "none",
+                        userSelect: "none",
+                        zIndex: element.id === selectedId ? 10 : 1,
                       }}
                     >
                       {getElementText(element, template.previewData)}
