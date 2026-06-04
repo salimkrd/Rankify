@@ -216,6 +216,8 @@ function buildFormState(template) {
     templateId: template?.id || "",
     templateName: template?.name || "",
     contentImageSrc: "",
+    contentImageWidth: 0,
+    contentImageHeight: 0,
     zoom: 1,
     rotation: 0,
     aspectRatio: 1.33,
@@ -271,24 +273,14 @@ async function resizeImageToFrame(file, targetWidth, targetHeight, quality = CON
       throw new Error("Unable to read image dimensions.");
     }
 
-    const sourceAspect = sourceWidth / sourceHeight;
-    const targetAspect = targetWidth / targetHeight;
-    let cropWidth = sourceWidth;
-    let cropHeight = sourceHeight;
-    let cropX = 0;
-    let cropY = 0;
-
-    if (sourceAspect > targetAspect) {
-      cropWidth = sourceHeight * targetAspect;
-      cropX = (sourceWidth - cropWidth) / 2;
-    } else {
-      cropHeight = sourceWidth / targetAspect;
-      cropY = (sourceHeight - cropHeight) / 2;
-    }
+    const maxDimension = Math.max(targetWidth, targetHeight, 1);
+    const scale = Math.min(1, maxDimension / Math.max(sourceWidth, sourceHeight));
+    const outputWidth = Math.max(1, Math.round(sourceWidth * scale));
+    const outputHeight = Math.max(1, Math.round(sourceHeight * scale));
 
     const canvas = document.createElement("canvas");
-    canvas.width = targetWidth;
-    canvas.height = targetHeight;
+    canvas.width = outputWidth;
+    canvas.height = outputHeight;
     const context = canvas.getContext("2d", { alpha: false });
 
     if (!context) {
@@ -296,20 +288,24 @@ async function resizeImageToFrame(file, targetWidth, targetHeight, quality = CON
     }
 
     context.fillStyle = "#ffffff";
-    context.fillRect(0, 0, targetWidth, targetHeight);
+    context.fillRect(0, 0, outputWidth, outputHeight);
     context.drawImage(
       image,
-      cropX,
-      cropY,
-      cropWidth,
-      cropHeight,
       0,
       0,
-      targetWidth,
-      targetHeight
+      sourceWidth,
+      sourceHeight,
+      0,
+      0,
+      outputWidth,
+      outputHeight
     );
 
-    return canvas.toDataURL("image/jpeg", quality);
+    return {
+      dataUrl: canvas.toDataURL("image/jpeg", quality),
+      width: outputWidth,
+      height: outputHeight,
+    };
   } finally {
     URL.revokeObjectURL(objectUrl);
   }
@@ -346,6 +342,7 @@ export default function FramedPostsPage() {
   const [isExporting, setIsExporting] = useState(false);
   const [isProcessingImage, setIsProcessingImage] = useState(false);
   const [imageUploadError, setImageUploadError] = useState("");
+  const [isDraggingImage, setIsDraggingImage] = useState(false);
   const exportRef = useRef(null);
   const adjustDragState = useRef({ isDragging: false, startX: 0, startY: 0, startCropX: 0, startCropY: 0 });
 
@@ -441,11 +438,13 @@ export default function FramedPostsPage() {
       templateId: post.templateId || template?.id || "",
       templateName: post.templateName || template?.name || "",
       contentImageSrc: post.contentImageSrc || "",
-      zoom: post.zoom || 1,
-      rotation: post.rotation || 0,
+      contentImageWidth: Number(post.contentImageWidth || post.imageWidth || 0),
+      contentImageHeight: Number(post.contentImageHeight || post.imageHeight || 0),
+      zoom: post.imageZoom || post.zoom || 1,
+      rotation: post.imageRotation || post.rotation || 0,
       aspectRatio: post.aspectRatio || 1.33,
-      cropX: post.cropX || 0,
-      cropY: post.cropY || 0,
+      cropX: post.imageOffsetX ?? post.cropX ?? 0,
+      cropY: post.imageOffsetY ?? post.cropY ?? 0,
       imageFit: post.imageFit || "cover",
       status: post.status || "Published",
       fieldValues: post.fieldValues || initialFieldValues(template),
@@ -459,6 +458,7 @@ export default function FramedPostsPage() {
     setEditingPost(null);
     setImageUploadError("");
     setIsProcessingImage(false);
+    setIsDraggingImage(false);
   }
 
   function openViewModal(post) {
@@ -517,7 +517,9 @@ export default function FramedPostsPage() {
 
       setFormState((prev) => ({
         ...prev,
-        contentImageSrc: resizedImage,
+        contentImageSrc: resizedImage.dataUrl,
+        contentImageWidth: resizedImage.width,
+        contentImageHeight: resizedImage.height,
         zoom: 1,
         rotation: 0,
         cropX: 0,
@@ -538,15 +540,34 @@ export default function FramedPostsPage() {
     }
   }
 
-  function getContentImageStyle(zoom, rotation, imageFit, cropX, cropY) {
+  function getContentImageStyle({
+    zoom,
+    rotation,
+    cropX,
+    cropY,
+    imageWidth,
+    imageHeight,
+    frameWidth,
+    frameHeight,
+    scale,
+  }) {
+    const safeImageWidth = Number(imageWidth) > 0 ? Number(imageWidth) : frameWidth;
+    const safeImageHeight = Number(imageHeight) > 0 ? Number(imageHeight) : frameHeight;
+    const imageAspect = safeImageWidth / safeImageHeight;
+    const frameAspect = frameWidth / frameHeight;
+    const baseHeight = imageAspect > frameAspect ? frameHeight * scale : (frameWidth * scale) / imageAspect;
+    const baseWidth = imageAspect > frameAspect ? baseHeight * imageAspect : frameWidth * scale;
+
     return {
       position: "absolute",
       left: "50%",
       top: "50%",
-      width: "100%",
-      height: "100%",
-      objectFit: imageFit || "cover",
-      transform: `translate(calc(-50% + ${cropX}px), calc(-50% + ${cropY}px)) scale(${zoom}) rotate(${rotation}deg)`,
+      width: `${baseWidth}px`,
+      height: `${baseHeight}px`,
+      maxWidth: "none",
+      maxHeight: "none",
+      objectFit: "contain",
+      transform: `translate(-50%, -50%) translate(${(cropX || 0) * scale}px, ${(cropY || 0) * scale}px) scale(${zoom || 1}) rotate(${rotation || 0}deg)`,
       transformOrigin: "center center",
       opacity: 1,
       mixBlendMode: "normal",
@@ -560,7 +581,9 @@ export default function FramedPostsPage() {
 
   function handleAdjustPointerDown(event) {
     if (!formState.contentImageSrc) return;
+    event.preventDefault();
     event.currentTarget.setPointerCapture(event.pointerId);
+    setIsDraggingImage(true);
     adjustDragState.current = {
       isDragging: true,
       startX: event.clientX,
@@ -572,18 +595,27 @@ export default function FramedPostsPage() {
 
   function handleAdjustPointerMove(event) {
     if (!adjustDragState.current.isDragging) return;
-    if (formState.zoom <= 1) return;
     event.preventDefault();
+    const template = selectedTemplate || templates[0];
+    const { width } = getTemplatePreviewSize(template || {});
+    const rect = event.currentTarget.getBoundingClientRect();
+    const coordinateScale = rect.width > 0 ? width / rect.width : 1;
     const deltaX = event.clientX - adjustDragState.current.startX;
     const deltaY = event.clientY - adjustDragState.current.startY;
-    handleFormFieldChange("cropX", adjustDragState.current.startCropX + deltaX);
-    handleFormFieldChange("cropY", adjustDragState.current.startCropY + deltaY);
+    setFormState((prev) => ({
+      ...prev,
+      cropX: adjustDragState.current.startCropX + deltaX * coordinateScale,
+      cropY: adjustDragState.current.startCropY + deltaY * coordinateScale,
+    }));
   }
 
   function handleAdjustPointerUp(event) {
     if (!adjustDragState.current.isDragging) return;
     adjustDragState.current.isDragging = false;
-    event.currentTarget.releasePointerCapture(event.pointerId);
+    setIsDraggingImage(false);
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
   }
 
   function savePost() {
@@ -613,11 +645,17 @@ export default function FramedPostsPage() {
       templateId: formState.templateId,
       templateName: formState.templateName,
       contentImageSrc: formState.contentImageSrc,
+      contentImageWidth: formState.contentImageWidth || 0,
+      contentImageHeight: formState.contentImageHeight || 0,
       zoom: formState.zoom,
+      imageZoom: formState.zoom,
       rotation: formState.rotation,
+      imageRotation: formState.rotation,
       aspectRatio: formState.aspectRatio,
       cropX: formState.cropX || 0,
       cropY: formState.cropY || 0,
+      imageOffsetX: formState.cropX || 0,
+      imageOffsetY: formState.cropY || 0,
       imageFit: formState.imageFit || "cover",
       status: formState.status,
       fieldValues: formState.fieldValues,
@@ -736,6 +774,8 @@ export default function FramedPostsPage() {
   function renderFramedPostCanvas({
     template,
     contentImageSrc,
+    contentImageWidth = 0,
+    contentImageHeight = 0,
     fieldValues,
     zoom = 1,
     rotation = 0,
@@ -777,7 +817,17 @@ export default function FramedPostsPage() {
             <img
               src={contentImageSrc}
               alt="Content"
-              style={getContentImageStyle(zoom, rotation, imageFit, cropX, cropY)}
+              style={getContentImageStyle({
+                zoom,
+                rotation,
+                cropX,
+                cropY,
+                imageWidth: contentImageWidth,
+                imageHeight: contentImageHeight,
+                frameWidth: width,
+                frameHeight: height,
+                scale,
+              })}
             />
           ) : (
             <div className="flex h-full flex-col items-center justify-center gap-3 text-sm text-gray-500">
@@ -844,10 +894,12 @@ export default function FramedPostsPage() {
     );
   }
 
-  function renderPreview(template, contentImageSrc, fieldValues, zoom, rotation, aspectRatio, cropX, cropY, imageFit = "cover", scale = 0.65) {
+  function renderPreview(template, contentImageSrc, fieldValues, zoom, rotation, aspectRatio, cropX, cropY, imageFit = "cover", scale = 0.65, contentImageWidth = 0, contentImageHeight = 0) {
     return renderFramedPostCanvas({
       template,
       contentImageSrc,
+      contentImageWidth,
+      contentImageHeight,
       fieldValues,
       zoom,
       rotation,
@@ -883,12 +935,14 @@ export default function FramedPostsPage() {
         {renderFramedPostCanvas({
           template,
           contentImageSrc: post.contentImageSrc,
+          contentImageWidth: post.contentImageWidth || post.imageWidth || 0,
+          contentImageHeight: post.contentImageHeight || post.imageHeight || 0,
           fieldValues,
-          zoom: post.zoom ?? 1,
-          rotation: post.rotation ?? 0,
+          zoom: post.imageZoom ?? post.zoom ?? 1,
+          rotation: post.imageRotation ?? post.rotation ?? 0,
           aspectRatio: post.aspectRatio ?? 1.33,
-          cropX: post.cropX ?? 0,
-          cropY: post.cropY ?? 0,
+          cropX: post.imageOffsetX ?? post.cropX ?? 0,
+          cropY: post.imageOffsetY ?? post.cropY ?? 0,
           imageFit: post.imageFit || "cover",
           scale: 1,
           isExport: true,
@@ -1230,36 +1284,43 @@ export default function FramedPostsPage() {
                     </div>
                   </div>
                   <div className="rounded-[32px] bg-[#e5e7eb] p-4 overflow-hidden">
-                    <div style={{ aspectRatio: clampAspectRatio(formState.aspectRatio), width: "100%", maxWidth: "100%" }}>
-                      <div
-                        className="relative h-full overflow-hidden rounded-[24px] bg-white shadow-inner"
-                        onPointerDown={handleAdjustPointerDown}
-                        onPointerMove={handleAdjustPointerMove}
-                        onPointerUp={handleAdjustPointerUp}
-                        onPointerCancel={handleAdjustPointerUp}
-                      >
-                        {formState.contentImageSrc ? (
-                          <img
-                            src={formState.contentImageSrc}
-                            alt="Adjust content"
-                            draggable={false}
-                            onDragStart={(e) => e.preventDefault()}
-                            style={getContentImageStyle(
-                              formState.zoom,
-                              formState.rotation,
-                              formState.imageFit,
-                              formState.cropX,
-                              formState.cropY
-                            )}
-                            className="cursor-grab"
-                          />
-                        ) : (
-                          <div className="flex h-full flex-col items-center justify-center gap-3 text-sm text-gray-500">
-                            <div className="h-16 w-16 rounded-full bg-[#e9d6ff]" />
-                            <div>Upload a content image to adjust crop and position.</div>
-                          </div>
-                        )}
-                      </div>
+                    <div
+                      className="flex justify-center overflow-auto"
+                      onPointerDown={handleAdjustPointerDown}
+                      onPointerMove={handleAdjustPointerMove}
+                      onPointerUp={handleAdjustPointerUp}
+                      onPointerCancel={handleAdjustPointerUp}
+                      onPointerLeave={handleAdjustPointerUp}
+                      style={{
+                        touchAction: "none",
+                        cursor: formState.contentImageSrc
+                          ? isDraggingImage
+                            ? "grabbing"
+                            : "grab"
+                          : "default",
+                      }}
+                    >
+                      {selectedTemplate ? (
+                        renderPreview(
+                          selectedTemplate,
+                          formState.contentImageSrc,
+                          formState.fieldValues,
+                          formState.zoom,
+                          formState.rotation,
+                          formState.aspectRatio,
+                          formState.cropX,
+                          formState.cropY,
+                          formState.imageFit,
+                          0.35,
+                          formState.contentImageWidth,
+                          formState.contentImageHeight
+                        )
+                      ) : (
+                        <div className="flex h-[240px] w-full flex-col items-center justify-center gap-3 rounded-[24px] bg-white text-sm text-gray-500">
+                          <div className="h-16 w-16 rounded-full bg-[#e9d6ff]" />
+                          <div>Select a template and upload a content image.</div>
+                        </div>
+                      )}
                     </div>
                   </div>
                   <div className="mt-3 grid grid-cols-2 gap-4 text-sm text-gray-600">
@@ -1291,7 +1352,9 @@ export default function FramedPostsPage() {
                           formState.cropX,
                           formState.cropY,
                           formState.imageFit,
-                          0.35
+                          0.35,
+                          formState.contentImageWidth,
+                          formState.contentImageHeight
                         )}
                       </div>
                     ) : (
@@ -1353,13 +1416,15 @@ export default function FramedPostsPage() {
                   currentViewTemplate,
                   viewingPost.contentImageSrc,
                   viewingPost.fieldValues,
-                  viewingPost.zoom,
-                  viewingPost.rotation,
+                  viewingPost.imageZoom ?? viewingPost.zoom,
+                  viewingPost.imageRotation ?? viewingPost.rotation,
                   viewingPost.aspectRatio,
-                  viewingPost.cropX,
-                  viewingPost.cropY,
+                  viewingPost.imageOffsetX ?? viewingPost.cropX,
+                  viewingPost.imageOffsetY ?? viewingPost.cropY,
                   viewingPost.imageFit || "cover",
-                  0.75
+                  0.75,
+                  viewingPost.contentImageWidth || viewingPost.imageWidth || 0,
+                  viewingPost.contentImageHeight || viewingPost.imageHeight || 0
                 )}
               </div>
             </div>
