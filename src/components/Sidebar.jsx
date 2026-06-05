@@ -20,16 +20,20 @@ import {
   X,
 } from "lucide-react";
 import { getUserStorageKey } from "../utils/storage.js";
-import { getInitials } from "../utils/auth.js";
+import { getInitials, logoutWithSupabase } from "../utils/auth.js";
 import { getEvents as getSupabaseEvents } from "../services/eventsService.js";
+import { getTeamsByEvent } from "../services/teamsService.js";
+import { getCategoriesByEvent } from "../services/categoriesService.js";
+import { getParticipantsByEvent } from "../services/participantsService.js";
+import {
+  clearStoredActiveEventId,
+  resolveActiveEventFromEvents,
+  setStoredActiveEventId,
+} from "../services/activeEventService.js";
 import ThemeToggle from "./ThemeToggle.jsx";
 import logoDark from "../assets/logo/rankify-logo-dark.svg";
 import logoLight from "../assets/logo/rankify-logo-light.svg";
 
-const ACTIVE_EVENT_KEY = "rankify_active_event_id";
-const TEAMS_KEY = "rankify_teams";
-const PARTICIPANTS_KEY = "rankify_participants";
-const CATEGORIES_KEY = "rankify_categories";
 const PROGRAM_TEMPLATES_KEY = "rankify_program_templates";
 const CERTIFICATE_TEMPLATES_KEY = "rankify_certificate_templates";
 const CERTIFICATE_RESULTS_KEY = "rankify_certificate_results";
@@ -114,18 +118,6 @@ function safeJsonParse(value, fallback) {
   } catch {
     return fallback;
   }
-}
-
-function getValidActiveEventId(events) {
-  const storedActiveId = localStorage.getItem(getUserStorageKey(ACTIVE_EVENT_KEY));
-  const isValid = storedActiveId && events.some((event) => event.id === storedActiveId);
-
-  if (isValid) {
-    return storedActiveId;
-  }
-
-  localStorage.removeItem(getUserStorageKey(ACTIVE_EVENT_KEY));
-  return "";
 }
 
 function getStoredUser() {
@@ -230,6 +222,9 @@ export default function Sidebar({ mobile = false, onNavigate, onClose }) {
   useEffect(() => {
     async function syncActiveEvent() {
       let supabaseEvents = [];
+      let teamsCount = 0;
+      let participantsCount = 0;
+      let categoriesCount = 0;
 
       try {
         supabaseEvents = await getSupabaseEvents();
@@ -237,15 +232,30 @@ export default function Sidebar({ mobile = false, onNavigate, onClose }) {
         console.error("Unable to load sidebar events.", error);
       }
 
-      const validActiveEventId = getValidActiveEventId(supabaseEvents);
+      const { activeEventId: validActiveEventId } = resolveActiveEventFromEvents(supabaseEvents);
+
+      if (validActiveEventId) {
+        try {
+          const [teams, participants, categories] = await Promise.all([
+            getTeamsByEvent(validActiveEventId),
+            getParticipantsByEvent(validActiveEventId),
+            getCategoriesByEvent(validActiveEventId),
+          ]);
+          teamsCount = teams.length;
+          participantsCount = participants.length;
+          categoriesCount = categories.length;
+        } catch (error) {
+          console.error("Unable to load sidebar data counts.", error);
+        }
+      }
 
       setEvents(supabaseEvents);
       setActiveEventId(validActiveEventId);
       setCounts({
         events: supabaseEvents.length,
-        teams: getGroupedCount(getUserStorageKey(TEAMS_KEY), validActiveEventId),
-        participants: getGroupedCount(getUserStorageKey(PARTICIPANTS_KEY), validActiveEventId),
-        categories: getGroupedCount(getUserStorageKey(CATEGORIES_KEY), validActiveEventId),
+        teams: teamsCount,
+        participants: participantsCount,
+        categories: categoriesCount,
         programTemplates: getGroupedCount(
           getUserStorageKey(PROGRAM_TEMPLATES_KEY),
           validActiveEventId
@@ -288,14 +298,21 @@ export default function Sidebar({ mobile = false, onNavigate, onClose }) {
   function handleActiveEventChange(event) {
     const nextEventId = event.target.value;
 
-    localStorage.setItem(getUserStorageKey(ACTIVE_EVENT_KEY), nextEventId);
+    if (nextEventId) {
+      setStoredActiveEventId(nextEventId);
+    } else {
+      clearStoredActiveEventId();
+    }
     setActiveEventId(nextEventId);
     window.dispatchEvent(new Event("rankify-active-event-changed"));
   }
 
-  function handleLogout() {
-    localStorage.removeItem("rankify_is_logged_in");
-    localStorage.removeItem("rankify_user");
+  async function handleLogout() {
+    try {
+      await logoutWithSupabase();
+    } catch (error) {
+      console.error("Unable to sign out from Supabase.", error);
+    }
     setUser({ name: "User", email: "" });
     navigate("/login");
   }

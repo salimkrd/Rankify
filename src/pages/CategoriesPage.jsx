@@ -1,11 +1,9 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Edit, FolderOpen, Plus, Trash2, X } from "lucide-react";
-import { getUserStorageKey } from "../utils/storage.js";
 import NoActiveEventState from "../components/NoActiveEventState.jsx";
 import { getEvents } from "../services/eventsService.js";
+import { resolveActiveEventFromEvents } from "../services/activeEventService.js";
 import { createCategory, deleteCategory, getCategoriesByEvent, updateCategory } from "../services/categoriesService.js";
-
-const ACTIVE_EVENT_KEY = "rankify_active_event_id";
 
 const sahityolsavCategories = [
   "Lower primary",
@@ -16,16 +14,6 @@ const sahityolsavCategories = [
   "Senior",
   "General",
 ];
-
-function getValidActiveEventId(events) {
-  const storedActiveId = localStorage.getItem(getUserStorageKey(ACTIVE_EVENT_KEY));
-  const isValid = events.some((event) => event.id === storedActiveId);
-
-  if (isValid) return storedActiveId;
-
-  localStorage.removeItem(getUserStorageKey(ACTIVE_EVENT_KEY));
-  return "";
-}
 
 export default function CategoriesPage() {
   const [events, setEvents] = useState([]);
@@ -43,7 +31,7 @@ export default function CategoriesPage() {
     setError("");
     try {
       const storedEvents = await getEvents();
-      const validActiveId = getValidActiveEventId(storedEvents);
+      const { activeEventId: validActiveId } = resolveActiveEventFromEvents(storedEvents);
       const eventCategories = validActiveId ? await getCategoriesByEvent(validActiveId) : [];
 
       setEvents(storedEvents);

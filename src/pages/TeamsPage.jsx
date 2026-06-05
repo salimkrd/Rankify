@@ -1,33 +1,9 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Edit, MoreVertical, Plus, Trash2, X } from "lucide-react";
-import { getUserStorageKey } from "../utils/storage.js";
 import NoActiveEventState from "../components/NoActiveEventState.jsx";
 import { getEvents } from "../services/eventsService.js";
+import { resolveActiveEventFromEvents } from "../services/activeEventService.js";
 import { createTeam, deleteTeam, getTeamsByEvent, updateTeam } from "../services/teamsService.js";
-
-const EVENTS_KEY = "rankify_events";
-const ACTIVE_EVENT_KEY = "rankify_active_event_id";
-
-function safeJsonParse(value, fallback) {
-  try {
-    const parsed = JSON.parse(value || "");
-    return parsed || fallback;
-  } catch {
-    return fallback;
-  }
-}
-
-function getValidActiveEventId(events) {
-  const storedActiveId = localStorage.getItem(getUserStorageKey(ACTIVE_EVENT_KEY));
-  const storedActiveEvent = events.find((event) => event.id === storedActiveId);
-
-  if (storedActiveEvent) {
-    return storedActiveId;
-  }
-
-  localStorage.removeItem(getUserStorageKey(ACTIVE_EVENT_KEY));
-  return "";
-}
 
 export default function TeamsPage() {
   const [events, setEvents] = useState([]);
@@ -46,7 +22,7 @@ export default function TeamsPage() {
       setError("");
       try {
         const storedEvents = await getEvents();
-        const validActiveId = getValidActiveEventId(storedEvents);
+        const { activeEventId: validActiveId } = resolveActiveEventFromEvents(storedEvents);
         const eventTeams = validActiveId ? await getTeamsByEvent(validActiveId) : [];
 
         setEvents(storedEvents);

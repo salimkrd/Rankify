@@ -88,6 +88,30 @@ alter table public.teams enable row level security;
 alter table public.categories enable row level security;
 alter table public.participants enable row level security;
 
+alter table public.events force row level security;
+alter table public.teams force row level security;
+alter table public.categories force row level security;
+alter table public.participants force row level security;
+
+do $$
+declare
+  policy_record record;
+begin
+  for policy_record in
+    select schemaname, tablename, policyname
+    from pg_policies
+    where schemaname = 'public'
+      and tablename in ('events', 'teams', 'categories', 'participants')
+  loop
+    execute format(
+      'drop policy if exists %I on %I.%I',
+      policy_record.policyname,
+      policy_record.schemaname,
+      policy_record.tablename
+    );
+  end loop;
+end $$;
+
 drop policy if exists "Users can select own events" on public.events;
 create policy "Users can select own events" on public.events
 for select to authenticated
@@ -233,4 +257,3 @@ drop policy if exists "Users can delete own participants" on public.participants
 create policy "Users can delete own participants" on public.participants
 for delete to authenticated
 using (user_id = auth.uid());
-

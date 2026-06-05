@@ -1,5 +1,5 @@
 import { Outlet, NavLink, useNavigate } from "react-router-dom";
-import { clearUserSession } from "../utils/auth.js";
+import { logoutWithSupabase } from "../utils/auth.js";
 
 function getUser() {
   try {
@@ -13,8 +13,12 @@ export default function DashboardLayout() {
   const navigate = useNavigate();
   const user = getUser();
 
-  function logout() {
-    clearUserSession();
+  async function logout() {
+    try {
+      await logoutWithSupabase();
+    } catch (error) {
+      console.error("Unable to sign out from Supabase.", error);
+    }
     navigate("/login");
   }
 

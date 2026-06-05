@@ -1,8 +1,8 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Edit, MoreVertical, Plus, Trash2, X } from "lucide-react";
-import { getUserStorageKey } from "../utils/storage.js";
 import NoActiveEventState from "../components/NoActiveEventState.jsx";
 import { getEvents } from "../services/eventsService.js";
+import { resolveActiveEventFromEvents } from "../services/activeEventService.js";
 import { getTeamsByEvent } from "../services/teamsService.js";
 import { getCategoriesByEvent } from "../services/categoriesService.js";
 import {
@@ -11,18 +11,6 @@ import {
   getParticipantsByEvent,
   updateParticipant,
 } from "../services/participantsService.js";
-
-const ACTIVE_EVENT_KEY = "rankify_active_event_id";
-
-function getValidActiveEventId(events) {
-  const storedActiveId = localStorage.getItem(getUserStorageKey(ACTIVE_EVENT_KEY));
-  const storedActiveEvent = events.find((event) => event.id === storedActiveId);
-
-  if (storedActiveEvent) return storedActiveId;
-
-  localStorage.removeItem(getUserStorageKey(ACTIVE_EVENT_KEY));
-  return "";
-}
 
 export default function ParticipantsPage() {
   const [events, setEvents] = useState([]);
@@ -44,7 +32,7 @@ export default function ParticipantsPage() {
     setError("");
     try {
       const storedEvents = await getEvents();
-      const validActiveId = getValidActiveEventId(storedEvents);
+      const { activeEventId: validActiveId } = resolveActiveEventFromEvents(storedEvents);
       const [eventTeams, eventCategories, eventParticipants] = validActiveId
         ? await Promise.all([
             getTeamsByEvent(validActiveId),

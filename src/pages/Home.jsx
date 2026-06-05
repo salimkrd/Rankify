@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { getInitials } from "../utils/auth.js";
+import { getInitials, logoutWithSupabase } from "../utils/auth.js";
 import ThemeToggle from "../components/ThemeToggle.jsx";
 import logoDark from "../assets/logo/rankify-logo-dark.svg";
 import logoLight from "../assets/logo/rankify-logo-light.svg";
@@ -66,9 +66,12 @@ export default function Home() {
     }
   }, [isDropdownOpen]);
 
-  const handleLogout = () => {
-    localStorage.removeItem("rankify_is_logged_in");
-    localStorage.removeItem("rankify_user");
+  const handleLogout = async () => {
+    try {
+      await logoutWithSupabase();
+    } catch (error) {
+      console.error("Unable to sign out from Supabase.", error);
+    }
     setIsLoggedIn(false);
     setUser(null);
     setIsDropdownOpen(false);

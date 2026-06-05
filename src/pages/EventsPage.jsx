@@ -1,13 +1,11 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Copy, Edit, MoreVertical, Plug, Plus, Trash2, X } from "lucide-react";
 import {
-  getUserStorageItem,
-  setUserStorageItem,
-  removeUserStorageItem,
-} from "../utils/storage.js";
+  clearStoredActiveEventId,
+  resolveActiveEventFromEvents,
+  setStoredActiveEventId,
+} from "../services/activeEventService.js";
 import { createEvent, deleteEvent, getEvents, updateEvent } from "../services/eventsService.js";
-
-const ACTIVE_EVENT_KEY = "rankify_active_event_id";
 
 const emptyForm = {
   name: "",
@@ -16,18 +14,6 @@ const emptyForm = {
   location: "",
   logoName: "",
 };
-
-function getValidActiveEventId(events) {
-  const storedActiveId = getUserStorageItem(ACTIVE_EVENT_KEY);
-  const isValid = storedActiveId && events.some((event) => event.id === storedActiveId);
-
-  if (isValid) {
-    return storedActiveId;
-  }
-
-  removeUserStorageItem(ACTIVE_EVENT_KEY);
-  return "";
-}
 
 function notifyEventsChanged() {
   window.dispatchEvent(new Event("rankify-events-changed"));
@@ -52,7 +38,7 @@ export default function EventsPage() {
       try {
         const stored = await getEvents();
         setEvents(stored);
-        setActiveEventId(getValidActiveEventId(stored));
+        setActiveEventId(resolveActiveEventFromEvents(stored).activeEventId);
       } catch (loadError) {
         setError(loadError.message || "Unable to load events.");
       } finally {
@@ -157,7 +143,7 @@ export default function EventsPage() {
       notifyEventsChanged();
 
       if (!activeEventId) {
-        setUserStorageItem(ACTIVE_EVENT_KEY, newEvent.id);
+        setStoredActiveEventId(newEvent.id);
         setActiveEventId(newEvent.id);
         window.dispatchEvent(new Event("rankify-active-event-changed"));
       }
@@ -169,7 +155,7 @@ export default function EventsPage() {
   }
 
   function handleSelectEvent(eventId) {
-    setUserStorageItem(ACTIVE_EVENT_KEY, eventId);
+    setStoredActiveEventId(eventId);
     setActiveEventId(eventId);
     setOpenMenuId("");
     window.dispatchEvent(new Event("rankify-active-event-changed"));
@@ -186,7 +172,7 @@ export default function EventsPage() {
       notifyEventsChanged();
 
       if (activeEventId === eventId) {
-        removeUserStorageItem(ACTIVE_EVENT_KEY);
+        clearStoredActiveEventId();
         setActiveEventId("");
         window.dispatchEvent(new Event("rankify-active-event-changed"));
       }

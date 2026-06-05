@@ -1,4 +1,5 @@
 import { supabase } from "../lib/supabaseClient.js";
+import { clearStoredActiveEventId } from "../services/activeEventService.js";
 
 export function saveUserSession({ name, email }) {
   localStorage.setItem("rankify_user", JSON.stringify({ name, email }));
@@ -8,6 +9,13 @@ export function saveUserSession({ name, email }) {
 export function clearUserSession() {
   localStorage.removeItem("rankify_user");
   localStorage.removeItem("rankify_is_logged_in");
+  clearStoredActiveEventId();
+}
+
+export async function logoutWithSupabase() {
+  const { error } = await supabase.auth.signOut();
+  clearUserSession();
+  if (error) throw error;
 }
 
 export function getInitials(user) {
