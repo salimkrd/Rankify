@@ -3,12 +3,28 @@ import { useEffect, useMemo, useRef, useState } from "react";
 const SCALE_OPTIONS = [25, 40, 50, 60, 75, 100];
 
 function getElementText(element, previewData) {
-  const key = element.dataKey;
-  if (key === "programName") return previewData?.programName || "Elocution English Kids";
-  if (key === "category") return previewData?.category || previewData?.programCategory || "General";
-  if (key === "resultNumber") return `${element.prefix || "Result #"}${previewData?.resultNumber || "23"}`;
-  if (key === "customField1") return previewData?.customField1 || "[Custom Field 1]";
-  return element.text || element.label || "";
+  const firstTextValue = (...values) => {
+    for (const value of values) {
+      if (value !== undefined && value !== null && String(value) !== "") return String(value);
+    }
+    return "";
+  };
+  const key = element.dataKey || element.dataSource || element.field || element.key || element.id;
+  if (key === "programName") return firstTextValue(previewData?.programName, element.content, element.text, element.value, element.label, "Elocution English Kids");
+  if (key === "category" || key === "programCategory") return firstTextValue(previewData?.category, previewData?.programCategory, element.content, element.text, element.value, element.label, "General");
+  if (key === "resultNumber") return `${element.prefix || "Result #"}${firstTextValue(previewData?.resultNumber, element.content, element.text, element.value, "23")}`;
+  if (key === "manual" || element.dataSource === "manual") {
+    return firstTextValue(previewData?.customFields?.[element.id], previewData?.[element.id], element.content, element.text, element.value, element.label);
+  }
+  return firstTextValue(
+    previewData?.customFields?.[element.id],
+    previewData?.[key],
+    previewData?.[element.id],
+    element.content,
+    element.text,
+    element.value,
+    element.label
+  );
 }
 
 function getCanvasValue(canvas, key, fallback) {

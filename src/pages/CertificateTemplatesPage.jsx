@@ -1,57 +1,14 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Copy, Edit, FileText, Plus, Trash2, X } from "lucide-react";
-import { getUserStorageKey } from "../utils/storage.js";
 import NoActiveEventState from "../components/NoActiveEventState.jsx";
-
-const EVENTS_KEY = "rankify_events";
-const ACTIVE_EVENT_KEY = "rankify_active_event_id";
-const STORAGE_KEY = "rankify_certificate_templates";
-
-function safeJsonParse(value, fallback) {
-  try {
-    const parsed = JSON.parse(value || "");
-    return parsed || fallback;
-  } catch {
-    return fallback;
-  }
-}
-
-function asArray(value) {
-  if (Array.isArray(value)) return value;
-  if (value && typeof value === "object") {
-    return Object.entries(value).flatMap(([eventId, items]) =>
-      Array.isArray(items) ? items.map((item) => ({ ...item, eventId: item.eventId || eventId })) : []
-    );
-  }
-  return [];
-}
-
-function readEvents() {
-  return asArray(safeJsonParse(localStorage.getItem(getUserStorageKey(EVENTS_KEY)), []));
-}
-
-function readTemplates() {
-  const baseTemplates = asArray(safeJsonParse(localStorage.getItem(STORAGE_KEY), []));
-  if (baseTemplates.length > 0) return baseTemplates;
-  return asArray(safeJsonParse(localStorage.getItem(getUserStorageKey(STORAGE_KEY)), []));
-}
-
-function saveTemplates(templates) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(templates));
-  window.dispatchEvent(new Event("rankify-data-changed"));
-}
-
-function getActiveEvent(events) {
-  const activeEventId = localStorage.getItem(getUserStorageKey(ACTIVE_EVENT_KEY)) || "";
-  if (!activeEventId) return null;
-  return events.find((event) => String(event.id) === String(activeEventId)) || null;
-}
-
-function newId() {
-  if (window.crypto?.randomUUID) return window.crypto.randomUUID();
-  return `certificate_template_${Date.now()}_${Math.random().toString(16).slice(2)}`;
-}
+import { getEvents } from "../services/eventsService.js";
+import { resolveActiveEventFromEvents } from "../services/activeEventService.js";
+import {
+  deleteCertificateTemplate,
+  duplicateCertificateTemplate,
+  listCertificateTemplatesByEvent,
+} from "../services/certificateTemplatesService.js";
 
 function formatDate(value) {
   if (!value) return "Unknown";
@@ -71,8 +28,15 @@ function getPreviewImage(template) {
 }
 
 function getPreviewText(element, previewData = {}) {
-  if (element.dataSource === "manual") return element.content || element.label || "";
-  return previewData[element.dataSource] || element.label || "";
+  const firstTextValue = (...values) => {
+    for (const value of values) {
+      if (value !== undefined && value !== null && String(value) !== "") return String(value);
+    }
+    return "";
+  };
+  const key = element.dataSource || element.dataKey || element.field || element.key;
+  if (!key || key === "manual") return firstTextValue(previewData[element.id], element.content, element.text, element.value, element.label);
+  return firstTextValue(previewData[key], previewData[element.id], element.content, element.text, element.value, element.label);
 }
 
 function CertificatePreview({ template }) {
@@ -157,12 +121,27 @@ export default function CertificateTemplatesPage() {
   const [activeEvent, setActiveEvent] = useState(null);
   const [templates, setTemplates] = useState([]);
   const [publicModalOpen, setPublicModalOpen] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   useEffect(() => {
-    function load() {
-      const events = readEvents();
-      setActiveEvent(getActiveEvent(events));
-      setTemplates(readTemplates());
+    async function load() {
+      setLoading(true);
+      setError("");
+      try {
+        const events = await getEvents();
+        const { activeEvent } = resolveActiveEventFromEvents(events);
+        const eventTemplates = activeEvent?.id ? await listCertificateTemplatesByEvent(activeEvent.id) : [];
+
+        setActiveEvent(activeEvent);
+        setTemplates(eventTemplates);
+      } catch (loadError) {
+        setError(loadError.message || "Unable to load templates.");
+        setActiveEvent(null);
+        setTemplates([]);
+      } finally {
+        setLoading(false);
+      }
     }
 
     load();
@@ -194,32 +173,31 @@ export default function CertificateTemplatesPage() {
     navigate("/dashboard/certificate-templates/new");
   }
 
-  function handleDuplicate(template) {
+  async function handleDuplicate(template) {
     if (!activeEvent?.id) return;
-    const duplicate = {
-      ...template,
-      id: newId(),
-      eventId: activeEvent.id,
-      name: `${template.name || "Untitled Template"} Copy`,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      isPublic: false,
-    };
-    const nextTemplates = [...templates, duplicate];
-    setTemplates(nextTemplates);
-    saveTemplates(nextTemplates);
+    try {
+      const duplicate = await duplicateCertificateTemplate(template, {
+        eventId: activeEvent.id,
+        name: `${template.name || "Untitled Template"} Copy`,
+        isPublic: false,
+      });
+      setTemplates((current) => [duplicate, ...current]);
+    } catch (duplicateError) {
+      setError(duplicateError.message || "Unable to duplicate template.");
+    }
   }
 
-  function handleDelete(templateId) {
+  async function handleDelete(templateId) {
     if (!activeEvent?.id) return;
     const confirmed = window.confirm("Delete this certificate template?");
     if (!confirmed) return;
 
-    const nextTemplates = templates.filter(
-      (template) => !(String(template.id) === String(templateId) && String(template.eventId) === String(activeEvent.id))
-    );
-    setTemplates(nextTemplates);
-    saveTemplates(nextTemplates);
+    try {
+      await deleteCertificateTemplate(templateId);
+      setTemplates((current) => current.filter((template) => template.id !== templateId));
+    } catch (deleteError) {
+      setError(deleteError.message || "Unable to delete template.");
+    }
   }
 
   return (
@@ -263,8 +241,18 @@ export default function CertificateTemplatesPage() {
         </div>
       </div>
 
+      {error && (
+        <div className="app-card mb-4 rounded-lg border border-[var(--app-danger)] p-4 text-sm text-[var(--app-danger)]">
+          {error}
+        </div>
+      )}
+
       {!activeEvent?.id ? (
         <NoActiveEventState />
+      ) : loading ? (
+        <div className="app-card rounded-xl border p-8 text-center">
+          <p className="app-muted text-sm font-semibold">Loading templates...</p>
+        </div>
       ) : eventTemplates.length === 0 ? (
         <div className="flex min-h-[calc(100vh-200px)] items-center justify-center text-center">
           <div className="mx-auto max-w-[820px] px-4">

@@ -475,24 +475,34 @@ const hasEditorSchema = (template) =>
   (template.elements.some((element) => element?.type === "winnerContainer") ||
     template.elements.some((element) => ["text", "image", "winnerText", "winnerPhoto"].includes(element?.type)));
 const schemaTextValue = (element, result, winner = null) => {
+  const firstTextValue = (...values) => {
+    for (const value of values) {
+      if (value !== undefined && value !== null && String(value) !== "") return String(value);
+    }
+    return "";
+  };
   const key = normalizeText(
-    pick(element?.field, element?.dataKey, element?.key, element?.name, element?.id, element?.label, element?.content)
+    pick(element?.field, element?.dataKey, element?.dataSource, element?.key, element?.name, element?.id, element?.label, element?.content, element?.text, element?.value)
   );
 
   if (winner) {
-    if (key.includes("position")) return winner.position || "";
-    if (key.includes("team")) return winner.team || "";
-    if (key.includes("name")) return winner.name || "";
-    return element?.content || element?.label || "";
+    if (key.includes("position")) return firstTextValue(winner.position, element?.content, element?.text, element?.value, element?.label);
+    if (key.includes("team")) return firstTextValue(winner.team, winner.teamName, element?.content, element?.text, element?.value, element?.label);
+    if (key.includes("name")) return firstTextValue(winner.name, element?.content, element?.text, element?.value, element?.label);
+    return firstTextValue(element?.content, element?.text, element?.value, element?.label);
   }
 
-  if (key.includes("programname") || key.includes("program name") || key === "program") return result.programName || "";
-  if (key.includes("category")) return result.category || result.programCategory || "";
+  if (key.includes("programname") || key.includes("program name") || key === "program") return firstTextValue(result.programName, element?.content, element?.text, element?.value, element?.label);
+  if (key.includes("category")) return firstTextValue(result.category, result.programCategory, element?.content, element?.text, element?.value, element?.label);
+  if (key.includes("eventname") || key.includes("event name")) return firstTextValue(result.eventName, result.event?.name, element?.content, element?.text, element?.value, element?.label);
+  if (key.includes("organizer")) return firstTextValue(result.organizerName, result.organizer, element?.content, element?.text, element?.value, element?.label);
+  if (key.includes("eventdate") || key.includes("event date")) return firstTextValue(result.eventDate, element?.content, element?.text, element?.value, element?.label);
+  if (key.includes("eventlocation") || key.includes("event location")) return firstTextValue(result.eventLocation, element?.content, element?.text, element?.value, element?.label);
   if (key.includes("resultnumber") || key.includes("result number") || key.includes("result")) {
-    return `${element?.prefix || ""}${result.resultNumber || ""}`;
+    return `${element?.prefix || ""}${firstTextValue(result.resultNumber, element?.content, element?.text, element?.value)}`;
   }
 
-  return element?.content || element?.label || "";
+  return firstTextValue(result?.[element?.dataKey], result?.[element?.dataSource], result?.[element?.field], element?.content, element?.text, element?.value, element?.label);
 };
 const schemaElementStyle = (element, offset = { x: 0, y: 0 }) => ({
   position: "absolute",

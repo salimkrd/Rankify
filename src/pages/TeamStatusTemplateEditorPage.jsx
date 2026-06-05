@@ -13,11 +13,13 @@ import {
 } from "lucide-react";
 import FontFamilySelect from "../components/FontFamilySelect";
 import TeamStatusTemplatePreview from "../components/TeamStatusTemplatePreview";
-import { getUserStorageKey } from "../utils/storage.js";
+import { getStoredActiveEventId } from "../services/activeEventService.js";
+import {
+  createTeamStatusTemplate,
+  getTeamStatusTemplateById,
+  updateTeamStatusTemplate,
+} from "../services/teamStatusTemplatesService.js";
 
-const EVENTS_KEY = "rankify_events";
-const ACTIVE_EVENT_KEY = "rankify_active_event_id";
-const STORAGE_KEY = "rankify_team_status_templates";
 const MAX_IMAGE_SIZE = 1024 * 1024;
 
 const defaultTeams = [
@@ -25,15 +27,6 @@ const defaultTeams = [
   { name: "Team B", score: "95" },
   { name: "Team C", score: "80" },
 ];
-
-function safeParse(value, fallback) {
-  try {
-    const parsed = JSON.parse(value || "");
-    return parsed ?? fallback;
-  } catch {
-    return fallback;
-  }
-}
 
 function makeId(prefix) {
   if (window.crypto?.randomUUID) return `${prefix}_${window.crypto.randomUUID()}`;
@@ -44,38 +37,15 @@ function today() {
   return new Date().toLocaleDateString("en-US");
 }
 
-function readEvents() {
-  return safeParse(localStorage.getItem(getUserStorageKey(EVENTS_KEY)), []);
-}
-
 function getActiveEvent() {
-  const events = readEvents();
-  const activeEventId = localStorage.getItem(getUserStorageKey(ACTIVE_EVENT_KEY)) || "";
-  const activeEvent = Array.isArray(events)
-    ? events.find((event) => String(event.id) === String(activeEventId))
-    : null;
-
-  return activeEvent || {
-    id: activeEventId || "default",
+  const activeEventId = getStoredActiveEventId();
+  return {
+    id: activeEventId,
     name: "Active Event",
     organizer: "",
     date: "",
     location: "",
   };
-}
-
-function readTemplatesByEvent() {
-  const stored = safeParse(localStorage.getItem(getUserStorageKey(STORAGE_KEY)), {});
-  if (stored && typeof stored === "object" && !Array.isArray(stored)) return stored;
-  if (Array.isArray(stored)) {
-    return stored.reduce((acc, template) => {
-      const eventId = template.eventId || "default";
-      acc[eventId] = acc[eventId] || [];
-      acc[eventId].push(template);
-      return acc;
-    }, {});
-  }
-  return {};
 }
 
 function dataUrlFromFile(file) {
@@ -240,11 +210,30 @@ function svgAlignedX(x, width, align) {
 }
 
 function titleValue(element, previewData) {
-  if (element.dataSource === "eventName") return previewData.eventName;
-  if (element.dataSource === "organizerName") return previewData.organizerName;
-  if (element.dataSource === "eventDate") return previewData.eventDate;
-  if (element.dataSource === "eventLocation") return previewData.eventLocation;
-  return previewData.titleValues?.[element.id] ?? element.text ?? element.label ?? "";
+  const firstTextValue = (...values) => {
+    for (const value of values) {
+      if (value !== undefined && value !== null && String(value) !== "") return String(value);
+    }
+    return "";
+  };
+  const key = element.dataSource || element.dataKey || element.field || element.key;
+  if (key === "eventName") return firstTextValue(previewData.eventName, element.value, element.text, element.content, element.label);
+  if (key === "organizerName") return firstTextValue(previewData.organizerName, element.value, element.text, element.content, element.label);
+  if (key === "eventDate") return firstTextValue(previewData.eventDate, element.value, element.text, element.content, element.label);
+  if (key === "eventLocation") return firstTextValue(previewData.eventLocation, element.value, element.text, element.content, element.label);
+  if (key && previewData?.[key] !== undefined) return firstTextValue(previewData[key], element.value, element.text, element.content, element.label);
+  return firstTextValue(previewData.titleValues?.[element.id], element.value, element.text, element.content, element.label);
+}
+
+function teamFieldValue(team, childKey, child = {}) {
+  const values =
+    childKey === "name"
+      ? [team?.name, team?.teamName, team?.title, child.value, child.text, child.content, child.label]
+      : [team?.score, team?.points, team?.point, child.value, child.text, child.content, child.label];
+  for (const value of values) {
+    if (value !== undefined && value !== null && String(value) !== "") return String(value);
+  }
+  return "";
 }
 
 function makePreviewImage(template) {
@@ -274,7 +263,7 @@ function makePreviewImage(template) {
             const bg = child.showBg
               ? `<rect x="${Number(element.x || 0) + Number(child.x || 0)}" y="${Number(element.y || 0) + Number(child.y || 0)}" width="${Number(child.width || 0)}" height="${Number(child.fontSize || 16) * Number(child.lineHeight || 1.2)}" fill="rgba(255,255,255,.65)"/>`
               : "";
-            return `${bg}<text x="${x}" y="${y}" font-family="${escapeSvg(child.fontFamily || "Inter")}" font-size="${Number(child.fontSize || 16)}" font-weight="${escapeSvg(child.fontWeight || "400")}" text-anchor="${svgTextAnchor(child.align)}" fill="${escapeSvg(child.color || "#111111")}">${escapeSvg(team[childKey])}</text>`;
+            return `${bg}<text x="${x}" y="${y}" font-family="${escapeSvg(child.fontFamily || "Inter")}" font-size="${Number(child.fontSize || 16)}" font-weight="${escapeSvg(child.fontWeight || "400")}" text-anchor="${svgTextAnchor(child.align)}" fill="${escapeSvg(child.color || "#111111")}">${escapeSvg(teamFieldValue(team, childKey, child))}</text>`;
           })
           .join("");
       }
@@ -389,15 +378,29 @@ export default function TeamStatusTemplateEditorPage() {
 
   useEffect(() => {
     const event = getActiveEvent();
-    const stored = readTemplatesByEvent();
-    const found = templateId
-      ? Object.values(stored)
-          .flat()
-          .find((item) => String(item.id) === String(templateId))
-      : null;
-
     setActiveEvent(event);
-    setTemplate(normalizeTemplate(found, event));
+
+    if (!templateId) {
+      setTemplate(normalizeTemplate(null, event));
+      return;
+    }
+
+    let mounted = true;
+    async function loadTemplate() {
+      try {
+        const found = await getTeamStatusTemplateById(templateId);
+        if (!mounted) return;
+        setTemplate(normalizeTemplate(found, event));
+      } catch (error) {
+        alert(error.message || "Unable to load template.");
+        navigate("/dashboard/team-status-templates");
+      }
+    }
+
+    loadTemplate();
+    return () => {
+      mounted = false;
+    };
   }, [templateId]);
 
   useEffect(() => {
@@ -639,9 +642,9 @@ export default function TeamStatusTemplateEditorPage() {
     window.removeEventListener("pointerup", endDrag);
   }
 
-  function saveTemplate() {
+  async function saveTemplate() {
     try {
-      const activeEventId = localStorage.getItem(getUserStorageKey(ACTIVE_EVENT_KEY)) || activeEvent?.id;
+      const activeEventId = getStoredActiveEventId();
       if (!activeEventId) {
         alert("Please create or select an event first before creating a template.");
         return;
@@ -651,11 +654,9 @@ export default function TeamStatusTemplateEditorPage() {
         return;
       }
 
-      const stored = readTemplatesByEvent();
-      const currentList = stored[activeEventId] || [];
       const nextTemplate = {
         ...template,
-        id: isEdit ? template.id : template.id || makeId("team_status_template"),
+        ...(isEdit ? { id: template.id } : {}),
         eventId: activeEventId,
         type: "team-status",
         canvas: {
@@ -667,11 +668,11 @@ export default function TeamStatusTemplateEditorPage() {
         createdAt: template.createdAt || today(),
         updatedAt: today(),
       };
-      const nextList = isEdit
-        ? currentList.map((item) => (String(item.id) === String(nextTemplate.id) ? nextTemplate : item))
-        : [...currentList, nextTemplate];
-
-      localStorage.setItem(getUserStorageKey(STORAGE_KEY), JSON.stringify({ ...stored, [activeEventId]: nextList }));
+      if (isEdit) {
+        await updateTeamStatusTemplate(templateId, nextTemplate);
+      } else {
+        await createTeamStatusTemplate(activeEventId, nextTemplate);
+      }
       window.dispatchEvent(new Event("rankify-data-changed"));
       window.dispatchEvent(new Event("rankify-team-status-templates-changed"));
       navigate("/dashboard/team-status-templates");

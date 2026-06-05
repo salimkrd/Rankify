@@ -1,12 +1,15 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Copy, Edit, FilePlus2, ImageIcon, Plus, Trash2, X } from "lucide-react";
-import { getUserStorageKey } from "../utils/storage.js";
 import NoActiveEventState from "../components/NoActiveEventState.jsx";
-
-const EVENTS_KEY = "rankify_events";
-const ACTIVE_EVENT_KEY = "rankify_active_event_id";
-const TEMPLATES_KEY = "rankify_program_templates";
+import { getEvents } from "../services/eventsService.js";
+import { resolveActiveEventFromEvents } from "../services/activeEventService.js";
+import {
+  createProgramTemplate,
+  deleteProgramTemplate,
+  duplicateProgramTemplate,
+  listProgramTemplatesByEvent,
+} from "../services/programTemplatesService.js";
 
 const fallbackEvents = [
   {
@@ -340,92 +343,7 @@ const normalizePublicProgramTemplate = (template) => {
   };
 };
 
-const normalizeTemplateStorageValue = (value) => {
-  const parsed = JSON.parse(value);
-  if (Array.isArray(parsed)) {
-    return JSON.stringify(parsed.map(normalizePublicProgramTemplate));
-  }
-  if (parsed && typeof parsed === "object") {
-    const next = {};
-    Object.entries(parsed).forEach(([key, item]) => {
-      next[key] = Array.isArray(item)
-        ? item.map(normalizePublicProgramTemplate)
-        : normalizePublicProgramTemplate(item);
-    });
-    return JSON.stringify(next);
-  }
-  return value;
-};
-
-if (typeof window !== "undefined" && !window.__rankifyPublicTemplateSchemaPatch) {
-  window.__rankifyPublicTemplateSchemaPatch = true;
-  const originalSetItem = window.localStorage.setItem.bind(window.localStorage);
-  window.localStorage.setItem = (key, value) => {
-    const shouldNormalize = String(key || "").toLowerCase().includes("template");
-    if (shouldNormalize && typeof value === "string") {
-      try {
-        originalSetItem(key, normalizeTemplateStorageValue(value));
-        return;
-      } catch {
-        originalSetItem(key, value);
-        return;
-      }
-    }
-    originalSetItem(key, value);
-  };
-  for (let index = 0; index < window.localStorage.length; index += 1) {
-    const key = window.localStorage.key(index);
-    if (!String(key || "").toLowerCase().includes("template")) continue;
-    const value = window.localStorage.getItem(key);
-    if (typeof value !== "string") continue;
-    try {
-      const normalized = normalizeTemplateStorageValue(value);
-      if (normalized !== value) originalSetItem(key, normalized);
-    } catch {
-      // Ignore unrelated template-like storage keys.
-    }
-  }
-}
-
 const PUBLIC_TEMPLATES = [];
-
-function safeJsonParse(value, fallback) {
-  try {
-    const parsed = JSON.parse(value || "");
-    return parsed || fallback;
-  } catch {
-    return fallback;
-  }
-}
-
-function getStoredEvents() {
-  const storedEvents = safeJsonParse(localStorage.getItem(getUserStorageKey(EVENTS_KEY)), []);
-  return Array.isArray(storedEvents) ? storedEvents : [];
-}
-
-function getActiveEventId(events) {
-  const storedActiveId = localStorage.getItem(getUserStorageKey(ACTIVE_EVENT_KEY));
-  const isValid = events.some((event) => event.id === storedActiveId);
-
-  if (isValid) return storedActiveId;
-
-  localStorage.removeItem(getUserStorageKey(ACTIVE_EVENT_KEY));
-  return "";
-}
-
-function getTemplatesByEvent() {
-  const stored = safeJsonParse(localStorage.getItem(getUserStorageKey(TEMPLATES_KEY)), {});
-
-  if (Array.isArray(stored)) {
-    return stored.reduce((grouped, template) => {
-      if (!template?.eventId) return grouped;
-      grouped[template.eventId] = [...(grouped[template.eventId] || []), template];
-      return grouped;
-    }, {});
-  }
-
-  return stored && typeof stored === "object" ? stored : {};
-}
 
 function getCurrentDate() {
   return new Date().toLocaleDateString("en-US");
@@ -437,16 +355,29 @@ export default function ProgramTemplatesPage() {
   const [activeEventId, setActiveEventId] = useState("");
   const [templatesByEvent, setTemplatesByEvent] = useState({});
   const [publicModalOpen, setPublicModalOpen] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   useEffect(() => {
-    function syncTemplates() {
-      const storedEvents = getStoredEvents();
-      const validActiveId = getActiveEventId(storedEvents);
-      const storedTemplates = getTemplatesByEvent();
+    async function syncTemplates() {
+      setLoading(true);
+      setError("");
+      try {
+        const storedEvents = await getEvents();
+        const { activeEventId: validActiveId } = resolveActiveEventFromEvents(storedEvents);
+        const templates = validActiveId ? await listProgramTemplatesByEvent(validActiveId) : [];
 
-      setEvents(storedEvents);
-      setActiveEventId(validActiveId);
-      setTemplatesByEvent(storedTemplates);
+        setEvents(storedEvents);
+        setActiveEventId(validActiveId);
+        setTemplatesByEvent(validActiveId ? { [validActiveId]: templates } : {});
+      } catch (loadError) {
+        setError(loadError.message || "Unable to load templates.");
+        setEvents([]);
+        setActiveEventId("");
+        setTemplatesByEvent({});
+      } finally {
+        setLoading(false);
+      }
     }
 
     syncTemplates();
@@ -472,9 +403,9 @@ export default function ProgramTemplatesPage() {
     [activeEventId, events]
   );
 
-  function persistTemplates(nextTemplatesByEvent) {
-    localStorage.setItem(getUserStorageKey(TEMPLATES_KEY), JSON.stringify(nextTemplatesByEvent));
-    setTemplatesByEvent(nextTemplatesByEvent);
+  function setTemplatesForActiveEvent(nextTemplates) {
+    if (!activeEventId) return;
+    setTemplatesByEvent((current) => ({ ...current, [activeEventId]: nextTemplates }));
     window.dispatchEvent(new Event("rankify-data-changed"));
   }
 
@@ -491,14 +422,13 @@ export default function ProgramTemplatesPage() {
     navigate("/dashboard/program-templates/new");
   }
 
-  function handleUsePublicTemplate(publicTemplate) {
+  async function handleUsePublicTemplate(publicTemplate) {
     if (!activeEventId) {
       alert("Please select an active event first.");
       return;
     }
 
     const template = {
-      id: `template_${Date.now()}`,
       eventId: activeEventId,
       name: `${publicTemplate.name} (from Public)`,
       previewImage: publicTemplate.previewImage,
@@ -508,46 +438,44 @@ export default function ProgramTemplatesPage() {
       type: "program",
     };
 
-    persistTemplates({
-      ...templatesByEvent,
-      [activeEventId]: [...getActiveTemplates(), template],
-    });
-    setPublicModalOpen(false);
+    try {
+      const createdTemplate = await createProgramTemplate(activeEventId, template);
+      setTemplatesForActiveEvent([createdTemplate, ...getActiveTemplates()]);
+      setPublicModalOpen(false);
+    } catch (saveError) {
+      setError(saveError.message || "Unable to use public template.");
+    }
   }
 
-  function handleDuplicateTemplate(template) {
+  async function handleDuplicateTemplate(template) {
     if (!activeEventId) {
       alert("Please select an active event first.");
       return;
     }
 
-    const duplicatedTemplate = {
-      ...template,
-      id: `template_${Date.now()}`,
-      eventId: activeEventId,
-      name: `${template.name} Copy`,
-      createdAt: getCurrentDate(),
-      updatedAt: getCurrentDate(),
-    };
-
-    persistTemplates({
-      ...templatesByEvent,
-      [activeEventId]: [...getActiveTemplates(), duplicatedTemplate],
-    });
+    try {
+      const duplicatedTemplate = await duplicateProgramTemplate(template, {
+        eventId: activeEventId,
+        name: `${template.name} Copy`,
+      });
+      setTemplatesForActiveEvent([duplicatedTemplate, ...getActiveTemplates()]);
+    } catch (duplicateError) {
+      setError(duplicateError.message || "Unable to duplicate template.");
+    }
   }
 
-  function handleDeleteTemplate(templateId) {
+  async function handleDeleteTemplate(templateId) {
     const confirmed = window.confirm(
       "Are you sure you want to delete this template?"
     );
     if (!confirmed || !activeEventId) return;
 
-    persistTemplates({
-      ...templatesByEvent,
-      [activeEventId]: getActiveTemplates().filter(
-        (template) => template.id !== templateId
-      ),
-    });
+    try {
+      await deleteProgramTemplate(templateId);
+      setTemplatesForActiveEvent(getActiveTemplates().filter((template) => template.id !== templateId));
+    } catch (deleteError) {
+      setError(deleteError.message || "Unable to delete template.");
+    }
   }
 
   return (
@@ -591,8 +519,18 @@ export default function ProgramTemplatesPage() {
           </div>
         </div>
 
+        {error && (
+          <div className="app-card rounded-lg border border-[var(--app-danger)] p-4 text-sm text-[var(--app-danger)]">
+            {error}
+          </div>
+        )}
+
         {!activeEventId ? (
           <NoActiveEventState />
+        ) : loading ? (
+          <div className="app-card rounded-xl border p-8 text-center">
+            <p className="app-muted text-sm font-semibold">Loading templates...</p>
+          </div>
         ) : visibleTemplates.length === 0 ? (
           <div className="flex min-h-[520px] flex-col items-center justify-center text-center">
             <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-full bg-[var(--app-surface-elevated)] text-[var(--app-muted)]">

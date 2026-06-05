@@ -1,14 +1,33 @@
 import React from "react";
 
 function titleValue(element, previewData) {
+  const firstTextValue = (...values) => {
+    for (const value of values) {
+      if (value !== undefined && value !== null && String(value) !== "") return String(value);
+    }
+    return "";
+  };
   if (previewData?.titleValues && element?.id && Object.prototype.hasOwnProperty.call(previewData.titleValues, element.id)) {
-    return previewData.titleValues[element.id];
+    return firstTextValue(previewData.titleValues[element.id], element.value, element.text, element.content, element.label);
   }
-  if (element.dataSource === "eventName") return previewData.eventName;
-  if (element.dataSource === "organizerName") return previewData.organizerName;
-  if (element.dataSource === "eventDate") return previewData.eventDate;
-  if (element.dataSource === "eventLocation") return previewData.eventLocation;
-  return element.text;
+  const key = element.dataSource || element.dataKey || element.field || element.key;
+  if (key === "eventName") return firstTextValue(previewData.eventName, element.value, element.text, element.content, element.label);
+  if (key === "organizerName") return firstTextValue(previewData.organizerName, element.value, element.text, element.content, element.label);
+  if (key === "eventDate") return firstTextValue(previewData.eventDate, element.value, element.text, element.content, element.label);
+  if (key === "eventLocation") return firstTextValue(previewData.eventLocation, element.value, element.text, element.content, element.label);
+  if (key && previewData?.[key] !== undefined) return firstTextValue(previewData[key], element.value, element.text, element.content, element.label);
+  return firstTextValue(element.value, element.text, element.content, element.label);
+}
+
+function teamFieldValue(team, childKey, child = {}) {
+  const candidates =
+    childKey === "name"
+      ? [team?.name, team?.teamName, team?.title, child.value, child.text, child.content, child.label]
+      : [team?.score, team?.points, team?.point, child.value, child.text, child.content, child.label];
+  for (const value of candidates) {
+    if (value !== undefined && value !== null && String(value) !== "") return String(value);
+  }
+  return "";
 }
 
 function childStyle(style) {
@@ -156,7 +175,7 @@ export default function TeamStatusTemplatePreview({
                     ...selectable(childId),
                   }}
                 >
-                  {displayTeam[childKey]}
+                  {teamFieldValue(displayTeam, childKey, slot[childKey] || {})}
                 </span>
               );
             })}

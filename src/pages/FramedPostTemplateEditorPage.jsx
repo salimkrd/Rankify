@@ -2,72 +2,14 @@ import React, { useEffect, useMemo, useState, useRef } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, ChevronDown, ChevronUp, Copy, Image, PlusCircle, Save, Trash2, X } from "lucide-react";
 import FontFamilySelect from "../components/FontFamilySelect.jsx";
-import { getUserStorageKey } from "../utils/storage.js";
+import { getStoredActiveEventId } from "../services/activeEventService.js";
+import {
+  createFramedPostTemplate,
+  getFramedPostTemplateById,
+  updateFramedPostTemplate,
+} from "../services/framedPostTemplatesService.js";
 
-const STORAGE_KEY = "rankify_framed_post_templates";
-const ACTIVE_EVENT_KEY = "rankify_active_event_id";
 const MAX_IMAGE_SIZE = 1024 * 1024; // 1MB
-
-function safeJsonParse(value, fallback) {
-  try {
-    const parsed = JSON.parse(value || "");
-    return parsed || fallback;
-  } catch {
-    return fallback;
-  }
-}
-
-function getActiveEventId() {
-  return localStorage.getItem(getUserStorageKey(ACTIVE_EVENT_KEY)) || "";
-}
-
-function normalizeTemplates(raw) {
-  if (Array.isArray(raw)) return raw;
-  if (raw && typeof raw === "object") {
-    return Object.values(raw).flat();
-  }
-  return [];
-}
-
-function getStorageShape(raw) {
-  if (Array.isArray(raw)) return "array";
-  if (raw && typeof raw === "object") return "object";
-  return "array";
-}
-
-function loadAllTemplates() {
-  return normalizeTemplates(safeJsonParse(localStorage.getItem(getUserStorageKey(STORAGE_KEY)), []));
-}
-
-function createGroupedTemplates(rawArray) {
-  return rawArray.reduce((acc, item) => {
-    const eventId = item?.eventId || "default";
-    acc[eventId] = acc[eventId] || [];
-    acc[eventId].push(item);
-    return acc;
-  }, {});
-}
-
-function saveTemplates(allTemplates, shape) {
-  try {
-    if (shape === "object") {
-      const grouped = createGroupedTemplates(allTemplates);
-      localStorage.setItem(getUserStorageKey(STORAGE_KEY), JSON.stringify(grouped));
-      return true;
-    }
-
-    localStorage.setItem(getUserStorageKey(STORAGE_KEY), JSON.stringify(allTemplates));
-    return true;
-  } catch (error) {
-    if (error?.name === "QuotaExceededError") {
-      alert("Storage limit exceeded. Please use a smaller/compressed image.");
-    } else {
-      alert("Unable to save template. Please try again.");
-    }
-    console.error("Failed to save framed post template", error);
-    return false;
-  }
-}
 
 function makeId(prefix = "field") {
   return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
@@ -77,9 +19,18 @@ function today() {
   return new Date().toLocaleDateString("en-US");
 }
 
+function getPreviewableImageUrl(value) {
+  if (!value) return "";
+  if (typeof value === "string") return value;
+  if (typeof value === "object") {
+    return value.dataUrl || value.dataURL || value.url || value.src || value.imageData || "";
+  }
+  return "";
+}
+
 function getSavedFrameImage(template) {
   if (!template || typeof template !== "object") return "";
-  return (
+  return getPreviewableImageUrl(
     template.frameImage ||
     template.frameImageUrl ||
     template.frameOverlay ||
@@ -107,7 +58,8 @@ function getSavedFrameImage(template) {
 export default function FramedPostTemplateEditorPage() {
   const navigate = useNavigate();
   const { templateId } = useParams();
-  const [activeEventId, setActiveEventId] = useState(getActiveEventId());
+  const [activeEventId, setActiveEventId] = useState(getStoredActiveEventId());
+  const [existingTemplate, setExistingTemplate] = useState(null);
   const [templateName, setTemplateName] = useState("");
   const [frameImageUrl, setFrameImageUrl] = useState("");
   const [canvasWidth, setCanvasWidth] = useState(800);
@@ -138,51 +90,50 @@ export default function FramedPostTemplateEditorPage() {
     setPreviewScale(Math.min(previewWidth / canvasWidth, previewHeight / canvasHeight, 1));
   }, [canvasWidth, canvasHeight]);
 
-  const storageRaw = useMemo(() => safeJsonParse(localStorage.getItem(getUserStorageKey(STORAGE_KEY)), []), []);
-  const storageShape = getStorageShape(storageRaw);
-  const allTemplates = useMemo(() => normalizeTemplates(storageRaw), [storageRaw]);
-  const existingTemplate = useMemo(
-    () => allTemplates.find((item) => String(item.id) === String(templateId)),
-    [allTemplates, templateId]
-  );
-
-  const isEdit = Boolean(templateId && existingTemplate);
+  const isEdit = Boolean(templateId);
   const selectedField = customFields.find((f) => f.id === selectedFieldId);
   const selectedIndex = customFields.findIndex((f) => f.id === selectedFieldId);
 
   function resolveFramedFieldText(field, preview) {
     const pd = preview || {};
+    const firstTextValue = (...values) => {
+      for (const value of values) {
+        if (value !== undefined && value !== null && String(value) !== "") return String(value);
+      }
+      return "";
+    };
     switch (field.dataSource) {
       case "eventName":
-        if (pd.eventName || pd.event) return pd.eventName || pd.event;
-        try {
-          const eventsRaw = safeJsonParse(localStorage.getItem(getUserStorageKey("rankify_events")), []);
-          const activeId = getActiveEventId();
-          const found = (eventsRaw || []).find((ev) => String(ev.id) === String(activeId));
-          if (found && found.name) return found.name;
-        } catch (e) {
-          // ignore
-        }
-        return "Event Name";
+        return firstTextValue(pd.eventName, pd.event, field.value, field.text, field.content, field.label, "Event Name");
       case "organizerName":
-        return pd.organizerName || pd.organizer || "Organizer Name";
+        return firstTextValue(pd.organizerName, pd.organizer, field.value, field.text, field.content, field.label, "Organizer Name");
       case "eventDate":
-        return pd.eventDate || "May 25";
+        return firstTextValue(pd.eventDate, field.value, field.text, field.content, field.label, "May 25");
       case "eventLocation":
-        return pd.eventLocation || "Event Location";
+        return firstTextValue(pd.eventLocation, field.value, field.text, field.content, field.label, "Event Location");
       case "manual":
       default:
-        // check customFields map first, then top-level id key, then field.value/label
-        if (pd.customFields && pd.customFields[field.id] !== undefined) return pd.customFields[field.id];
-        if (pd[field.id] !== undefined) return pd[field.id];
-        return field.value || field.label || `[${field.label || "Custom Field"}]`;
+        return firstTextValue(
+          pd.customFields?.[field.id],
+          pd[field.id],
+          field.value,
+          field.text,
+          field.content,
+          field.label,
+          `[${field.label || "Custom Field"}]`
+        );
     }
   }
 
   const normalizedPreview = useMemo(() => {
     const customMap = {};
     (customFields || []).forEach((f) => {
-      customMap[f.id] = (exampleData && (exampleData[f.id] ?? (exampleData.customFields && exampleData.customFields[f.id]))) ?? "";
+      customMap[f.id] =
+        (exampleData && (exampleData[f.id] ?? (exampleData.customFields && exampleData.customFields[f.id]))) ??
+        f.value ??
+        f.text ??
+        f.content ??
+        "";
     });
     return {
       eventName: (exampleData && (exampleData.eventName || exampleData.event)) || "",
@@ -195,35 +146,59 @@ export default function FramedPostTemplateEditorPage() {
   const dragState = useRef(null);
 
   useEffect(() => {
-    setActiveEventId(getActiveEventId());
-    if (isEdit && existingTemplate) {
-      setTemplateName(existingTemplate.name || "");
-      setFrameImageUrl(getSavedFrameImage(existingTemplate));
-      setCanvasWidth(existingTemplate.canvasWidth || 800);
-      setCanvasHeight(existingTemplate.canvasHeight || 600);
-      setCustomFields(existingTemplate.customFields || []);
-      // restore preview/example data when editing
-      const pd = existingTemplate.previewData || {};
-      setExampleData({
-        eventName: pd.eventName || pd.event || "",
-        organizerName: pd.organizerName || pd.organizer || "",
-        eventDate: pd.eventDate || "",
-        eventLocation: pd.eventLocation || "",
-        ...pd.customFields,
-      });
-    } else {
-      setTemplateName("New Framed Post Template");
-      setFrameImageUrl("");
-      setCanvasWidth(800);
-      setCanvasHeight(600);
-      setCustomFields([]);
+    let cancelled = false;
+
+    async function loadTemplate() {
+      setIsLoaded(false);
+      const storedActiveEventId = getStoredActiveEventId();
+      setActiveEventId(storedActiveEventId);
+
+      if (!templateId) {
+        setExistingTemplate(null);
+        setTemplateName("New Framed Post Template");
+        setFrameImageUrl("");
+        setCanvasWidth(800);
+        setCanvasHeight(600);
+        setCustomFields([]);
+        setIsLoaded(true);
+        return;
+      }
+
+      try {
+        const found = await getFramedPostTemplateById(templateId);
+        if (cancelled) return;
+        setExistingTemplate(found);
+        setTemplateName(found.name || "");
+        setFrameImageUrl(getSavedFrameImage(found));
+        setCanvasWidth(found.canvasWidth || 800);
+        setCanvasHeight(found.canvasHeight || 600);
+        setCustomFields(found.customFields || []);
+        const pd = found.previewData || {};
+        setExampleData({
+          eventName: pd.eventName || pd.event || "",
+          organizerName: pd.organizerName || pd.organizer || "",
+          eventDate: pd.eventDate || "",
+          eventLocation: pd.eventLocation || "",
+          ...pd.customFields,
+        });
+        setIsLoaded(true);
+      } catch (error) {
+        if (cancelled) return;
+        alert("Unable to load this framed post template.");
+        console.error("Failed to load framed post template:", error);
+        navigate("/dashboard/framed-posts");
+      }
     }
-    setIsLoaded(true);
-  }, [existingTemplate, isEdit]);
+
+    loadTemplate();
+    return () => {
+      cancelled = true;
+    };
+  }, [navigate, templateId]);
 
   useEffect(() => {
     function syncActiveEvent() {
-      setActiveEventId(getActiveEventId());
+      setActiveEventId(getStoredActiveEventId());
     }
 
     window.addEventListener("storage", syncActiveEvent);
@@ -384,20 +359,62 @@ export default function FramedPostTemplateEditorPage() {
     setExampleData((prev) => ({ ...(prev || {}), [copy.id]: prev?.[field.id] || "" }));
   }
 
-  function handleSave() {
+  function handleFrameImageUpload(event) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    if (file.size > MAX_IMAGE_SIZE) {
+      alert("Image is too large. Please compress the image below 1MB and upload again.");
+      event.target.value = "";
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataUrl = reader.result;
+      if (typeof dataUrl !== "string") {
+        alert("Unable to load this image. Please try another file.");
+        return;
+      }
+
+      setFrameImageUrl(dataUrl);
+      const img = new Image();
+      img.onload = () => {
+        setCanvasWidth(img.naturalWidth || 800);
+        setCanvasHeight(img.naturalHeight || 600);
+      };
+      img.onerror = () => {
+        setCanvasWidth((current) => current || 800);
+        setCanvasHeight((current) => current || 600);
+      };
+      img.src = dataUrl;
+    };
+    reader.onerror = () => {
+      alert("Unable to load this image. Please try another file.");
+      event.target.value = "";
+    };
+    reader.readAsDataURL(file);
+  }
+
+  async function handleSave() {
     if (!templateName.trim()) {
       alert("Template name is required.");
       return;
     }
 
-    const activeEvent = getActiveEventId();
-    const all = loadAllTemplates();
+    const currentActiveEventId = getStoredActiveEventId();
+    if (!currentActiveEventId) {
+      alert("Please create or select an event first before creating a template.");
+      return;
+    }
+
     const nextTemplate = {
-      id: isEdit && existingTemplate ? existingTemplate.id : makeId("framed_post_template"),
+      ...(isEdit && existingTemplate ? { id: existingTemplate.id } : {}),
       name: templateName.trim(),
-      eventId: activeEvent,
+      eventId: currentActiveEventId,
       frameImage: frameImageUrl,
-      frameImageUrl: frameImageUrl,
+      frameImageUrl,
+      frameOverlay: frameImageUrl,
+      overlayImage: frameImageUrl,
       frameSrc: frameImageUrl,
       canvasWidth,
       canvasHeight,
@@ -407,15 +424,18 @@ export default function FramedPostTemplateEditorPage() {
       updatedAt: today(),
     };
 
-    const updated = isEdit
-      ? all.map((item) => (String(item.id) === String(nextTemplate.id) ? nextTemplate : item))
-      : [...all, nextTemplate];
-
-    if (!saveTemplates(updated, storageShape)) {
-      return;
+    try {
+      if (isEdit) {
+        await updateFramedPostTemplate(templateId, nextTemplate);
+      } else {
+        await createFramedPostTemplate(currentActiveEventId, nextTemplate);
+      }
+      window.dispatchEvent(new Event("rankify-data-changed"));
+      navigate("/dashboard/framed-posts");
+    } catch (error) {
+      alert("Unable to save framed post template. Please try again.");
+      console.error("Failed to save framed post template:", error);
     }
-    window.dispatchEvent(new Event("rankify-data-changed"));
-    navigate("/dashboard/framed-posts");
   }
 
   async function copyTemplateJson() {
@@ -425,6 +445,8 @@ export default function FramedPostTemplateEditorPage() {
       type: "framed-post",
       frameImage: frameImageUrl,
       frameImageUrl,
+      frameOverlay: frameImageUrl,
+      overlayImage: frameImageUrl,
       frameSrc: frameImageUrl,
       canvasWidth,
       canvasHeight,
@@ -591,15 +613,7 @@ export default function FramedPostTemplateEditorPage() {
                     }}
                     className="border border-gray-200 rounded-lg bg-gray-100"
                   >
-                    {frameImageUrl ? (
-                      <img
-                        src={frameImageUrl}
-                        alt="frame"
-                        className="absolute inset-0 w-full h-full rounded-lg"
-                        style={{ objectFit: "contain", opacity: 1, display: "block" }}
-                        draggable={false}
-                      />
-                    ) : (
+                    {!frameImageUrl && (
                       <div className="absolute inset-0 flex items-center justify-center text-gray-400">
                         <span>Frame Preview</span>
                       </div>
@@ -635,9 +649,9 @@ export default function FramedPostTemplateEditorPage() {
                             }}
                             className={selectedFieldId === field.id ? "rounded-sm ring-2 ring-offset-1 ring-[#26752C] bg-white/10" : ""}
                           >
-                            {field.src ? (
+                            {getPreviewableImageUrl(field.src || field.imageData || field.imageUrl) ? (
                               <img
-                                src={field.src}
+                                src={getPreviewableImageUrl(field.src || field.imageData || field.imageUrl)}
                                 alt={field.label}
                                 style={{
                                   width: "100%",
@@ -708,6 +722,21 @@ export default function FramedPostTemplateEditorPage() {
                         </div>
                       );
                     })}
+                    {frameImageUrl && (
+                      <img
+                        src={frameImageUrl}
+                        alt="frame"
+                        className="absolute inset-0 h-full w-full rounded-lg"
+                        style={{
+                          objectFit: "contain",
+                          opacity: 1,
+                          display: "block",
+                          zIndex: 1000,
+                          pointerEvents: "none",
+                        }}
+                        draggable={false}
+                      />
+                    )}
                   </div>
                 </div>
               </div>
@@ -807,27 +836,7 @@ export default function FramedPostTemplateEditorPage() {
             <input
               type="file"
               accept="image/*"
-              onChange={(e) => {
-                const file = e.target.files?.[0];
-                if (!file) return;
-                if (file.size > MAX_IMAGE_SIZE) {
-                  alert("Image is too large. Please compress the image below 1MB and upload again.");
-                  return;
-                }
-                const reader = new FileReader();
-                reader.onload = () => {
-                  const dataUrl = reader.result;
-                  if (typeof dataUrl !== "string") return;
-                  const img = new Image();
-                  img.onload = () => {
-                    setFrameImageUrl(dataUrl);
-                    setCanvasWidth(img.naturalWidth || 800);
-                    setCanvasHeight(img.naturalHeight || 600);
-                  };
-                  img.src = dataUrl;
-                };
-                reader.readAsDataURL(file);
-              }}
+              onChange={handleFrameImageUpload}
               className="app-input w-full rounded-md border px-3 py-2 text-sm"
             />
           </label>
@@ -905,7 +914,18 @@ export default function FramedPostTemplateEditorPage() {
                           return;
                         }
                         const reader = new FileReader();
-                        reader.onload = () => updateField(selectedField.id, { src: reader.result });
+                        reader.onload = () => {
+                          const dataUrl = reader.result;
+                          if (typeof dataUrl !== "string") {
+                            alert("Unable to load this image. Please try another file.");
+                            return;
+                          }
+                          updateField(selectedField.id, { src: dataUrl, imageData: dataUrl });
+                        };
+                        reader.onerror = () => {
+                          alert("Unable to load this image. Please try another file.");
+                          e.target.value = "";
+                        };
                         reader.readAsDataURL(file);
                       }}
                       className="rounded-md border border-gray-300 px-2 py-1 text-sm"

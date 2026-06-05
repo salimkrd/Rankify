@@ -17,22 +17,15 @@ import {
   X,
 } from "lucide-react";
 import FontFamilySelect from "../components/FontFamilySelect";
-import { getUserStorageKey } from "../utils/storage.js";
+import { getStoredActiveEventId } from "../services/activeEventService.js";
+import {
+  createProgramTemplate,
+  getProgramTemplateById,
+  updateProgramTemplate,
+} from "../services/programTemplatesService.js";
 
 const GREEN = "#26752C";
-const TEMPLATE_KEY = "rankify_program_templates";
-const ACTIVE_EVENT_KEY = "rankify_active_event_id";
-const EVENTS_KEY = "rankify_events";
 const MAX_IMAGE_SIZE = 1024 * 1024; // 1MB
-
-function safeParse(value, fallback) {
-  try {
-    const parsed = JSON.parse(value);
-    return parsed ?? fallback;
-  } catch {
-    return fallback;
-  }
-}
 
 function makeId(prefix) {
   if (window.crypto?.randomUUID) return `${prefix}_${window.crypto.randomUUID()}`;
@@ -43,59 +36,27 @@ function today() {
   return new Date().toLocaleDateString("en-US");
 }
 
-function readEvents() {
-  return safeParse(localStorage.getItem(getUserStorageKey(EVENTS_KEY)), []);
-}
-
-function getActiveEventId() {
-  const events = readEvents();
-  const stored = localStorage.getItem(getUserStorageKey(ACTIVE_EVENT_KEY));
-  if (stored && events.some((event) => event.id === stored)) return stored;
-  if (events[0]?.id) {
-    localStorage.setItem(getUserStorageKey(ACTIVE_EVENT_KEY), events[0].id);
-    return events[0].id;
+function getPreviewableImageUrl(value) {
+  if (!value) return "";
+  if (typeof value === "string") return value;
+  if (typeof value === "object") {
+    return value.dataUrl || value.dataURL || value.url || value.src || value.imageData || "";
   }
   return "";
 }
 
-function normalizeTemplates() {
-  const raw = safeParse(localStorage.getItem(getUserStorageKey(TEMPLATE_KEY)), []);
-  if (Array.isArray(raw)) return { shape: "array", templates: raw };
-  if (raw && typeof raw === "object") {
-    return {
-      shape: "object",
-      templates: Object.entries(raw).flatMap(([eventId, items]) =>
-        Array.isArray(items) ? items.map((item) => ({ ...item, eventId: item.eventId || eventId })) : []
-      ),
-    };
+function firstTextValue(...values) {
+  for (const value of values) {
+    if (value !== undefined && value !== null && String(value) !== "") return String(value);
   }
-  return { shape: "array", templates: [] };
+  return "";
 }
 
-function saveTemplates(templates, shape) {
-  try {
-    if (shape === "object") {
-      const grouped = templates.reduce((acc, template) => {
-        const eventId = template.eventId || "default";
-        acc[eventId] = acc[eventId] || [];
-        acc[eventId].push(template);
-        return acc;
-      }, {});
-      localStorage.setItem(getUserStorageKey(TEMPLATE_KEY), JSON.stringify(grouped));
-    } else {
-      localStorage.setItem(getUserStorageKey(TEMPLATE_KEY), JSON.stringify(templates));
-    }
-    window.dispatchEvent(new Event("rankify-data-changed"));
-    return true;
-  } catch (error) {
-    if (error?.name === "QuotaExceededError") {
-      alert("Storage limit exceeded. Please use a smaller/compressed image.");
-    } else {
-      alert("Unable to save template. Please try again.");
-    }
-    console.error("Failed to save program template", error);
-    return false;
-  }
+function getObjectPathValue(source, path) {
+  if (!source || !path) return undefined;
+  return String(path)
+    .split(".")
+    .reduce((current, part) => (current && current[part] !== undefined ? current[part] : undefined), source);
 }
 
 function dataUrlFromFile(file) {
@@ -317,20 +278,32 @@ export default function TemplateEditorPage() {
   const winnerChildren = elements.filter((element) => element.type === "winnerText" || element.type === "winnerPhoto");
 
   useEffect(() => {
-    const { shape, templates } = normalizeTemplates();
-    templateShapeRef.current = shape;
+    templateShapeRef.current = "array";
     if (!templateId) return;
-    const template = templates.find((item) => item.id === templateId);
-    if (!template) return;
 
-    setTemplateName(template.name || "New Template");
-    setCanvas({
-      width: Number(template.canvas?.width) || 800,
-      height: Number(template.canvas?.height) || 600,
-      backgroundImage: template.canvas?.backgroundImage || "",
-    });
-    setElements(Array.isArray(template.elements) && template.elements.length ? template.elements : defaultElements);
-    setPreviewData(template.previewData || defaultPreviewData);
+    let mounted = true;
+    async function loadTemplate() {
+      try {
+        const template = await getProgramTemplateById(templateId);
+        if (!mounted) return;
+        setTemplateName(template.name || "New Template");
+        setCanvas({
+          width: Number(template.canvas?.width) || 800,
+          height: Number(template.canvas?.height) || 600,
+          backgroundImage: getPreviewableImageUrl(template.canvas?.backgroundImage || template.backgroundImage || template.previewImage),
+        });
+        setElements(Array.isArray(template.elements) && template.elements.length ? template.elements : defaultElements);
+        setPreviewData(template.previewData || defaultPreviewData);
+      } catch (error) {
+        alert(error.message || "Unable to load template.");
+        navigate("/dashboard/program-templates");
+      }
+    }
+
+    loadTemplate();
+    return () => {
+      mounted = false;
+    };
   }, [templateId]);
 
   useEffect(() => {
@@ -387,12 +360,39 @@ export default function TemplateEditorPage() {
   }
 
   function elementText(element, winner) {
-    if (element.custom) return element.content || element.label;
-    if (element.id === "resultNumber") return `${element.prefix || "Result #"}${previewData.resultNumber}`;
-    if (element.dataKey === "winner.position") return winner?.position || "";
-    if (element.dataKey === "winner.name") return winner?.name || "";
-    if (element.dataKey === "winner.team") return winner?.team || "";
-    return previewData[element.dataKey] || element.label;
+    const key = element.dataKey || element.dataSource || element.field || element.key || element.id;
+    if (winner) {
+      if (key === "winner.position" || String(key).toLowerCase().includes("position")) {
+        return firstTextValue(winner.position, element.content, element.text, element.value, element.label);
+      }
+      if (key === "winner.name" || String(key).toLowerCase().includes("name")) {
+        return firstTextValue(winner.name, element.content, element.text, element.value, element.label);
+      }
+      if (key === "winner.team" || String(key).toLowerCase().includes("team")) {
+        return firstTextValue(winner.team, winner.teamName, element.content, element.text, element.value, element.label);
+      }
+    }
+    if (element.custom || key === "manual" || element.dataSource === "manual") {
+      return firstTextValue(
+        previewData?.customFields?.[element.id],
+        previewData?.[element.id],
+        element.content,
+        element.text,
+        element.value,
+        element.label
+      );
+    }
+    if (element.id === "resultNumber" || key === "resultNumber") {
+      return `${element.prefix || "Result #"}${firstTextValue(previewData.resultNumber, element.content, element.text, element.value)}`;
+    }
+    return firstTextValue(
+      getObjectPathValue(previewData, key),
+      previewData?.[key],
+      element.content,
+      element.text,
+      element.value,
+      element.label
+    );
   }
 
   function addCustomTextField() {
@@ -465,9 +465,21 @@ export default function TemplateEditorPage() {
     if (!file) return;
     if (file.size > MAX_IMAGE_SIZE) {
       alert("Image is too large. Please compress the image below 1MB and upload again.");
+      event.target.value = "";
       return;
     }
-    const dataUrl = await dataUrlFromFile(file);
+    let dataUrl = "";
+    try {
+      dataUrl = await dataUrlFromFile(file);
+    } catch (error) {
+      alert("Unable to load this image. Please try another file.");
+      console.error("Failed to read background image:", error);
+      event.target.value = "";
+      return;
+    }
+    setCanvas((current) => ({ ...current, backgroundImage: dataUrl }));
+    setBackgroundName(file.name);
+
     const image = new Image();
     image.onload = () => {
       setCanvas((current) => ({
@@ -476,12 +488,14 @@ export default function TemplateEditorPage() {
         height: Number(image.naturalHeight) || 1,
         backgroundImage: dataUrl,
       }));
-      setBackgroundName(file.name);
 
       const previewWidth = canvasScrollRef.current?.clientWidth || 900;
       const previewHeight = canvasScrollRef.current?.clientHeight || 520;
       const fitScale = Math.min(previewWidth / image.naturalWidth, previewHeight / image.naturalHeight, 1);
       setScalePercent(Math.max(1, Math.round(fitScale * 100)));
+    };
+    image.onerror = () => {
+      setCanvas((current) => ({ ...current, backgroundImage: dataUrl }));
     };
     image.src = dataUrl;
   }
@@ -493,12 +507,18 @@ export default function TemplateEditorPage() {
       alert("Image is too large. Please compress the image below 1MB and upload again.");
       return;
     }
-    const dataUrl = await dataUrlFromFile(file);
-    updateElement(elementId, { imageData: dataUrl, imageName: file.name });
+    try {
+      const dataUrl = await dataUrlFromFile(file);
+      updateElement(elementId, { imageData: dataUrl, src: dataUrl, imageName: file.name });
+    } catch (error) {
+      alert("Unable to load this image. Please try another file.");
+      console.error("Failed to read element image:", error);
+      event.target.value = "";
+    }
   }
 
-  function saveTemplate() {
-    const activeEventId = getActiveEventId();
+  async function saveTemplate() {
+    const activeEventId = getStoredActiveEventId();
     if (!activeEventId) {
       alert("Please select an active event first.");
       return;
@@ -512,13 +532,12 @@ export default function TemplateEditorPage() {
       ...canvas,
       width: Number(canvas.width) || 1,
       height: Number(canvas.height) || 1,
-      backgroundImage: canvas.backgroundImage || "",
+      backgroundImage: getPreviewableImageUrl(canvas.backgroundImage),
     };
 
-    const { shape, templates } = normalizeTemplates();
     const now = new Date().toISOString();
     const template = {
-      id: templateId || makeId("template"),
+      ...(templateId ? { id: templateId } : {}),
       eventId: activeEventId,
       name: templateName.trim(),
       type: "program",
@@ -526,18 +545,21 @@ export default function TemplateEditorPage() {
       elements,
       previewData,
       previewImage: normalizedCanvas.backgroundImage || makePreviewImage(templateName.trim(), normalizedCanvas),
-      createdAt: templateId ? templates.find((item) => item.id === templateId)?.createdAt || today() : today(),
+      createdAt: today(),
       updatedAt: now,
     };
 
-    const updated = templateId
-      ? templates.map((item) => (item.id === templateId ? template : item))
-      : [...templates, template];
-
-    if (!saveTemplates(updated, shape || templateShapeRef.current)) {
-      return;
+    try {
+      if (templateId) {
+        await updateProgramTemplate(templateId, template);
+      } else {
+        await createProgramTemplate(activeEventId, template);
+      }
+      window.dispatchEvent(new Event("rankify-data-changed"));
+      navigate("/dashboard/program-templates");
+    } catch (error) {
+      alert(error.message || "Unable to save template.");
     }
-    navigate("/dashboard/program-templates");
   }
 
   async function copyTemplateJson() {
@@ -545,7 +567,7 @@ export default function TemplateEditorPage() {
       ...canvas,
       width: Number(canvas.width) || 1,
       height: Number(canvas.height) || 1,
-      backgroundImage: canvas.backgroundImage || "",
+      backgroundImage: getPreviewableImageUrl(canvas.backgroundImage),
     };
     const exportTemplate = {
       id: templateId || "program_template_export",
@@ -621,7 +643,9 @@ export default function TemplateEditorPage() {
 
   function renderImageElement(element, winner, offset = { x: 0, y: 0 }) {
     if (element.visible === false) return null;
-    const imageData = element.type === "winnerPhoto" ? winner?.image : element.imageData;
+    const imageData = getPreviewableImageUrl(
+      element.type === "winnerPhoto" ? winner?.image || winner?.imageUrl || winner?.photo : element.imageData || element.src || element.imageUrl
+    );
     return (
       <div
         key={`${element.id}_${winner?.id || "single"}`}
@@ -693,6 +717,7 @@ export default function TemplateEditorPage() {
   const regularElements = elements.filter(
     (element) => !["winnerContainer", "winnerText", "winnerPhoto"].includes(element.type)
   );
+  const backgroundImageUrl = getPreviewableImageUrl(canvas.backgroundImage);
 
   return (
     <div className="template-editor-page app-page min-h-screen overflow-x-hidden pb-28">
@@ -839,9 +864,9 @@ export default function TemplateEditorPage() {
                     backgroundSize: showGrid ? "40px 40px" : undefined,
                   }}
                 >
-                  {canvas.backgroundImage && (
+                  {backgroundImageUrl && (
                     <img
-                      src={canvas.backgroundImage}
+                      src={backgroundImageUrl}
                       alt=""
                       style={{
                         position: "absolute",

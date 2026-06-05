@@ -1,43 +1,12 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Edit, Grid3X3, Plus, Trash2 } from "lucide-react";
-import { getUserStorageKey } from "../utils/storage.js";
 import NoActiveEventState from "../components/NoActiveEventState.jsx";
-
-const STORAGE_KEY = "rankify_framed_post_templates";
-const ACTIVE_EVENT_KEY = "rankify_active_event_id";
-
-function safeJsonParse(value, fallback) {
-  try {
-    const parsed = JSON.parse(value || "");
-    return parsed || fallback;
-  } catch {
-    return fallback;
-  }
-}
-
-function normalizeTemplates(raw) {
-  if (Array.isArray(raw)) return raw;
-  if (raw && typeof raw === "object") {
-    return Object.values(raw).flat();
-  }
-  return [];
-}
-
-function getActiveEventId() {
-  return localStorage.getItem(getUserStorageKey(ACTIVE_EVENT_KEY)) || "";
-}
-
-function getAllTemplates() {
-  return normalizeTemplates(safeJsonParse(localStorage.getItem(getUserStorageKey(STORAGE_KEY)), []));
-}
-
-function getEventTemplates(activeEventId) {
-  if (!activeEventId) return [];
-  return getAllTemplates().filter(
-    (template) => String(template.eventId) === String(activeEventId)
-  );
-}
+import { resolveActiveEvent } from "../services/activeEventService.js";
+import {
+  deleteFramedPostTemplate,
+  listFramedPostTemplatesByEvent,
+} from "../services/framedPostTemplatesService.js";
 
 function formatDate(value) {
   if (!value) return "Unknown";
@@ -48,14 +17,27 @@ function formatDate(value) {
 
 export default function FramedPostTemplatesPage() {
   const navigate = useNavigate();
-  const [activeEventId, setActiveEventId] = useState(getActiveEventId());
-  const [templates, setTemplates] = useState(getEventTemplates(activeEventId));
+  const [activeEventId, setActiveEventId] = useState("");
+  const [templates, setTemplates] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   useEffect(() => {
-    function syncTemplates() {
-      const eventId = getActiveEventId();
-      setActiveEventId(eventId);
-      setTemplates(getEventTemplates(eventId));
+    async function syncTemplates() {
+      setLoading(true);
+      setError("");
+      try {
+        const { activeEventId: eventId } = await resolveActiveEvent();
+        const eventTemplates = eventId ? await listFramedPostTemplatesByEvent(eventId) : [];
+        setActiveEventId(eventId);
+        setTemplates(eventTemplates);
+      } catch (loadError) {
+        setError(loadError.message || "Unable to load templates.");
+        setActiveEventId("");
+        setTemplates([]);
+      } finally {
+        setLoading(false);
+      }
     }
 
     syncTemplates();
@@ -76,40 +58,17 @@ export default function FramedPostTemplatesPage() {
   const hasTemplates = templates.length > 0;
   const hasActiveEvent = Boolean(activeEventId);
 
-  function persistTemplatesRaw(value) {
-    localStorage.setItem(getUserStorageKey(STORAGE_KEY), JSON.stringify(value));
-    window.dispatchEvent(new Event("rankify-data-changed"));
-  }
-
-  function handleDeleteTemplate(templateId) {
+  async function handleDeleteTemplate(templateId) {
     const confirmed = window.confirm("Are you sure you want to delete this framed post template?");
     if (!confirmed) return;
 
-    const raw = safeJsonParse(localStorage.getItem(getUserStorageKey(STORAGE_KEY)), []);
-    // array shape
-    if (Array.isArray(raw)) {
-      const filtered = raw.filter(
-        (t) => !(String(t.id) === String(templateId) && String(t.eventId) === String(activeEventId))
-      );
-      persistTemplatesRaw(filtered);
-      setTemplates(getEventTemplates(activeEventId));
-      return;
+    try {
+      await deleteFramedPostTemplate(templateId);
+      setTemplates((current) => current.filter((template) => template.id !== templateId));
+      window.dispatchEvent(new Event("rankify-data-changed"));
+    } catch (deleteError) {
+      setError(deleteError.message || "Unable to delete template.");
     }
-
-    // object/grouped shape
-    if (raw && typeof raw === "object") {
-      const copy = { ...raw };
-      const key = activeEventId || "default";
-      const list = Array.isArray(copy[key]) ? copy[key].filter((t) => String(t.id) !== String(templateId)) : [];
-      if (list.length) copy[key] = list;
-      else delete copy[key];
-      persistTemplatesRaw(copy);
-      setTemplates(getEventTemplates(activeEventId));
-      return;
-    }
-
-    // fallback: nothing to do
-    setTemplates(getEventTemplates(activeEventId));
   }
 
   return (
@@ -137,8 +96,17 @@ export default function FramedPostTemplatesPage() {
       </div>
 
       <div className="space-y-4">
+        {error && (
+          <div className="app-card rounded-lg border border-[var(--app-danger)] p-4 text-sm text-[var(--app-danger)]">
+            {error}
+          </div>
+        )}
         {!hasActiveEvent ? (
           <NoActiveEventState />
+        ) : loading ? (
+          <div className="app-card rounded-xl border p-8 text-center">
+            <p className="app-muted text-sm font-semibold">Loading templates...</p>
+          </div>
         ) : hasTemplates ? (
           <div className="grid gap-4 xl:grid-cols-2">
             {templates.map((template) => (

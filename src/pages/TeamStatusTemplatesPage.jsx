@@ -2,12 +2,15 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Copy, Edit, FileText, Plus, Trash2, X } from "lucide-react";
 import TeamStatusTemplatePreview from "../components/TeamStatusTemplatePreview";
-import { getUserStorageKey } from "../utils/storage.js";
 import NoActiveEventState from "../components/NoActiveEventState.jsx";
-
-const EVENTS_KEY = "rankify_events";
-const ACTIVE_EVENT_KEY = "rankify_active_event_id";
-const STORAGE_KEY = "rankify_team_status_templates";
+import { getEvents as getSupabaseEvents } from "../services/eventsService.js";
+import { resolveActiveEventFromEvents } from "../services/activeEventService.js";
+import {
+  createTeamStatusTemplate,
+  deleteTeamStatusTemplate,
+  duplicateTeamStatusTemplate,
+  listTeamStatusTemplatesByEvent,
+} from "../services/teamStatusTemplatesService.js";
 
 const publicTemplates = [];
 
@@ -18,35 +21,6 @@ function publicBackgroundImage(variant = "green") {
     : `<defs><radialGradient id="g" cx="72%" cy="30%" r="72%"><stop stop-color="#0c6a50"/><stop offset="1" stop-color="#063a55"/></radialGradient></defs><rect width="1080" height="1350" fill="url(#g)"/><path d="M620 260 C780 120 1050 160 1220 360" stroke="#2c7b1f" stroke-width="92" fill="none" opacity=".75"/><path d="M660 360 C820 230 1030 280 1190 470" stroke="#2458a2" stroke-width="78" fill="none" opacity=".7"/><circle cx="760" cy="775" r="150" fill="#48b8e8" opacity=".78"/><rect x="0" y="0" width="1080" height="1350" fill="none" stroke="rgba(255,255,255,.08)" stroke-width="20"/>`;
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1350" viewBox="0 0 1080 1350">${background}<text x="110" y="1200" font-family="Arial" font-size="42" font-weight="700" fill="${isLight ? "#111827" : "#ffffff"}">Sahityolsav</text></svg>`;
   return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
-}
-
-function safeJsonParse(value, fallback) {
-  try {
-    const parsed = JSON.parse(value || "");
-    return parsed || fallback;
-  } catch {
-    return fallback;
-  }
-}
-
-function asArray(value) {
-  if (Array.isArray(value)) return value;
-  if (value && typeof value === "object") return Object.values(value).flat();
-  return [];
-}
-
-function getEvents() {
-  return asArray(safeJsonParse(localStorage.getItem(getUserStorageKey(EVENTS_KEY)), []));
-}
-
-function getActiveEvent(events) {
-  const activeEventId = localStorage.getItem(getUserStorageKey(ACTIVE_EVENT_KEY)) || "";
-  return events.find((event) => String(event.id) === String(activeEventId)) || null;
-}
-
-function getTemplatesByEvent() {
-  const stored = safeJsonParse(localStorage.getItem(getUserStorageKey(STORAGE_KEY)), {});
-  return stored && typeof stored === "object" && !Array.isArray(stored) ? stored : {};
 }
 
 function today() {
@@ -216,12 +190,27 @@ export default function TeamStatusTemplatesPage() {
   const [templatesByEvent, setTemplatesByEvent] = useState({});
   const [publicModalOpen, setPublicModalOpen] = useState(false);
   const [toast, setToast] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   useEffect(() => {
-    function load() {
-      const events = getEvents();
-      setActiveEvent(getActiveEvent(events));
-      setTemplatesByEvent(getTemplatesByEvent());
+    async function load() {
+      setLoading(true);
+      setError("");
+      try {
+        const events = await getSupabaseEvents();
+        const { activeEvent } = resolveActiveEventFromEvents(events);
+        const templates = activeEvent?.id ? await listTeamStatusTemplatesByEvent(activeEvent.id) : [];
+
+        setActiveEvent(activeEvent);
+        setTemplatesByEvent(activeEvent?.id ? { [activeEvent.id]: templates } : {});
+      } catch (loadError) {
+        setError(loadError.message || "Unable to load templates.");
+        setActiveEvent(null);
+        setTemplatesByEvent({});
+      } finally {
+        setLoading(false);
+      }
     }
 
     load();
@@ -243,18 +232,11 @@ export default function TeamStatusTemplatesPage() {
     [activeEvent?.id, templatesByEvent]
   );
 
-  function persist(nextTemplates) {
-    const activeEventId = localStorage.getItem(getUserStorageKey(ACTIVE_EVENT_KEY)) || activeEvent?.id;
+  function setTemplatesForActiveEvent(nextTemplates) {
+    const activeEventId = activeEvent?.id;
     if (!activeEventId) return;
 
-    const stored = getTemplatesByEvent();
-    const updated = {
-      ...stored,
-      [activeEventId]: nextTemplates,
-    };
-
-    localStorage.setItem(getUserStorageKey(STORAGE_KEY), JSON.stringify(updated));
-    setTemplatesByEvent(updated);
+    setTemplatesByEvent((current) => ({ ...current, [activeEventId]: nextTemplates }));
     window.dispatchEvent(new Event("rankify-data-changed"));
   }
 
@@ -272,43 +254,53 @@ export default function TeamStatusTemplatesPage() {
     navigate("/dashboard/team-status-templates/new");
   }
 
-  function handleUsePublic(template) {
-    const activeEventId = localStorage.getItem(getUserStorageKey(ACTIVE_EVENT_KEY)) || activeEvent?.id;
+  async function handleUsePublic(template) {
+    const activeEventId = activeEvent?.id;
     if (!activeEventId) {
       alert("Please select an active event first.");
       return;
     }
 
-    const currentTemplates = templatesByEvent[activeEventId] || [];
-    persist([...currentTemplates, createTemplateFromPublic(template, activeEventId)]);
-    setPublicModalOpen(false);
-    showToast("Public template used successfully!");
+    try {
+      const currentTemplates = templatesByEvent[activeEventId] || [];
+      const created = await createTeamStatusTemplate(
+        activeEventId,
+        createTemplateFromPublic(template, activeEventId)
+      );
+      setTemplatesForActiveEvent([created, ...currentTemplates]);
+      setPublicModalOpen(false);
+      showToast("Public template used successfully!");
+    } catch (saveError) {
+      setError(saveError.message || "Unable to use public template.");
+    }
   }
 
-  function handleDuplicate(template) {
+  async function handleDuplicate(template) {
     if (!activeEvent?.id) {
       alert("Please select an active event first.");
       return;
     }
 
-    const now = today();
-    persist([
-      ...templates,
-      {
-        ...template,
-        id: newTemplateId(),
+    try {
+      const duplicated = await duplicateTeamStatusTemplate(template, {
         eventId: activeEvent.id,
         name: `${template.name} Copy`,
-        createdAt: now,
-        updatedAt: now,
-      },
-    ]);
+      });
+      setTemplatesForActiveEvent([duplicated, ...templates]);
+    } catch (duplicateError) {
+      setError(duplicateError.message || "Unable to duplicate template.");
+    }
   }
 
-  function handleDelete(templateId) {
+  async function handleDelete(templateId) {
     const confirmed = window.confirm("Are you sure you want to delete this template?");
     if (!confirmed) return;
-    persist(templates.filter((template) => template.id !== templateId));
+    try {
+      await deleteTeamStatusTemplate(templateId);
+      setTemplatesForActiveEvent(templates.filter((template) => template.id !== templateId));
+    } catch (deleteError) {
+      setError(deleteError.message || "Unable to delete template.");
+    }
   }
 
   return (
@@ -341,8 +333,18 @@ export default function TeamStatusTemplatesPage() {
         </div>
       </div>
 
+      {error && (
+        <div className="app-card mb-4 rounded-lg border border-[var(--app-danger)] p-4 text-sm text-[var(--app-danger)]">
+          {error}
+        </div>
+      )}
+
       {!activeEvent?.id ? (
         <NoActiveEventState />
+      ) : loading ? (
+        <div className="app-card rounded-xl border p-8 text-center">
+          <p className="app-muted text-sm font-semibold">Loading templates...</p>
+        </div>
       ) : templates.length === 0 ? (
         <div className="empty-state">
           <div className="empty-icon">

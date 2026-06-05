@@ -153,10 +153,28 @@ const replaceCertificatePlaceholders = (value, result) => {
 };
 
 const getCertificateText = (element, result) => {
-  if (element.dataSource && element.dataSource !== "manual") {
-    return result?.[element.dataSource] || element.label || fieldLabels[element.dataSource] || "";
+  const firstTextValue = (...values) => {
+    for (const value of values) {
+      if (value !== undefined && value !== null && String(value) !== "") return String(value);
+    }
+    return "";
+  };
+  const key = element.dataSource || element.dataKey || element.field || element.key;
+  if (key && key !== "manual") {
+    return firstTextValue(
+      result?.[key],
+      result?.[element.id],
+      element.content,
+      element.text,
+      element.value,
+      element.label,
+      fieldLabels[key]
+    );
   }
-  return replaceCertificatePlaceholders(element.content || element.label || "", result);
+  return replaceCertificatePlaceholders(
+    firstTextValue(result?.[element.id], element.content, element.text, element.value, element.label),
+    result
+  );
 };
 
 function CertificateCanvas({ template, result, scale = 1, captureId }) {

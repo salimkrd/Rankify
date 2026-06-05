@@ -180,20 +180,26 @@ function formatDate(value) {
 }
 
 function resolveFramedFieldText(field, fieldValues, activeEvent) {
-  const value = fieldValues?.[field.id];
+  const firstTextValue = (...values) => {
+    for (const value of values) {
+      if (value !== undefined && value !== null && String(value) !== "") return String(value);
+    }
+    return "";
+  };
+  const value = fieldValues?.[field.id] ?? fieldValues?.customFields?.[field.id];
   const event = activeEvent || {};
   switch (field.dataSource) {
     case "eventName":
-      return event.name || value || "Event Name";
+      return firstTextValue(event.name, value, field.value, field.text, field.content, field.label, "Event Name");
     case "organizerName":
-      return event.organizer || value || "Organizer Name";
+      return firstTextValue(event.organizer, value, field.value, field.text, field.content, field.label, "Organizer Name");
     case "eventDate":
-      return event.date || value || "May 25";
+      return firstTextValue(event.date, value, field.value, field.text, field.content, field.label, "May 25");
     case "eventLocation":
-      return event.location || value || "Event Location";
+      return firstTextValue(event.location, value, field.value, field.text, field.content, field.label, "Event Location");
     case "manual":
     default:
-      return value ?? field.value ?? field.label ?? "Custom Field";
+      return firstTextValue(value, field.value, field.text, field.content, field.label, "Custom Field");
   }
 }
 
@@ -205,7 +211,7 @@ function initialFieldValues(template) {
   const values = {};
   (template?.customFields || []).forEach((field) => {
     if (field.dataSource === "manual") {
-      values[field.id] = field.value || "";
+      values[field.id] = field.value || field.text || field.content || "";
     }
   });
   return values;

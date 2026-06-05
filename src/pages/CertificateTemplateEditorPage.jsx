@@ -2,11 +2,13 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeft, ChevronDown, ChevronUp, Copy, Plus, Save, Trash2 } from "lucide-react";
 import { useNavigate, useParams } from "react-router-dom";
 import FontFamilySelect from "../components/FontFamilySelect.jsx";
-import { getUserStorageKey } from "../utils/storage.js";
+import { getStoredActiveEventId } from "../services/activeEventService.js";
+import {
+  createCertificateTemplate,
+  getCertificateTemplateById,
+  updateCertificateTemplate,
+} from "../services/certificateTemplatesService.js";
 
-const STORAGE_KEY = "rankify_certificate_templates";
-const EVENTS_KEY = "rankify_events";
-const ACTIVE_EVENT_KEY = "rankify_active_event_id";
 const MAX_IMAGE_SIZE = 1024 * 1024; // 1MB
 
 const scaleOptions = [40, 50, 60, 75, 100];
@@ -39,47 +41,9 @@ const defaultPreviewData = {
   achievementText: "of Achievement",
 };
 
-function safeJsonParse(value, fallback) {
-  try {
-    const parsed = JSON.parse(value || "");
-    return parsed ?? fallback;
-  } catch {
-    return fallback;
-  }
-}
-
-function asArray(value) {
-  if (Array.isArray(value)) return value;
-  if (value && typeof value === "object") {
-    return Object.entries(value).flatMap(([eventId, items]) =>
-      Array.isArray(items) ? items.map((item) => ({ ...item, eventId: item.eventId || eventId })) : []
-    );
-  }
-  return [];
-}
-
 function uid(prefix = "certificate_element") {
   if (window.crypto?.randomUUID) return `${prefix}_${window.crypto.randomUUID()}`;
   return `${prefix}_${Date.now()}_${Math.random().toString(16).slice(2)}`;
-}
-
-function readTemplates() {
-  return asArray(safeJsonParse(localStorage.getItem(STORAGE_KEY), []));
-}
-
-function readEvents() {
-  return asArray(safeJsonParse(localStorage.getItem(getUserStorageKey(EVENTS_KEY)), []));
-}
-
-function getActiveEvent() {
-  const events = readEvents();
-  const activeId = localStorage.getItem(getUserStorageKey(ACTIVE_EVENT_KEY)) || "";
-  return events.find((event) => String(event.id) === String(activeId)) || events[0] || { id: activeId || "default", name: "Active Event" };
-}
-
-function saveTemplates(templates) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(templates));
-  window.dispatchEvent(new Event("rankify-data-changed"));
 }
 
 function textElement(label, dataSource, text, x, y, overrides = {}) {
@@ -150,8 +114,24 @@ function normalizeTemplate(template, activeEvent) {
 }
 
 function getElementText(element, previewData) {
-  if (element.dataSource === "manual") return element.content || element.label || "";
-  return previewData[element.dataSource] || element.label || "";
+  const firstTextValue = (...values) => {
+    for (const value of values) {
+      if (value !== undefined && value !== null && String(value) !== "") return String(value);
+    }
+    return "";
+  };
+  const key = element.dataSource || element.dataKey || element.field || element.key;
+  if (!key || key === "manual") {
+    return firstTextValue(previewData?.[element.id], element.content, element.text, element.value, element.label);
+  }
+  return firstTextValue(
+    previewData?.[key],
+    previewData?.[element.id],
+    element.content,
+    element.text,
+    element.value,
+    element.label
+  );
 }
 
 function NumberInput({ value, onChange, className = "" }) {
@@ -184,23 +164,37 @@ export default function CertificateTemplateEditorPage() {
   const navigate = useNavigate();
   const { templateId } = useParams();
   const isEditMode = Boolean(templateId);
-  const [activeEvent, setActiveEvent] = useState(() => getActiveEvent());
-  const [template, setTemplate] = useState(() => createDefaultTemplate(getActiveEvent()));
+  const [template, setTemplate] = useState(() => createDefaultTemplate({ id: getStoredActiveEventId(), name: "Active Event" }));
   const [selectedId, setSelectedId] = useState("");
   const [scalePercent, setScalePercent] = useState(60);
   const [exampleOpen, setExampleOpen] = useState(true);
   const dragRef = useRef(null);
 
   useEffect(() => {
-    const currentEvent = getActiveEvent();
-    setActiveEvent(currentEvent);
-    const existing = isEditMode
-      ? readTemplates().find((item) => String(item.id) === String(templateId) && String(item.eventId) === String(currentEvent.id))
-      : null;
-    const nextTemplate = normalizeTemplate(existing, currentEvent);
-    setTemplate(nextTemplate);
-    setSelectedId(nextTemplate.elements[0]?.id || "");
-  }, [isEditMode, templateId]);
+    let cancelled = false;
+
+    async function loadTemplate() {
+      const currentEvent = { id: getStoredActiveEventId(), name: "Active Event" };
+
+      try {
+        const existing = isEditMode ? await getCertificateTemplateById(templateId) : null;
+        if (cancelled) return;
+        const nextTemplate = normalizeTemplate(existing, currentEvent);
+        setTemplate(nextTemplate);
+        setSelectedId(nextTemplate.elements[0]?.id || "");
+      } catch (error) {
+        if (cancelled) return;
+        alert("Unable to load this certificate template.");
+        console.error("Failed to load certificate template:", error);
+        navigate("/dashboard/certificate-templates");
+      }
+    }
+
+    loadTemplate();
+    return () => {
+      cancelled = true;
+    };
+  }, [isEditMode, navigate, templateId]);
 
   const selectedElement = useMemo(
     () => template.elements.find((element) => element.id === selectedId) || null,
@@ -357,23 +351,38 @@ export default function CertificateTemplateEditorPage() {
     reader.readAsDataURL(file);
   }
 
-  function handleSave() {
-    const templates = readTemplates();
+  async function handleSave() {
+    const activeEventId = getStoredActiveEventId();
+    if (!activeEventId) {
+      alert("Please create or select an event first before creating a template.");
+      return;
+    }
+
+    if (!template.name.trim()) {
+      alert("Template name is required.");
+      return;
+    }
+
     const now = new Date().toISOString();
     const cleanTemplate = {
       ...template,
-      eventId: activeEvent.id,
+      eventId: activeEventId,
       updatedAt: now,
       createdAt: template.createdAt || now,
     };
 
-    if (isEditMode) {
-      saveTemplates(templates.map((item) => (String(item.id) === String(templateId) ? cleanTemplate : item)));
-    } else {
-      saveTemplates([...templates, { ...cleanTemplate, id: cleanTemplate.id || uid("certificate_template") }]);
+    try {
+      if (isEditMode) {
+        await updateCertificateTemplate(templateId, cleanTemplate);
+      } else {
+        await createCertificateTemplate(activeEventId, { ...cleanTemplate, id: cleanTemplate.id || uid("certificate_template") });
+      }
+      window.dispatchEvent(new Event("rankify-data-changed"));
+      navigate("/dashboard/certificate-templates");
+    } catch (error) {
+      alert("Unable to save certificate template. Please try again.");
+      console.error("Failed to save certificate template:", error);
     }
-
-    navigate("/dashboard/certificate-templates");
   }
 
   async function copyTemplateJson() {
