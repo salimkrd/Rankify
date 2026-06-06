@@ -5,6 +5,7 @@ import NoActiveEventState from "../components/NoActiveEventState.jsx";
 import { getEvents } from "../services/eventsService.js";
 import { resolveActiveEventFromEvents } from "../services/activeEventService.js";
 import { listFramedPostTemplatesByEvent } from "../services/framedPostTemplatesService.js";
+import { DASHBOARD_CACHE_EVENT } from "../services/dashboardCache.js";
 import {
   createFramedPost,
   deleteFramedPost,
@@ -261,11 +262,11 @@ export default function FramedPostsPage() {
   useEffect(() => {
     let cancelled = false;
 
-    async function sync() {
+    async function sync(options = {}) {
       setError("");
       setLoading(true);
       try {
-        const nextEvents = await getEvents();
+        const nextEvents = await getEvents(options);
         if (cancelled) return;
         const { activeEventId: validActiveId, activeEvent: event } = resolveActiveEventFromEvents(nextEvents);
         let eventTemplates = [];
@@ -296,17 +297,22 @@ export default function FramedPostsPage() {
 
     sync();
 
+    const syncFromCache = () => sync({ background: false });
+    window.addEventListener("focus", sync);
     window.addEventListener("storage", sync);
     window.addEventListener("rankify-active-event-changed", sync);
     window.addEventListener("rankify-data-changed", sync);
     window.addEventListener("rankify-events-changed", sync);
+    window.addEventListener(DASHBOARD_CACHE_EVENT, syncFromCache);
 
     return () => {
       cancelled = true;
+      window.removeEventListener("focus", sync);
       window.removeEventListener("storage", sync);
       window.removeEventListener("rankify-active-event-changed", sync);
       window.removeEventListener("rankify-data-changed", sync);
       window.removeEventListener("rankify-events-changed", sync);
+      window.removeEventListener(DASHBOARD_CACHE_EVENT, syncFromCache);
     };
   }, []);
 

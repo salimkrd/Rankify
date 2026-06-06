@@ -8,6 +8,7 @@ import { getTeamsByEvent } from "../services/teamsService.js";
 import { getCategoriesByEvent } from "../services/categoriesService.js";
 import { getParticipantsByEvent } from "../services/participantsService.js";
 import { listProgramTemplatesByEvent } from "../services/programTemplatesService.js";
+import { DASHBOARD_CACHE_EVENT } from "../services/dashboardCache.js";
 import {
   createProgramResult,
   deleteProgramResult,
@@ -668,11 +669,11 @@ function ProgramResultsPage() {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    async function load() {
+    async function load(options = {}) {
       setLoading(true);
       setError("");
       try {
-        const events = await getEvents();
+        const events = await getEvents(options);
         const { activeEvent: normalizedEvent } = resolveActiveEventFromEvents(events);
 
         if (!normalizedEvent?.id) {
@@ -715,11 +716,20 @@ function ProgramResultsPage() {
       }
     }
     load();
+    const loadFromCache = () => load({ background: false });
+    window.addEventListener("focus", load);
     window.addEventListener("storage", load);
+    window.addEventListener("rankify-active-event-changed", load);
     window.addEventListener("rankify-data-changed", load);
+    window.addEventListener("rankify-events-changed", load);
+    window.addEventListener(DASHBOARD_CACHE_EVENT, loadFromCache);
     return () => {
+      window.removeEventListener("focus", load);
       window.removeEventListener("storage", load);
+      window.removeEventListener("rankify-active-event-changed", load);
       window.removeEventListener("rankify-data-changed", load);
+      window.removeEventListener("rankify-events-changed", load);
+      window.removeEventListener(DASHBOARD_CACHE_EVENT, loadFromCache);
     };
   }, []);
 

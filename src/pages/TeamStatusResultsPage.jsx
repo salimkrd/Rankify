@@ -7,6 +7,7 @@ import { getEvents } from "../services/eventsService.js";
 import { resolveActiveEventFromEvents } from "../services/activeEventService.js";
 import { getTeamsByEvent } from "../services/teamsService.js";
 import { listTeamStatusTemplatesByEvent } from "../services/teamStatusTemplatesService.js";
+import { DASHBOARD_CACHE_EVENT } from "../services/dashboardCache.js";
 import {
   createTeamStatusResult,
   deleteTeamStatusResult,
@@ -65,11 +66,11 @@ export default function TeamStatusResultsPage() {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    async function load() {
+    async function load(options = {}) {
       setLoading(true);
       setError("");
       try {
-        const events = await getEvents();
+        const events = await getEvents(options);
         const { activeEvent: event } = resolveActiveEventFromEvents(events);
 
         if (!event?.id) {
@@ -97,15 +98,20 @@ export default function TeamStatusResultsPage() {
       }
     }
     load();
+    const loadFromCache = () => load({ background: false });
+    window.addEventListener("focus", load);
     window.addEventListener("storage", load);
     window.addEventListener("rankify-active-event-changed", load);
     window.addEventListener("rankify-data-changed", load);
     window.addEventListener("rankify-events-changed", load);
+    window.addEventListener(DASHBOARD_CACHE_EVENT, loadFromCache);
     return () => {
+      window.removeEventListener("focus", load);
       window.removeEventListener("storage", load);
       window.removeEventListener("rankify-active-event-changed", load);
       window.removeEventListener("rankify-data-changed", load);
       window.removeEventListener("rankify-events-changed", load);
+      window.removeEventListener(DASHBOARD_CACHE_EVENT, loadFromCache);
     };
   }, []);
 

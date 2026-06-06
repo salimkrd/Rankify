@@ -7,6 +7,7 @@ import { resolveActiveEventFromEvents } from "../services/activeEventService.js"
 import { getTeamsByEvent } from "../services/teamsService.js";
 import { getCategoriesByEvent } from "../services/categoriesService.js";
 import { listCertificateTemplatesByEvent } from "../services/certificateTemplatesService.js";
+import { DASHBOARD_CACHE_EVENT } from "../services/dashboardCache.js";
 import {
   createCertificateResult,
   deleteCertificateResult,
@@ -190,11 +191,11 @@ export default function CertificateResultsPage() {
   useEffect(() => {
     let cancelled = false;
 
-    async function load() {
+    async function load(options = {}) {
       setLoading(true);
       setError("");
       try {
-        const events = await getEvents();
+        const events = await getEvents(options);
         if (cancelled) return;
         const { activeEvent: event } = resolveActiveEventFromEvents(events);
         setActiveEvent(event || null);
@@ -235,16 +236,21 @@ export default function CertificateResultsPage() {
     }
 
     load();
+    const loadFromCache = () => load({ background: false });
+    window.addEventListener("focus", load);
     window.addEventListener("storage", load);
     window.addEventListener("rankify-active-event-changed", load);
     window.addEventListener("rankify-data-changed", load);
     window.addEventListener("rankify-events-changed", load);
+    window.addEventListener(DASHBOARD_CACHE_EVENT, loadFromCache);
     return () => {
       cancelled = true;
+      window.removeEventListener("focus", load);
       window.removeEventListener("storage", load);
       window.removeEventListener("rankify-active-event-changed", load);
       window.removeEventListener("rankify-data-changed", load);
       window.removeEventListener("rankify-events-changed", load);
+      window.removeEventListener(DASHBOARD_CACHE_EVENT, loadFromCache);
     };
   }, []);
 
