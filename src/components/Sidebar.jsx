@@ -26,9 +26,9 @@ import { getTeamsByEvent } from "../services/teamsService.js";
 import { getCategoriesByEvent } from "../services/categoriesService.js";
 import { getParticipantsByEvent } from "../services/participantsService.js";
 import {
-  clearStoredActiveEventId,
-  resolveActiveEventFromEvents,
-  setStoredActiveEventId,
+  clearStoredActiveEventIdForCurrentUser,
+  resolveActiveEventFromEventsForCurrentUser,
+  setStoredActiveEventIdForCurrentUser,
 } from "../services/activeEventService.js";
 import { DASHBOARD_CACHE_EVENT } from "../services/dashboardCache.js";
 import ThemeToggle from "./ThemeToggle.jsx";
@@ -233,7 +233,7 @@ export default function Sidebar({ mobile = false, onNavigate, onClose }) {
         console.error("Unable to load sidebar events.", error);
       }
 
-      const { activeEventId: validActiveEventId } = resolveActiveEventFromEvents(supabaseEvents);
+      const { activeEventId: validActiveEventId } = await resolveActiveEventFromEventsForCurrentUser(supabaseEvents);
 
       if (validActiveEventId) {
         try {
@@ -299,14 +299,20 @@ export default function Sidebar({ mobile = false, onNavigate, onClose }) {
     };
   }, []);
 
-  function handleActiveEventChange(event) {
+  async function handleActiveEventChange(event) {
     const nextEventId = event.target.value;
 
-    if (nextEventId) {
-      setStoredActiveEventId(nextEventId);
-    } else {
-      clearStoredActiveEventId();
+    try {
+      if (nextEventId) {
+        await setStoredActiveEventIdForCurrentUser(nextEventId);
+      } else {
+        await clearStoredActiveEventIdForCurrentUser();
+      }
+    } catch (error) {
+      console.error("Unable to save active event selection.", error);
+      return;
     }
+
     setActiveEventId(nextEventId);
     window.dispatchEvent(new Event("rankify-active-event-changed"));
   }

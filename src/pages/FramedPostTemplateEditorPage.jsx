@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState, useRef } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, ChevronDown, ChevronUp, Copy, Image, PlusCircle, Save, Trash2, X } from "lucide-react";
 import FontFamilySelect from "../components/FontFamilySelect.jsx";
-import { getStoredActiveEventId } from "../services/activeEventService.js";
+import { getStoredActiveEventId, getStoredActiveEventIdForCurrentUser } from "../services/activeEventService.js";
 import {
   createFramedPostTemplate,
   getFramedPostTemplateById,
@@ -150,7 +150,7 @@ export default function FramedPostTemplateEditorPage() {
 
     async function loadTemplate() {
       setIsLoaded(false);
-      const storedActiveEventId = getStoredActiveEventId();
+      const storedActiveEventId = await getStoredActiveEventIdForCurrentUser();
       setActiveEventId(storedActiveEventId);
 
       if (!templateId) {
@@ -197,8 +197,13 @@ export default function FramedPostTemplateEditorPage() {
   }, [navigate, templateId]);
 
   useEffect(() => {
-    function syncActiveEvent() {
-      setActiveEventId(getStoredActiveEventId());
+    async function syncActiveEvent() {
+      try {
+        setActiveEventId(await getStoredActiveEventIdForCurrentUser());
+      } catch (error) {
+        console.error("Unable to sync active event.", error);
+        setActiveEventId("");
+      }
     }
 
     window.addEventListener("storage", syncActiveEvent);
@@ -401,7 +406,7 @@ export default function FramedPostTemplateEditorPage() {
       return;
     }
 
-    const currentActiveEventId = getStoredActiveEventId();
+    const currentActiveEventId = await getStoredActiveEventIdForCurrentUser();
     if (!currentActiveEventId) {
       alert("Please create or select an event first before creating a template.");
       return;

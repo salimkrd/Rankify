@@ -1,15 +1,15 @@
 import { supabase } from "../lib/supabaseClient.js";
 import { clearStoredActiveEventId } from "../services/activeEventService.js";
 
-export function saveUserSession({ name, email }) {
-  localStorage.setItem("rankify_user", JSON.stringify({ name, email }));
+export function saveUserSession({ id, name, email }) {
+  localStorage.setItem("rankify_user", JSON.stringify({ id, name, email }));
   localStorage.setItem("rankify_is_logged_in", "true");
 }
 
 export function clearUserSession() {
+  clearStoredActiveEventId();
   localStorage.removeItem("rankify_user");
   localStorage.removeItem("rankify_is_logged_in");
-  clearStoredActiveEventId();
 }
 
 export async function logoutWithSupabase() {
@@ -67,6 +67,7 @@ export function userFromSupabaseUser(user, fallback = {}) {
     "User";
 
   return {
+    id: user?.id || fallback.id || "",
     name,
     email: user?.email || fallback.email || "",
   };

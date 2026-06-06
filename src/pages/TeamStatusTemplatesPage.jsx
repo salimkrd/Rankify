@@ -4,7 +4,7 @@ import { Copy, Edit, FileText, Plus, Trash2, X } from "lucide-react";
 import TeamStatusTemplatePreview from "../components/TeamStatusTemplatePreview";
 import NoActiveEventState from "../components/NoActiveEventState.jsx";
 import { getEvents as getSupabaseEvents } from "../services/eventsService.js";
-import { resolveActiveEventFromEvents } from "../services/activeEventService.js";
+import { resolveActiveEventFromEventsForCurrentUser } from "../services/activeEventService.js";
 import {
   createTeamStatusTemplate,
   deleteTeamStatusTemplate,
@@ -199,7 +199,7 @@ export default function TeamStatusTemplatesPage() {
       setError("");
       try {
         const events = await getSupabaseEvents();
-        const { activeEvent } = resolveActiveEventFromEvents(events);
+        const { activeEvent } = await resolveActiveEventFromEventsForCurrentUser(events);
         const templates = activeEvent?.id ? await listTeamStatusTemplatesByEvent(activeEvent.id) : [];
 
         setActiveEvent(activeEvent);

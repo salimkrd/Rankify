@@ -4,7 +4,7 @@ import { BarChart3, Download, Edit, Eye, MoreVertical, Plus, Trash2, X } from "l
 import TeamStatusTemplatePreview from "../components/TeamStatusTemplatePreview";
 import NoActiveEventState from "../components/NoActiveEventState.jsx";
 import { getEvents } from "../services/eventsService.js";
-import { resolveActiveEventFromEvents } from "../services/activeEventService.js";
+import { resolveActiveEventFromEventsForCurrentUser } from "../services/activeEventService.js";
 import { getTeamsByEvent } from "../services/teamsService.js";
 import { listTeamStatusTemplatesByEvent } from "../services/teamStatusTemplatesService.js";
 import { DASHBOARD_CACHE_EVENT } from "../services/dashboardCache.js";
@@ -71,7 +71,7 @@ export default function TeamStatusResultsPage() {
       setError("");
       try {
         const events = await getEvents(options);
-        const { activeEvent: event } = resolveActiveEventFromEvents(events);
+        const { activeEvent: event } = await resolveActiveEventFromEventsForCurrentUser(events);
 
         if (!event?.id) {
           setActiveEvent(null);

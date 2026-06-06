@@ -3,7 +3,7 @@ import { createRoot } from "react-dom/client";
 import { Download, Edit, Eye, FileText, Plus, Trash2, X } from "lucide-react";
 import NoActiveEventState from "../components/NoActiveEventState.jsx";
 import { getEvents } from "../services/eventsService.js";
-import { resolveActiveEventFromEvents } from "../services/activeEventService.js";
+import { resolveActiveEventFromEventsForCurrentUser } from "../services/activeEventService.js";
 import { getTeamsByEvent } from "../services/teamsService.js";
 import { getCategoriesByEvent } from "../services/categoriesService.js";
 import { listCertificateTemplatesByEvent } from "../services/certificateTemplatesService.js";
@@ -197,7 +197,7 @@ export default function CertificateResultsPage() {
       try {
         const events = await getEvents(options);
         if (cancelled) return;
-        const { activeEvent: event } = resolveActiveEventFromEvents(events);
+        const { activeEvent: event } = await resolveActiveEventFromEventsForCurrentUser(events);
         setActiveEvent(event || null);
 
         if (!event?.id) {

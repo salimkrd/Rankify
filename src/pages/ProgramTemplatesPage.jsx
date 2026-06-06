@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Copy, Edit, FilePlus2, ImageIcon, Plus, Trash2, X } from "lucide-react";
 import NoActiveEventState from "../components/NoActiveEventState.jsx";
 import { getEvents } from "../services/eventsService.js";
-import { resolveActiveEventFromEvents } from "../services/activeEventService.js";
+import { resolveActiveEventFromEventsForCurrentUser } from "../services/activeEventService.js";
 import {
   createProgramTemplate,
   deleteProgramTemplate,
@@ -513,7 +513,7 @@ export default function ProgramTemplatesPage() {
       setError("");
       try {
         const storedEvents = await getEvents();
-        const { activeEventId: validActiveId } = resolveActiveEventFromEvents(storedEvents);
+        const { activeEventId: validActiveId } = await resolveActiveEventFromEventsForCurrentUser(storedEvents);
         const templates = validActiveId ? await listProgramTemplatesByEvent(validActiveId) : [];
 
         setEvents(storedEvents);

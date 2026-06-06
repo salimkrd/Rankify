@@ -2,9 +2,9 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { BarChart3, FileText, Image, Key, Tags, Trophy, Users } from "lucide-react";
 import { getUserStorageKey } from "../utils/storage.js";
+import { resolveActiveEventFromEventsForCurrentUser } from "../services/activeEventService.js";
+import { getEvents } from "../services/eventsService.js";
 
-const EVENTS_KEY = "rankify_events";
-const ACTIVE_EVENT_KEY = "rankify_active_event_id";
 const TEAMS_KEY = "rankify_teams";
 const CATEGORIES_KEY = "rankify_categories";
 const PROGRAM_TEMPLATES_KEY = "rankify_program_templates";
@@ -87,11 +87,6 @@ function safeJsonParse(value, fallback) {
   }
 }
 
-function getStoredArray(key) {
-  const storedValue = safeJsonParse(localStorage.getItem(getUserStorageKey(key)), []);
-  return Array.isArray(storedValue) ? storedValue : [];
-}
-
 function countItemsForEvent(key, activeEventId) {
   if (!activeEventId) return 0;
 
@@ -109,10 +104,24 @@ function countItemsForEvent(key, activeEventId) {
   return 0;
 }
 
-function loadDashboardData() {
-  const events = getStoredArray(EVENTS_KEY);
-  const activeEventId = localStorage.getItem(getUserStorageKey(ACTIVE_EVENT_KEY)) || "";
-  const activeEvent = events.find((event) => event.id === activeEventId) || null;
+function emptyDashboardData() {
+  return {
+    activeEventName: "No active event",
+    counts: {
+      programTemplates: 0,
+      programResults: 0,
+      teamStatusTemplates: 0,
+      teamStatusResults: 0,
+      framedPostTemplates: 0,
+      teams: 0,
+      categories: 0,
+    },
+  };
+}
+
+async function loadDashboardData() {
+  const events = await getEvents({ background: false });
+  const { activeEventId, activeEvent } = await resolveActiveEventFromEventsForCurrentUser(events);
 
   return {
     activeEventName: activeEvent?.name || "No active event",
@@ -161,17 +170,24 @@ function StatCard({ card }) {
 }
 
 export default function DashboardHome() {
-  const [dashboardData, setDashboardData] = useState(() => loadDashboardData());
+  const [dashboardData, setDashboardData] = useState(() => emptyDashboardData());
   const [userName, setUserName] = useState(() => getStoredUserName());
 
   useEffect(() => {
-    function syncDashboardData() {
-      setDashboardData(loadDashboardData());
+    async function syncDashboardData() {
+      try {
+        setDashboardData(await loadDashboardData());
+      } catch (error) {
+        console.error("Unable to load dashboard overview.", error);
+        setDashboardData(emptyDashboardData());
+      }
     }
 
     function syncUserName() {
       setUserName(getStoredUserName());
     }
+
+    syncDashboardData();
 
     window.addEventListener("storage", syncDashboardData);
     window.addEventListener("storage", syncUserName);

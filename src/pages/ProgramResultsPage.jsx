@@ -3,7 +3,7 @@ import { createRoot } from "react-dom/client";
 import { BarChart3, Download, Edit, Eye, Plus, Trash2, X } from "lucide-react";
 import NoActiveEventState from "../components/NoActiveEventState.jsx";
 import { getEvents } from "../services/eventsService.js";
-import { resolveActiveEventFromEvents } from "../services/activeEventService.js";
+import { resolveActiveEventFromEventsForCurrentUser } from "../services/activeEventService.js";
 import { getTeamsByEvent } from "../services/teamsService.js";
 import { getCategoriesByEvent } from "../services/categoriesService.js";
 import { getParticipantsByEvent } from "../services/participantsService.js";
@@ -674,7 +674,7 @@ function ProgramResultsPage() {
       setError("");
       try {
         const events = await getEvents(options);
-        const { activeEvent: normalizedEvent } = resolveActiveEventFromEvents(events);
+        const { activeEvent: normalizedEvent } = await resolveActiveEventFromEventsForCurrentUser(events);
 
         if (!normalizedEvent?.id) {
           setActiveEvent(null);

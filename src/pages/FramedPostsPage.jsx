@@ -3,7 +3,7 @@ import html2canvas from "html2canvas";
 import { Download, Edit, Eye, FilePlus2, Plus, RefreshCw, Trash2, X } from "lucide-react";
 import NoActiveEventState from "../components/NoActiveEventState.jsx";
 import { getEvents } from "../services/eventsService.js";
-import { resolveActiveEventFromEvents } from "../services/activeEventService.js";
+import { resolveActiveEventFromEventsForCurrentUser } from "../services/activeEventService.js";
 import { listFramedPostTemplatesByEvent } from "../services/framedPostTemplatesService.js";
 import { DASHBOARD_CACHE_EVENT } from "../services/dashboardCache.js";
 import {
@@ -268,7 +268,7 @@ export default function FramedPostsPage() {
       try {
         const nextEvents = await getEvents(options);
         if (cancelled) return;
-        const { activeEventId: validActiveId, activeEvent: event } = resolveActiveEventFromEvents(nextEvents);
+        const { activeEventId: validActiveId, activeEvent: event } = await resolveActiveEventFromEventsForCurrentUser(nextEvents);
         let eventTemplates = [];
         let eventPosts = [];
 

@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeft, ChevronDown, ChevronUp, Copy, Plus, Save, Trash2 } from "lucide-react";
 import { useNavigate, useParams } from "react-router-dom";
 import FontFamilySelect from "../components/FontFamilySelect.jsx";
-import { getStoredActiveEventId } from "../services/activeEventService.js";
+import { getStoredActiveEventId, getStoredActiveEventIdForCurrentUser } from "../services/activeEventService.js";
 import {
   createCertificateTemplate,
   getCertificateTemplateById,
@@ -352,7 +352,7 @@ export default function CertificateTemplateEditorPage() {
   }
 
   async function handleSave() {
-    const activeEventId = getStoredActiveEventId();
+    const activeEventId = await getStoredActiveEventIdForCurrentUser();
     if (!activeEventId) {
       alert("Please create or select an event first before creating a template.");
       return;

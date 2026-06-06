@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Edit, MoreVertical, Plus, Trash2, X } from "lucide-react";
 import NoActiveEventState from "../components/NoActiveEventState.jsx";
 import { getEvents } from "../services/eventsService.js";
-import { resolveActiveEventFromEvents } from "../services/activeEventService.js";
+import { resolveActiveEventFromEventsForCurrentUser } from "../services/activeEventService.js";
 import { DASHBOARD_CACHE_EVENT } from "../services/dashboardCache.js";
 import { createTeam, deleteTeam, getTeamsByEvent, updateTeam } from "../services/teamsService.js";
 
@@ -23,7 +23,7 @@ export default function TeamsPage() {
       setError("");
       try {
         const storedEvents = await getEvents(options);
-        const { activeEventId: validActiveId } = resolveActiveEventFromEvents(storedEvents);
+        const { activeEventId: validActiveId } = await resolveActiveEventFromEventsForCurrentUser(storedEvents);
         const eventTeams = validActiveId ? await getTeamsByEvent(validActiveId, options) : [];
 
         setEvents(storedEvents);

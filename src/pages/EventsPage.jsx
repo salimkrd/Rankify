@@ -1,9 +1,9 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Copy, Edit, MoreVertical, Plug, Plus, Trash2, X } from "lucide-react";
 import {
-  clearStoredActiveEventId,
-  resolveActiveEventFromEvents,
-  setStoredActiveEventId,
+  clearStoredActiveEventIdForCurrentUser,
+  resolveActiveEventFromEventsForCurrentUser,
+  setStoredActiveEventIdForCurrentUser,
 } from "../services/activeEventService.js";
 import { DASHBOARD_CACHE_EVENT } from "../services/dashboardCache.js";
 import { createEvent, deleteEvent, getEvents, updateEvent } from "../services/eventsService.js";
@@ -39,7 +39,7 @@ export default function EventsPage() {
       try {
         const stored = await getEvents(options);
         setEvents(stored);
-        setActiveEventId(resolveActiveEventFromEvents(stored).activeEventId);
+        setActiveEventId((await resolveActiveEventFromEventsForCurrentUser(stored)).activeEventId);
       } catch (loadError) {
         setError(loadError.message || "Unable to load events.");
       } finally {
@@ -147,7 +147,7 @@ export default function EventsPage() {
       notifyEventsChanged();
 
       if (!activeEventId) {
-        setStoredActiveEventId(newEvent.id);
+        await setStoredActiveEventIdForCurrentUser(newEvent.id);
         setActiveEventId(newEvent.id);
         window.dispatchEvent(new Event("rankify-active-event-changed"));
       }
@@ -158,8 +158,13 @@ export default function EventsPage() {
     }
   }
 
-  function handleSelectEvent(eventId) {
-    setStoredActiveEventId(eventId);
+  async function handleSelectEvent(eventId) {
+    try {
+      await setStoredActiveEventIdForCurrentUser(eventId);
+    } catch (error) {
+      setError(error.message || "Unable to select active event.");
+      return;
+    }
     setActiveEventId(eventId);
     setOpenMenuId("");
     window.dispatchEvent(new Event("rankify-active-event-changed"));
@@ -176,7 +181,7 @@ export default function EventsPage() {
       notifyEventsChanged();
 
       if (activeEventId === eventId) {
-        clearStoredActiveEventId();
+        await clearStoredActiveEventIdForCurrentUser();
         setActiveEventId("");
         window.dispatchEvent(new Event("rankify-active-event-changed"));
       }

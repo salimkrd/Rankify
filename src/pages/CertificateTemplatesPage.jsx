@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Copy, Edit, FileText, Plus, Trash2, X } from "lucide-react";
 import NoActiveEventState from "../components/NoActiveEventState.jsx";
 import { getEvents } from "../services/eventsService.js";
-import { resolveActiveEventFromEvents } from "../services/activeEventService.js";
+import { resolveActiveEventFromEventsForCurrentUser } from "../services/activeEventService.js";
 import {
   deleteCertificateTemplate,
   duplicateCertificateTemplate,
@@ -130,7 +130,7 @@ export default function CertificateTemplatesPage() {
       setError("");
       try {
         const events = await getEvents();
-        const { activeEvent } = resolveActiveEventFromEvents(events);
+        const { activeEvent } = await resolveActiveEventFromEventsForCurrentUser(events);
         const eventTemplates = activeEvent?.id ? await listCertificateTemplatesByEvent(activeEvent.id) : [];
 
         setActiveEvent(activeEvent);

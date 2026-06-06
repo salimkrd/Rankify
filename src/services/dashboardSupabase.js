@@ -8,6 +8,19 @@ export async function getCurrentUserId() {
 
   if (error) throw error;
   if (!user?.id) throw new Error("Please sign in again to continue.");
+  try {
+    const storedUser = JSON.parse(localStorage.getItem("rankify_user") || "null");
+    localStorage.setItem(
+      "rankify_user",
+      JSON.stringify({
+        ...(storedUser && typeof storedUser === "object" ? storedUser : {}),
+        id: user.id,
+        email: user.email || storedUser?.email || "",
+      })
+    );
+  } catch {
+    localStorage.setItem("rankify_user", JSON.stringify({ id: user.id, email: user.email || "" }));
+  }
   return user.id;
 }
 
@@ -23,4 +36,3 @@ export async function runSupabaseQuery(query) {
   if (error) throw error;
   return data;
 }
-

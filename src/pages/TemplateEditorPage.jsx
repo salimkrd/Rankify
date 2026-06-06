@@ -17,7 +17,7 @@ import {
   X,
 } from "lucide-react";
 import FontFamilySelect from "../components/FontFamilySelect";
-import { getStoredActiveEventId } from "../services/activeEventService.js";
+import { getStoredActiveEventIdForCurrentUser } from "../services/activeEventService.js";
 import {
   createProgramTemplate,
   getProgramTemplateById,
@@ -518,7 +518,7 @@ export default function TemplateEditorPage() {
   }
 
   async function saveTemplate() {
-    const activeEventId = getStoredActiveEventId();
+    const activeEventId = await getStoredActiveEventIdForCurrentUser();
     if (!activeEventId) {
       alert("Please select an active event first.");
       return;

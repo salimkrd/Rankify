@@ -13,7 +13,7 @@ import {
 } from "lucide-react";
 import FontFamilySelect from "../components/FontFamilySelect";
 import TeamStatusTemplatePreview from "../components/TeamStatusTemplatePreview";
-import { getStoredActiveEventId } from "../services/activeEventService.js";
+import { getStoredActiveEventId, getStoredActiveEventIdForCurrentUser } from "../services/activeEventService.js";
 import {
   createTeamStatusTemplate,
   getTeamStatusTemplateById,
@@ -644,7 +644,7 @@ export default function TeamStatusTemplateEditorPage() {
 
   async function saveTemplate() {
     try {
-      const activeEventId = getStoredActiveEventId();
+      const activeEventId = await getStoredActiveEventIdForCurrentUser();
       if (!activeEventId) {
         alert("Please create or select an event first before creating a template.");
         return;
