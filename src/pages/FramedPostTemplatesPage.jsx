@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Edit, Grid3X3, Plus, Trash2 } from "lucide-react";
 import NoActiveEventState from "../components/NoActiveEventState.jsx";
-import { resolveActiveEvent } from "../services/activeEventService.js";
+import { useActiveEvent } from "../contexts/ActiveEventContext.jsx";
 import {
   deleteFramedPostTemplate,
   listFramedPostTemplatesByEvent,
@@ -17,23 +17,22 @@ function formatDate(value) {
 
 export default function FramedPostTemplatesPage() {
   const navigate = useNavigate();
-  const [activeEventId, setActiveEventId] = useState("");
+  const { activeEventId, loading: activeEventLoading } = useActiveEvent();
   const [templates, setTemplates] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
   useEffect(() => {
     async function syncTemplates() {
+      if (activeEventLoading) return;
+
       setLoading(true);
       setError("");
       try {
-        const { activeEventId: eventId } = await resolveActiveEvent();
-        const eventTemplates = eventId ? await listFramedPostTemplatesByEvent(eventId) : [];
-        setActiveEventId(eventId);
+        const eventTemplates = activeEventId ? await listFramedPostTemplatesByEvent(activeEventId) : [];
         setTemplates(eventTemplates);
       } catch (loadError) {
         setError(loadError.message || "Unable to load templates.");
-        setActiveEventId("");
         setTemplates([]);
       } finally {
         setLoading(false);
@@ -53,7 +52,7 @@ export default function FramedPostTemplatesPage() {
       window.removeEventListener("rankify-data-changed", syncTemplates);
       window.removeEventListener("rankify-events-changed", syncTemplates);
     };
-  }, []);
+  }, [activeEventId, activeEventLoading]);
 
   const hasTemplates = templates.length > 0;
   const hasActiveEvent = Boolean(activeEventId);
@@ -101,7 +100,11 @@ export default function FramedPostTemplatesPage() {
             {error}
           </div>
         )}
-        {!hasActiveEvent ? (
+        {!hasActiveEvent && activeEventLoading ? (
+          <div className="app-card rounded-xl border p-8 text-center">
+            <p className="app-muted text-sm font-semibold">Loading templates...</p>
+          </div>
+        ) : !hasActiveEvent ? (
           <NoActiveEventState />
         ) : loading ? (
           <div className="app-card rounded-xl border p-8 text-center">

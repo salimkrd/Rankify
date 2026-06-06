@@ -2,8 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { BarChart3, Download, Edit, Eye, Plus, Trash2, X } from "lucide-react";
 import NoActiveEventState from "../components/NoActiveEventState.jsx";
-import { getEvents } from "../services/eventsService.js";
-import { resolveActiveEventFromEventsForCurrentUser } from "../services/activeEventService.js";
+import { useActiveEvent } from "../contexts/ActiveEventContext.jsx";
 import { getTeamsByEvent } from "../services/teamsService.js";
 import { getCategoriesByEvent } from "../services/categoriesService.js";
 import { getParticipantsByEvent } from "../services/participantsService.js";
@@ -650,8 +649,8 @@ const renderTemplateWithResult = (template, result) => {
 };
 
 function ProgramResultsPage() {
+  const { activeEvent, loading: activeEventLoading } = useActiveEvent();
   const [results, setResults] = useState([]);
-  const [activeEvent, setActiveEvent] = useState(null);
   const [categories, setCategories] = useState([]);
   const [teams, setTeams] = useState(FALLBACK_TEAMS);
   const [teamOptions, setTeamOptions] = useState(FALLBACK_TEAMS.map((name) => ({ id: name, name })));
@@ -670,14 +669,12 @@ function ProgramResultsPage() {
 
   useEffect(() => {
     async function load(options = {}) {
+      if (activeEventLoading) return;
+
       setLoading(true);
       setError("");
       try {
-        const events = await getEvents(options);
-        const { activeEvent: normalizedEvent } = await resolveActiveEventFromEventsForCurrentUser(events);
-
-        if (!normalizedEvent?.id) {
-          setActiveEvent(null);
+        if (!activeEvent?.id) {
           setCategories([]);
           setTeamOptions(FALLBACK_TEAMS.map((name) => ({ id: name, name })));
           setTeams(FALLBACK_TEAMS);
@@ -688,14 +685,13 @@ function ProgramResultsPage() {
         }
 
         const [eventCategories, eventTeamOptions, eventParticipants, eventTemplates, eventResults] = await Promise.all([
-          getCategoriesByEvent(normalizedEvent.id),
-          getTeamsByEvent(normalizedEvent.id),
-          getParticipantsByEvent(normalizedEvent.id),
-          listProgramTemplatesByEvent(normalizedEvent.id),
-          listProgramResultsByEvent(normalizedEvent.id),
+          getCategoriesByEvent(activeEvent.id, options),
+          getTeamsByEvent(activeEvent.id, options),
+          getParticipantsByEvent(activeEvent.id, options),
+          listProgramTemplatesByEvent(activeEvent.id),
+          listProgramResultsByEvent(activeEvent.id),
         ]);
 
-        setActiveEvent(normalizedEvent);
         setCategories(eventCategories);
         setTeamOptions(eventTeamOptions.length ? eventTeamOptions : FALLBACK_TEAMS.map((name) => ({ id: name, name })));
         setTeams(eventTeamOptions.length ? eventTeamOptions.map((team) => team.name) : FALLBACK_TEAMS);
@@ -704,7 +700,6 @@ function ProgramResultsPage() {
         setResults(eventResults);
       } catch (loadError) {
         setError(loadError.message || "Unable to load program results.");
-        setActiveEvent(null);
         setCategories([]);
         setTeamOptions(FALLBACK_TEAMS.map((name) => ({ id: name, name })));
         setTeams(FALLBACK_TEAMS);
@@ -731,7 +726,7 @@ function ProgramResultsPage() {
       window.removeEventListener("rankify-events-changed", load);
       window.removeEventListener(DASHBOARD_CACHE_EVENT, loadFromCache);
     };
-  }, []);
+  }, [activeEvent?.id, activeEventLoading]);
 
   const saveResults = (next) => {
     setResults(next);
@@ -1167,7 +1162,9 @@ function ProgramResultsPage() {
         <button className="primary-btn header-btn" onClick={openCreate} disabled={!hasActiveEvent}><Plus size={18} strokeWidth={2} aria-hidden="true" />Create New Result Poster</button>
       </div>
 
-      {!hasActiveEvent ? (
+      {!hasActiveEvent && activeEventLoading ? (
+        <section className="empty-state"><p>Loading results...</p></section>
+      ) : !hasActiveEvent ? (
         <NoActiveEventState />
       ) : <><section className="filter-card">
         <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search your results..." />

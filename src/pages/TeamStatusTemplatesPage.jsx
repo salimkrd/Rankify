@@ -3,8 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Copy, Edit, FileText, Plus, Trash2, X } from "lucide-react";
 import TeamStatusTemplatePreview from "../components/TeamStatusTemplatePreview";
 import NoActiveEventState from "../components/NoActiveEventState.jsx";
-import { getEvents as getSupabaseEvents } from "../services/eventsService.js";
-import { resolveActiveEventFromEventsForCurrentUser } from "../services/activeEventService.js";
+import { useActiveEvent } from "../contexts/ActiveEventContext.jsx";
 import {
   createTeamStatusTemplate,
   deleteTeamStatusTemplate,
@@ -186,7 +185,7 @@ function SchemaPreview({ template }) {
 
 export default function TeamStatusTemplatesPage() {
   const navigate = useNavigate();
-  const [activeEvent, setActiveEvent] = useState(null);
+  const { activeEvent, loading: activeEventLoading } = useActiveEvent();
   const [templatesByEvent, setTemplatesByEvent] = useState({});
   const [publicModalOpen, setPublicModalOpen] = useState(false);
   const [toast, setToast] = useState("");
@@ -195,18 +194,16 @@ export default function TeamStatusTemplatesPage() {
 
   useEffect(() => {
     async function load() {
+      if (activeEventLoading) return;
+
       setLoading(true);
       setError("");
       try {
-        const events = await getSupabaseEvents();
-        const { activeEvent } = await resolveActiveEventFromEventsForCurrentUser(events);
         const templates = activeEvent?.id ? await listTeamStatusTemplatesByEvent(activeEvent.id) : [];
 
-        setActiveEvent(activeEvent);
         setTemplatesByEvent(activeEvent?.id ? { [activeEvent.id]: templates } : {});
       } catch (loadError) {
         setError(loadError.message || "Unable to load templates.");
-        setActiveEvent(null);
         setTemplatesByEvent({});
       } finally {
         setLoading(false);
@@ -225,7 +222,7 @@ export default function TeamStatusTemplatesPage() {
       window.removeEventListener("rankify-data-changed", load);
       window.removeEventListener("rankify-events-changed", load);
     };
-  }, []);
+  }, [activeEvent?.id, activeEventLoading]);
 
   const templates = useMemo(
     () => (activeEvent?.id ? templatesByEvent[activeEvent.id] || [] : []),
@@ -339,7 +336,11 @@ export default function TeamStatusTemplatesPage() {
         </div>
       )}
 
-      {!activeEvent?.id ? (
+      {!activeEvent?.id && activeEventLoading ? (
+        <div className="app-card rounded-xl border p-8 text-center">
+          <p className="app-muted text-sm font-semibold">Loading templates...</p>
+        </div>
+      ) : !activeEvent?.id ? (
         <NoActiveEventState />
       ) : loading ? (
         <div className="app-card rounded-xl border p-8 text-center">

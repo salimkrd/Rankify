@@ -21,15 +21,10 @@ import {
 } from "lucide-react";
 import { getUserStorageKey } from "../utils/storage.js";
 import { getInitials, logoutWithSupabase } from "../utils/auth.js";
-import { getEvents as getSupabaseEvents } from "../services/eventsService.js";
 import { getTeamsByEvent } from "../services/teamsService.js";
 import { getCategoriesByEvent } from "../services/categoriesService.js";
 import { getParticipantsByEvent } from "../services/participantsService.js";
-import {
-  clearStoredActiveEventIdForCurrentUser,
-  resolveActiveEventFromEventsForCurrentUser,
-  setStoredActiveEventIdForCurrentUser,
-} from "../services/activeEventService.js";
+import { useActiveEvent } from "../contexts/ActiveEventContext.jsx";
 import { DASHBOARD_CACHE_EVENT } from "../services/dashboardCache.js";
 import ThemeToggle from "./ThemeToggle.jsx";
 import logoDark from "../assets/logo/rankify-logo-dark.svg";
@@ -204,8 +199,7 @@ function SidebarLink({ link, counts, onNavigate }) {
 
 export default function Sidebar({ mobile = false, onNavigate, onClose }) {
   const navigate = useNavigate();
-  const [events, setEvents] = useState([]);
-  const [activeEventId, setActiveEventId] = useState("");
+  const { activeEvent, activeEventId, events, selectActiveEvent } = useActiveEvent();
   const [user, setUser] = useState(getStoredUser());
   const [counts, setCounts] = useState({
     events: 0,
@@ -221,19 +215,11 @@ export default function Sidebar({ mobile = false, onNavigate, onClose }) {
   });
 
   useEffect(() => {
-    async function syncActiveEvent(options = {}) {
-      let supabaseEvents = [];
+    async function syncCounts(options = {}) {
       let teamsCount = 0;
       let participantsCount = 0;
       let categoriesCount = 0;
-
-      try {
-        supabaseEvents = await getSupabaseEvents(options);
-      } catch (error) {
-        console.error("Unable to load sidebar events.", error);
-      }
-
-      const { activeEventId: validActiveEventId } = await resolveActiveEventFromEventsForCurrentUser(supabaseEvents);
+      const validActiveEventId = activeEvent?.id || "";
 
       if (validActiveEventId) {
         try {
@@ -250,10 +236,8 @@ export default function Sidebar({ mobile = false, onNavigate, onClose }) {
         }
       }
 
-      setEvents(supabaseEvents);
-      setActiveEventId(validActiveEventId);
       setCounts({
-        events: supabaseEvents.length,
+        events: events.length,
         teams: teamsCount,
         participants: participantsCount,
         categories: categoriesCount,
@@ -270,51 +254,37 @@ export default function Sidebar({ mobile = false, onNavigate, onClose }) {
       });
     }
 
-    syncActiveEvent();
-    const syncFromCache = () => syncActiveEvent({ background: false });
+    syncCounts();
+    const syncFromCache = () => syncCounts({ background: false });
     setUser(getStoredUser());
 
     const syncUser = () => setUser(getStoredUser());
 
-    window.addEventListener("storage", syncActiveEvent);
     window.addEventListener("storage", syncUser);
-    window.addEventListener("rankify-active-event-changed", syncActiveEvent);
-    window.addEventListener("rankify-data-changed", syncActiveEvent);
-    window.addEventListener("rankify-events-changed", syncActiveEvent);
+    window.addEventListener("rankify-data-changed", syncCounts);
     window.addEventListener(DASHBOARD_CACHE_EVENT, syncFromCache);
 
     const refreshInterval = window.setInterval(() => {
-      syncActiveEvent();
+      syncCounts();
       syncUser();
     }, 1000);
 
     return () => {
-      window.removeEventListener("storage", syncActiveEvent);
       window.removeEventListener("storage", syncUser);
-      window.removeEventListener("rankify-active-event-changed", syncActiveEvent);
-      window.removeEventListener("rankify-data-changed", syncActiveEvent);
-      window.removeEventListener("rankify-events-changed", syncActiveEvent);
+      window.removeEventListener("rankify-data-changed", syncCounts);
       window.removeEventListener(DASHBOARD_CACHE_EVENT, syncFromCache);
       window.clearInterval(refreshInterval);
     };
-  }, []);
+  }, [activeEvent?.id, events]);
 
   async function handleActiveEventChange(event) {
     const nextEventId = event.target.value;
 
     try {
-      if (nextEventId) {
-        await setStoredActiveEventIdForCurrentUser(nextEventId);
-      } else {
-        await clearStoredActiveEventIdForCurrentUser();
-      }
+      await selectActiveEvent(nextEventId);
     } catch (error) {
       console.error("Unable to save active event selection.", error);
-      return;
     }
-
-    setActiveEventId(nextEventId);
-    window.dispatchEvent(new Event("rankify-active-event-changed"));
   }
 
   async function handleLogout() {

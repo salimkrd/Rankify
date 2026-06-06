@@ -2,8 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { BarChart3, FileText, Image, Key, Tags, Trophy, Users } from "lucide-react";
 import { getUserStorageKey } from "../utils/storage.js";
-import { resolveActiveEventFromEventsForCurrentUser } from "../services/activeEventService.js";
-import { getEvents } from "../services/eventsService.js";
+import { useActiveEvent } from "../contexts/ActiveEventContext.jsx";
 
 const TEAMS_KEY = "rankify_teams";
 const CATEGORIES_KEY = "rankify_categories";
@@ -119,9 +118,8 @@ function emptyDashboardData() {
   };
 }
 
-async function loadDashboardData() {
-  const events = await getEvents({ background: false });
-  const { activeEventId, activeEvent } = await resolveActiveEventFromEventsForCurrentUser(events);
+function loadDashboardData(activeEvent) {
+  const activeEventId = activeEvent?.id || "";
 
   return {
     activeEventName: activeEvent?.name || "No active event",
@@ -170,13 +168,15 @@ function StatCard({ card }) {
 }
 
 export default function DashboardHome() {
+  const { activeEvent, loading: activeEventLoading } = useActiveEvent();
   const [dashboardData, setDashboardData] = useState(() => emptyDashboardData());
   const [userName, setUserName] = useState(() => getStoredUserName());
 
   useEffect(() => {
     async function syncDashboardData() {
       try {
-        setDashboardData(await loadDashboardData());
+        if (activeEventLoading) return;
+        setDashboardData(loadDashboardData(activeEvent));
       } catch (error) {
         console.error("Unable to load dashboard overview.", error);
         setDashboardData(emptyDashboardData());
@@ -208,7 +208,7 @@ export default function DashboardHome() {
       window.removeEventListener("rankify-events-changed", syncDashboardData);
       window.clearInterval(refreshInterval);
     };
-  }, []);
+  }, [activeEvent, activeEventLoading]);
 
   const cards = useMemo(
     () =>

@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { Outlet } from "react-router-dom";
 import { Menu } from "lucide-react";
 import Sidebar from "../components/Sidebar.jsx";
+import { ActiveEventProvider } from "../contexts/ActiveEventContext.jsx";
 import { getInitials } from "../utils/auth.js";
 import logoDark from "../assets/logo/rankify-logo-dark.svg";
 import logoLight from "../assets/logo/rankify-logo-light.svg";
@@ -30,8 +31,9 @@ export default function DashboardLayout() {
   }, []);
 
   return (
-    <div className="app-page min-h-screen overflow-x-hidden">
-      <header className="app-header sticky top-0 z-30 flex h-[76px] items-center justify-between border-b px-4 lg:hidden">
+    <ActiveEventProvider>
+      <div className="app-page min-h-screen overflow-x-hidden">
+        <header className="app-header sticky top-0 z-30 flex h-[76px] items-center justify-between border-b px-4 lg:hidden">
         <button
           type="button"
           onClick={() => setDrawerOpen(true)}
@@ -55,25 +57,26 @@ export default function DashboardLayout() {
         <div className="app-badge flex h-11 w-11 items-center justify-center rounded-full text-sm font-bold">
           {getInitials(user)}
         </div>
-      </header>
+        </header>
 
-      <Sidebar />
+        <Sidebar />
 
-      {drawerOpen && (
-        <div className="fixed inset-0 z-50 lg:hidden">
-          <button
-            type="button"
-            aria-label="Close sidebar overlay"
-            className="absolute inset-0 bg-black/45"
-            onClick={() => setDrawerOpen(false)}
-          />
-          <Sidebar mobile onClose={() => setDrawerOpen(false)} onNavigate={() => setDrawerOpen(false)} />
-        </div>
-      )}
+        {drawerOpen && (
+          <div className="fixed inset-0 z-50 lg:hidden">
+            <button
+              type="button"
+              aria-label="Close sidebar overlay"
+              className="absolute inset-0 bg-black/45"
+              onClick={() => setDrawerOpen(false)}
+            />
+            <Sidebar mobile onClose={() => setDrawerOpen(false)} onNavigate={() => setDrawerOpen(false)} />
+          </div>
+        )}
 
-      <main className="app-page min-h-screen overflow-x-hidden lg:ml-[260px]">
-        <Outlet />
-      </main>
-    </div>
+        <main className="app-page min-h-screen overflow-x-hidden lg:ml-[260px]">
+          <Outlet />
+        </main>
+      </div>
+    </ActiveEventProvider>
   );
 }

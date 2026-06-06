@@ -2,8 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import html2canvas from "html2canvas";
 import { Download, Edit, Eye, FilePlus2, Plus, RefreshCw, Trash2, X } from "lucide-react";
 import NoActiveEventState from "../components/NoActiveEventState.jsx";
-import { getEvents } from "../services/eventsService.js";
-import { resolveActiveEventFromEventsForCurrentUser } from "../services/activeEventService.js";
+import { useActiveEvent } from "../contexts/ActiveEventContext.jsx";
 import { listFramedPostTemplatesByEvent } from "../services/framedPostTemplatesService.js";
 import { DASHBOARD_CACHE_EVENT } from "../services/dashboardCache.js";
 import {
@@ -235,9 +234,7 @@ function waitForImages(root) {
 }
 
 export default function FramedPostsPage() {
-  const [events, setEvents] = useState([]);
-  const [activeEventId, setActiveEventId] = useState("");
-  const [activeEvent, setActiveEvent] = useState(null);
+  const { activeEvent, activeEventId, loading: activeEventLoading } = useActiveEvent();
   const [templates, setTemplates] = useState([]);
   const [posts, setPosts] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
@@ -263,26 +260,22 @@ export default function FramedPostsPage() {
     let cancelled = false;
 
     async function sync(options = {}) {
+      if (activeEventLoading) return;
+
       setError("");
       setLoading(true);
       try {
-        const nextEvents = await getEvents(options);
-        if (cancelled) return;
-        const { activeEventId: validActiveId, activeEvent: event } = await resolveActiveEventFromEventsForCurrentUser(nextEvents);
         let eventTemplates = [];
         let eventPosts = [];
 
-        if (validActiveId) {
+        if (activeEventId) {
           [eventTemplates, eventPosts] = await Promise.all([
-            listFramedPostTemplatesByEvent(validActiveId),
-            listFramedPostsByEvent(validActiveId),
+            listFramedPostTemplatesByEvent(activeEventId),
+            listFramedPostsByEvent(activeEventId),
           ]);
         }
 
         if (cancelled) return;
-        setEvents(nextEvents);
-        setActiveEventId(validActiveId || "");
-        setActiveEvent(event || null);
         setTemplates(eventTemplates);
         setPosts(eventPosts);
       } catch (err) {
@@ -314,11 +307,7 @@ export default function FramedPostsPage() {
       window.removeEventListener("rankify-events-changed", sync);
       window.removeEventListener(DASHBOARD_CACHE_EVENT, syncFromCache);
     };
-  }, []);
-
-  useEffect(() => {
-    setActiveEvent(events.find((event) => String(event.id) === String(activeEventId)) || null);
-  }, [activeEventId, events]);
+  }, [activeEventId, activeEventLoading]);
 
   const filteredPosts = useMemo(() => {
     let items = [...posts];
@@ -943,7 +932,11 @@ export default function FramedPostsPage() {
           </button>
         </div>
 
-        {!hasActiveEvent ? (
+        {!hasActiveEvent && activeEventLoading ? (
+          <div className="app-card rounded-xl border p-8 text-center">
+            <p className="app-muted text-sm font-semibold">Loading framed posts...</p>
+          </div>
+        ) : !hasActiveEvent ? (
           <NoActiveEventState />
         ) : <>
         <div className="app-card mb-6 rounded-3xl border p-5 shadow-sm">

@@ -2,8 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Copy, Edit, FilePlus2, ImageIcon, Plus, Trash2, X } from "lucide-react";
 import NoActiveEventState from "../components/NoActiveEventState.jsx";
-import { getEvents } from "../services/eventsService.js";
-import { resolveActiveEventFromEventsForCurrentUser } from "../services/activeEventService.js";
+import { useActiveEvent } from "../contexts/ActiveEventContext.jsx";
 import {
   createProgramTemplate,
   deleteProgramTemplate,
@@ -500,8 +499,7 @@ function getCurrentDate() {
 
 export default function ProgramTemplatesPage() {
   const navigate = useNavigate();
-  const [events, setEvents] = useState([]);
-  const [activeEventId, setActiveEventId] = useState("");
+  const { activeEvent, activeEventId, loading: activeEventLoading } = useActiveEvent();
   const [templatesByEvent, setTemplatesByEvent] = useState({});
   const [publicModalOpen, setPublicModalOpen] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -509,20 +507,16 @@ export default function ProgramTemplatesPage() {
 
   useEffect(() => {
     async function syncTemplates() {
+      if (activeEventLoading) return;
+
       setLoading(true);
       setError("");
       try {
-        const storedEvents = await getEvents();
-        const { activeEventId: validActiveId } = await resolveActiveEventFromEventsForCurrentUser(storedEvents);
-        const templates = validActiveId ? await listProgramTemplatesByEvent(validActiveId) : [];
+        const templates = activeEventId ? await listProgramTemplatesByEvent(activeEventId) : [];
 
-        setEvents(storedEvents);
-        setActiveEventId(validActiveId);
-        setTemplatesByEvent(validActiveId ? { [validActiveId]: templates } : {});
+        setTemplatesByEvent(activeEventId ? { [activeEventId]: templates } : {});
       } catch (loadError) {
         setError(loadError.message || "Unable to load templates.");
-        setEvents([]);
-        setActiveEventId("");
         setTemplatesByEvent({});
       } finally {
         setLoading(false);
@@ -540,16 +534,11 @@ export default function ProgramTemplatesPage() {
       window.removeEventListener("rankify-data-changed", syncTemplates);
       window.removeEventListener("rankify-active-event-changed", syncTemplates);
     };
-  }, []);
+  }, [activeEventId, activeEventLoading]);
 
   const visibleTemplates = useMemo(
     () => (activeEventId ? templatesByEvent[activeEventId] || [] : []),
     [activeEventId, templatesByEvent]
-  );
-
-  const activeEvent = useMemo(
-    () => events.find((event) => event.id === activeEventId) || null,
-    [activeEventId, events]
   );
 
   function setTemplatesForActiveEvent(nextTemplates) {
@@ -674,7 +663,11 @@ export default function ProgramTemplatesPage() {
           </div>
         )}
 
-        {!activeEventId ? (
+        {!activeEventId && activeEventLoading ? (
+          <div className="app-card rounded-xl border p-8 text-center">
+            <p className="app-muted text-sm font-semibold">Loading templates...</p>
+          </div>
+        ) : !activeEventId ? (
           <NoActiveEventState />
         ) : loading ? (
           <div className="app-card rounded-xl border p-8 text-center">

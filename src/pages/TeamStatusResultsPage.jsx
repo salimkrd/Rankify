@@ -3,8 +3,7 @@ import { createRoot } from "react-dom/client";
 import { BarChart3, Download, Edit, Eye, MoreVertical, Plus, Trash2, X } from "lucide-react";
 import TeamStatusTemplatePreview from "../components/TeamStatusTemplatePreview";
 import NoActiveEventState from "../components/NoActiveEventState.jsx";
-import { getEvents } from "../services/eventsService.js";
-import { resolveActiveEventFromEventsForCurrentUser } from "../services/activeEventService.js";
+import { useActiveEvent } from "../contexts/ActiveEventContext.jsx";
 import { getTeamsByEvent } from "../services/teamsService.js";
 import { listTeamStatusTemplatesByEvent } from "../services/teamStatusTemplatesService.js";
 import { DASHBOARD_CACHE_EVENT } from "../services/dashboardCache.js";
@@ -50,9 +49,9 @@ function injectResultIntoTemplate(template, result) {
 }
 
 export default function TeamStatusResultsPage() {
+  const { activeEvent, loading: activeEventLoading } = useActiveEvent();
   const [results, setResults] = useState([]);
   const [templates, setTemplates] = useState([]);
-  const [activeEvent, setActiveEvent] = useState(null);
   const [teams, setTeams] = useState([]);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("All Status");
@@ -67,14 +66,12 @@ export default function TeamStatusResultsPage() {
 
   useEffect(() => {
     async function load(options = {}) {
+      if (activeEventLoading) return;
+
       setLoading(true);
       setError("");
       try {
-        const events = await getEvents(options);
-        const { activeEvent: event } = await resolveActiveEventFromEventsForCurrentUser(events);
-
-        if (!event?.id) {
-          setActiveEvent(null);
+        if (!activeEvent?.id) {
           setTemplates([]);
           setTeams([]);
           setResults([]);
@@ -82,12 +79,11 @@ export default function TeamStatusResultsPage() {
         }
 
         const [eventTemplates, eventTeams, eventResults] = await Promise.all([
-          listTeamStatusTemplatesByEvent(event.id),
-          getTeamsByEvent(event.id),
-          listTeamStatusResultsByEvent(event.id),
+          listTeamStatusTemplatesByEvent(activeEvent.id),
+          getTeamsByEvent(activeEvent.id, options),
+          listTeamStatusResultsByEvent(activeEvent.id),
         ]);
 
-        setActiveEvent({ id: String(event.id), name: event.name || event.title || "Active Event" });
         setTemplates(eventTemplates);
         setTeams(eventTeams);
         setResults(eventResults);
@@ -113,7 +109,7 @@ export default function TeamStatusResultsPage() {
       window.removeEventListener("rankify-events-changed", load);
       window.removeEventListener(DASHBOARD_CACHE_EVENT, loadFromCache);
     };
-  }, []);
+  }, [activeEvent?.id, activeEventLoading]);
 
   const saveResults = (next) => {
     if (!activeEvent?.id) return;
@@ -306,7 +302,11 @@ export default function TeamStatusResultsPage() {
         </div>
       </header>
 
-      {!activeEvent?.id ? (
+      {!activeEvent?.id && activeEventLoading ? (
+        <div className="app-card mt-6 rounded-xl border p-8 text-center">
+          <p className="app-muted text-sm font-semibold">Loading statuses...</p>
+        </div>
+      ) : !activeEvent?.id ? (
         <NoActiveEventState />
       ) : <>
       <div className="app-card mt-6 rounded-lg border p-4 shadow-sm">

@@ -1,14 +1,12 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Edit, MoreVertical, Plus, Trash2, X } from "lucide-react";
 import NoActiveEventState from "../components/NoActiveEventState.jsx";
-import { getEvents } from "../services/eventsService.js";
-import { resolveActiveEventFromEventsForCurrentUser } from "../services/activeEventService.js";
+import { useActiveEvent } from "../contexts/ActiveEventContext.jsx";
 import { DASHBOARD_CACHE_EVENT } from "../services/dashboardCache.js";
 import { createTeam, deleteTeam, getTeamsByEvent, updateTeam } from "../services/teamsService.js";
 
 export default function TeamsPage() {
-  const [events, setEvents] = useState([]);
-  const [activeEventId, setActiveEventId] = useState("");
+  const { activeEvent, activeEventId, loading: activeEventLoading } = useActiveEvent();
   const [teamsByEvent, setTeamsByEvent] = useState({});
   const [openMenuId, setOpenMenuId] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
@@ -19,16 +17,14 @@ export default function TeamsPage() {
 
   useEffect(() => {
     async function syncFromSupabase(options = {}) {
+      if (activeEventLoading) return;
+
       setLoading(true);
       setError("");
       try {
-        const storedEvents = await getEvents(options);
-        const { activeEventId: validActiveId } = await resolveActiveEventFromEventsForCurrentUser(storedEvents);
-        const eventTeams = validActiveId ? await getTeamsByEvent(validActiveId, options) : [];
+        const eventTeams = activeEventId ? await getTeamsByEvent(activeEventId, options) : [];
 
-        setEvents(storedEvents);
-        setActiveEventId(validActiveId);
-        setTeamsByEvent(validActiveId ? { [validActiveId]: eventTeams } : {});
+        setTeamsByEvent(activeEventId ? { [activeEventId]: eventTeams } : {});
       } catch (loadError) {
         setError(loadError.message || "Unable to load teams.");
       } finally {
@@ -53,12 +49,7 @@ export default function TeamsPage() {
       );
       window.removeEventListener(DASHBOARD_CACHE_EVENT, syncFromCache);
     };
-  }, []);
-
-  const activeEvent = useMemo(
-    () => events.find((event) => event.id === activeEventId) || null,
-    [activeEventId, events]
-  );
+  }, [activeEventId, activeEventLoading]);
 
   const visibleTeams = useMemo(
     () => (activeEventId ? teamsByEvent[activeEventId] || [] : []),
@@ -184,9 +175,9 @@ export default function TeamsPage() {
           </div>
         )}
 
-        {!activeEventId && <NoActiveEventState />}
+        {!activeEventId && !activeEventLoading && <NoActiveEventState />}
 
-        {activeEventId && loading && visibleTeams.length === 0 ? (
+        {(activeEventLoading || (activeEventId && loading && visibleTeams.length === 0)) ? (
           <div className="app-card rounded-xl border p-8 text-center">
             <p className="app-muted text-sm font-semibold">Loading teams...</p>
           </div>

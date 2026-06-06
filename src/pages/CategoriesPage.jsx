@@ -1,8 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Edit, FolderOpen, Plus, Trash2, X } from "lucide-react";
 import NoActiveEventState from "../components/NoActiveEventState.jsx";
-import { getEvents } from "../services/eventsService.js";
-import { resolveActiveEventFromEventsForCurrentUser } from "../services/activeEventService.js";
+import { useActiveEvent } from "../contexts/ActiveEventContext.jsx";
 import { DASHBOARD_CACHE_EVENT } from "../services/dashboardCache.js";
 import { createCategory, deleteCategory, getCategoriesByEvent, updateCategory } from "../services/categoriesService.js";
 
@@ -17,8 +16,7 @@ const sahityolsavCategories = [
 ];
 
 export default function CategoriesPage() {
-  const [events, setEvents] = useState([]);
-  const [activeEventId, setActiveEventId] = useState("");
+  const { activeEvent, activeEventId, loading: activeEventLoading } = useActiveEvent();
   const [categoriesByEvent, setCategoriesByEvent] = useState({});
   const [modalOpen, setModalOpen] = useState(false);
   const [editingCategory, setEditingCategory] = useState(null);
@@ -28,16 +26,14 @@ export default function CategoriesPage() {
   const [error, setError] = useState("");
 
   async function syncFromSupabase(options = {}) {
+    if (activeEventLoading) return;
+
     setLoading(true);
     setError("");
     try {
-      const storedEvents = await getEvents(options);
-      const { activeEventId: validActiveId } = await resolveActiveEventFromEventsForCurrentUser(storedEvents);
-      const eventCategories = validActiveId ? await getCategoriesByEvent(validActiveId, options) : [];
+      const eventCategories = activeEventId ? await getCategoriesByEvent(activeEventId, options) : [];
 
-      setEvents(storedEvents);
-      setActiveEventId(validActiveId);
-      setCategoriesByEvent(validActiveId ? { [validActiveId]: eventCategories } : {});
+      setCategoriesByEvent(activeEventId ? { [activeEventId]: eventCategories } : {});
     } catch (loadError) {
       setError(loadError.message || "Unable to load categories.");
     } finally {
@@ -57,12 +53,7 @@ export default function CategoriesPage() {
       window.removeEventListener("rankify-active-event-changed", syncFromSupabase);
       window.removeEventListener(DASHBOARD_CACHE_EVENT, syncFromCache);
     };
-  }, []);
-
-  const activeEvent = useMemo(
-    () => events.find((event) => event.id === activeEventId) || null,
-    [activeEventId, events]
-  );
+  }, [activeEventId, activeEventLoading]);
 
   const visibleCategories = useMemo(
     () => (activeEventId ? categoriesByEvent[activeEventId] || [] : []),
@@ -219,7 +210,11 @@ export default function CategoriesPage() {
           </div>
         )}
 
-        {!activeEventId ? (
+        {!activeEventId && activeEventLoading ? (
+          <div className="app-card rounded-xl border p-8 text-center">
+            <p className="app-muted text-sm font-semibold">Loading categories...</p>
+          </div>
+        ) : !activeEventId ? (
           <NoActiveEventState />
         ) : loading && visibleCategories.length === 0 ? (
           <div className="app-card rounded-xl border p-8 text-center">

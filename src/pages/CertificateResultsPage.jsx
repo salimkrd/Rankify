@@ -2,8 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { Download, Edit, Eye, FileText, Plus, Trash2, X } from "lucide-react";
 import NoActiveEventState from "../components/NoActiveEventState.jsx";
-import { getEvents } from "../services/eventsService.js";
-import { resolveActiveEventFromEventsForCurrentUser } from "../services/activeEventService.js";
+import { useActiveEvent } from "../contexts/ActiveEventContext.jsx";
 import { getTeamsByEvent } from "../services/teamsService.js";
 import { getCategoriesByEvent } from "../services/categoriesService.js";
 import { listCertificateTemplatesByEvent } from "../services/certificateTemplatesService.js";
@@ -173,7 +172,7 @@ const emptyForm = () => ({
 });
 
 export default function CertificateResultsPage() {
-  const [activeEvent, setActiveEvent] = useState(null);
+  const { activeEvent, loading: activeEventLoading } = useActiveEvent();
   const [results, setResults] = useState([]);
   const [templates, setTemplates] = useState([]);
   const [teams, setTeams] = useState([]);
@@ -192,15 +191,14 @@ export default function CertificateResultsPage() {
     let cancelled = false;
 
     async function load(options = {}) {
+      if (activeEventLoading) return;
+
       setLoading(true);
       setError("");
       try {
-        const events = await getEvents(options);
         if (cancelled) return;
-        const { activeEvent: event } = await resolveActiveEventFromEventsForCurrentUser(events);
-        setActiveEvent(event || null);
 
-        if (!event?.id) {
+        if (!activeEvent?.id) {
           setResults([]);
           setTemplates([]);
           setTeams([]);
@@ -209,10 +207,10 @@ export default function CertificateResultsPage() {
         }
 
         const [eventResults, eventTemplates, eventTeams, eventCategories] = await Promise.all([
-          listCertificateResultsByEvent(event.id),
-          listCertificateTemplatesByEvent(event.id),
-          getTeamsByEvent(event.id),
-          getCategoriesByEvent(event.id),
+          listCertificateResultsByEvent(activeEvent.id),
+          listCertificateTemplatesByEvent(activeEvent.id),
+          getTeamsByEvent(activeEvent.id, options),
+          getCategoriesByEvent(activeEvent.id, options),
         ]);
 
         if (cancelled) return;
@@ -252,7 +250,7 @@ export default function CertificateResultsPage() {
       window.removeEventListener("rankify-events-changed", load);
       window.removeEventListener(DASHBOARD_CACHE_EVENT, loadFromCache);
     };
-  }, []);
+  }, [activeEvent?.id, activeEventLoading]);
 
   const hasActiveEvent = Boolean(activeEvent?.id);
   const eventResults = useMemo(
@@ -520,7 +518,11 @@ export default function CertificateResultsPage() {
         </button>
       </div>
 
-      {!hasActiveEvent ? (
+      {!hasActiveEvent && activeEventLoading ? (
+        <div className="empty-state">
+          <p>Loading certificates...</p>
+        </div>
+      ) : !hasActiveEvent ? (
         <NoActiveEventState />
       ) : (
         <>

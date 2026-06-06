@@ -2,8 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Copy, Edit, FileText, Plus, Trash2, X } from "lucide-react";
 import NoActiveEventState from "../components/NoActiveEventState.jsx";
-import { getEvents } from "../services/eventsService.js";
-import { resolveActiveEventFromEventsForCurrentUser } from "../services/activeEventService.js";
+import { useActiveEvent } from "../contexts/ActiveEventContext.jsx";
 import {
   deleteCertificateTemplate,
   duplicateCertificateTemplate,
@@ -118,7 +117,7 @@ function CertificatePreview({ template }) {
 
 export default function CertificateTemplatesPage() {
   const navigate = useNavigate();
-  const [activeEvent, setActiveEvent] = useState(null);
+  const { activeEvent, loading: activeEventLoading } = useActiveEvent();
   const [templates, setTemplates] = useState([]);
   const [publicModalOpen, setPublicModalOpen] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -126,18 +125,16 @@ export default function CertificateTemplatesPage() {
 
   useEffect(() => {
     async function load() {
+      if (activeEventLoading) return;
+
       setLoading(true);
       setError("");
       try {
-        const events = await getEvents();
-        const { activeEvent } = await resolveActiveEventFromEventsForCurrentUser(events);
         const eventTemplates = activeEvent?.id ? await listCertificateTemplatesByEvent(activeEvent.id) : [];
 
-        setActiveEvent(activeEvent);
         setTemplates(eventTemplates);
       } catch (loadError) {
         setError(loadError.message || "Unable to load templates.");
-        setActiveEvent(null);
         setTemplates([]);
       } finally {
         setLoading(false);
@@ -156,7 +153,7 @@ export default function CertificateTemplatesPage() {
       window.removeEventListener("rankify-data-changed", load);
       window.removeEventListener("rankify-events-changed", load);
     };
-  }, []);
+  }, [activeEvent?.id, activeEventLoading]);
 
   const eventTemplates = useMemo(
     () => (activeEvent?.id ? templates.filter((template) => String(template.eventId) === String(activeEvent.id)) : []),
@@ -247,7 +244,11 @@ export default function CertificateTemplatesPage() {
         </div>
       )}
 
-      {!activeEvent?.id ? (
+      {!activeEvent?.id && activeEventLoading ? (
+        <div className="app-card rounded-xl border p-8 text-center">
+          <p className="app-muted text-sm font-semibold">Loading templates...</p>
+        </div>
+      ) : !activeEvent?.id ? (
         <NoActiveEventState />
       ) : loading ? (
         <div className="app-card rounded-xl border p-8 text-center">

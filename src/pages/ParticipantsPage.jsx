@@ -1,8 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Edit, MoreVertical, Plus, Trash2, X } from "lucide-react";
 import NoActiveEventState from "../components/NoActiveEventState.jsx";
-import { getEvents } from "../services/eventsService.js";
-import { resolveActiveEventFromEventsForCurrentUser } from "../services/activeEventService.js";
+import { useActiveEvent } from "../contexts/ActiveEventContext.jsx";
 import { DASHBOARD_CACHE_EVENT } from "../services/dashboardCache.js";
 import { getTeamsByEvent } from "../services/teamsService.js";
 import { getCategoriesByEvent } from "../services/categoriesService.js";
@@ -14,8 +13,7 @@ import {
 } from "../services/participantsService.js";
 
 export default function ParticipantsPage() {
-  const [events, setEvents] = useState([]);
-  const [activeEventId, setActiveEventId] = useState("");
+  const { activeEvent, activeEventId, loading: activeEventLoading } = useActiveEvent();
   const [teamsByEvent, setTeamsByEvent] = useState({});
   const [categoriesByEvent, setCategoriesByEvent] = useState({});
   const [participantsByEvent, setParticipantsByEvent] = useState({});
@@ -29,24 +27,22 @@ export default function ParticipantsPage() {
   const [error, setError] = useState("");
 
   async function syncFromSupabase(options = {}) {
+    if (activeEventLoading) return;
+
     setLoading(true);
     setError("");
     try {
-      const storedEvents = await getEvents(options);
-      const { activeEventId: validActiveId } = await resolveActiveEventFromEventsForCurrentUser(storedEvents);
-      const [eventTeams, eventCategories, eventParticipants] = validActiveId
+      const [eventTeams, eventCategories, eventParticipants] = activeEventId
         ? await Promise.all([
-            getTeamsByEvent(validActiveId, options),
-            getCategoriesByEvent(validActiveId, options),
-            getParticipantsByEvent(validActiveId, options),
+            getTeamsByEvent(activeEventId, options),
+            getCategoriesByEvent(activeEventId, options),
+            getParticipantsByEvent(activeEventId, options),
           ])
         : [[], [], []];
 
-      setEvents(storedEvents);
-      setActiveEventId(validActiveId);
-      setTeamsByEvent(validActiveId ? { [validActiveId]: eventTeams } : {});
-      setCategoriesByEvent(validActiveId ? { [validActiveId]: eventCategories } : {});
-      setParticipantsByEvent(validActiveId ? { [validActiveId]: eventParticipants } : {});
+      setTeamsByEvent(activeEventId ? { [activeEventId]: eventTeams } : {});
+      setCategoriesByEvent(activeEventId ? { [activeEventId]: eventCategories } : {});
+      setParticipantsByEvent(activeEventId ? { [activeEventId]: eventParticipants } : {});
     } catch (loadError) {
       setError(loadError.message || "Unable to load participants.");
     } finally {
@@ -70,12 +66,7 @@ export default function ParticipantsPage() {
       window.removeEventListener("rankify-data-changed", syncFromSupabase);
       window.removeEventListener(DASHBOARD_CACHE_EVENT, syncFromCache);
     };
-  }, []);
-
-  const activeEvent = useMemo(
-    () => events.find((event) => event.id === activeEventId) || null,
-    [activeEventId, events]
-  );
+  }, [activeEventId, activeEventLoading]);
 
   const visibleTeams = useMemo(
     () => (activeEventId ? teamsByEvent[activeEventId] || [] : []),
@@ -241,7 +232,11 @@ export default function ParticipantsPage() {
           </div>
         )}
 
-        {!activeEventId ? (
+        {!activeEventId && activeEventLoading ? (
+          <div className="app-card rounded-xl border p-8 text-center">
+            <p className="app-muted text-sm font-semibold">Loading participants...</p>
+          </div>
+        ) : !activeEventId ? (
           <NoActiveEventState />
         ) : loading && visibleParticipants.length === 0 ? (
           <div className="app-card rounded-xl border p-8 text-center">

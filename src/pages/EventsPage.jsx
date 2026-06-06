@@ -1,10 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Copy, Edit, MoreVertical, Plug, Plus, Trash2, X } from "lucide-react";
-import {
-  clearStoredActiveEventIdForCurrentUser,
-  resolveActiveEventFromEventsForCurrentUser,
-  setStoredActiveEventIdForCurrentUser,
-} from "../services/activeEventService.js";
+import { useActiveEvent } from "../contexts/ActiveEventContext.jsx";
 import { DASHBOARD_CACHE_EVENT } from "../services/dashboardCache.js";
 import { createEvent, deleteEvent, getEvents, updateEvent } from "../services/eventsService.js";
 
@@ -22,8 +18,13 @@ function notifyEventsChanged() {
 }
 
 export default function EventsPage() {
+  const {
+    activeEventId,
+    clearActiveEvent,
+    refreshActiveEvent,
+    selectActiveEvent,
+  } = useActiveEvent();
   const [events, setEvents] = useState([]);
-  const [activeEventId, setActiveEventId] = useState("");
   const [search, setSearch] = useState("");
   const [openMenuId, setOpenMenuId] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
@@ -39,7 +40,6 @@ export default function EventsPage() {
       try {
         const stored = await getEvents(options);
         setEvents(stored);
-        setActiveEventId((await resolveActiveEventFromEventsForCurrentUser(stored)).activeEventId);
       } catch (loadError) {
         setError(loadError.message || "Unable to load events.");
       } finally {
@@ -129,6 +129,7 @@ export default function EventsPage() {
         });
         setEvents((current) => current.map((item) => (item.id === editingEvent.id ? updated : item)));
         notifyEventsChanged();
+        await refreshActiveEvent();
         closeModal();
       } catch (saveError) {
         setError(saveError.message || "Unable to update event.");
@@ -145,11 +146,10 @@ export default function EventsPage() {
       });
       setEvents((current) => [newEvent, ...current]);
       notifyEventsChanged();
+      await refreshActiveEvent();
 
       if (!activeEventId) {
-        await setStoredActiveEventIdForCurrentUser(newEvent.id);
-        setActiveEventId(newEvent.id);
-        window.dispatchEvent(new Event("rankify-active-event-changed"));
+        await selectActiveEvent(newEvent.id);
       }
 
       closeModal();
@@ -160,14 +160,12 @@ export default function EventsPage() {
 
   async function handleSelectEvent(eventId) {
     try {
-      await setStoredActiveEventIdForCurrentUser(eventId);
+      await selectActiveEvent(eventId);
     } catch (error) {
       setError(error.message || "Unable to select active event.");
       return;
     }
-    setActiveEventId(eventId);
     setOpenMenuId("");
-    window.dispatchEvent(new Event("rankify-active-event-changed"));
   }
 
   async function handleDeleteEvent(eventId) {
@@ -181,9 +179,9 @@ export default function EventsPage() {
       notifyEventsChanged();
 
       if (activeEventId === eventId) {
-        await clearStoredActiveEventIdForCurrentUser();
-        setActiveEventId("");
-        window.dispatchEvent(new Event("rankify-active-event-changed"));
+        await clearActiveEvent();
+      } else {
+        await refreshActiveEvent();
       }
 
       setOpenMenuId("");

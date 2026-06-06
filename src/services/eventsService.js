@@ -28,8 +28,15 @@ async function fetchEventsFromSupabase(userId) {
 }
 
 export async function getEvents(options = {}) {
-  const { background = true } = options;
+  const { background = true, fresh: forceFresh = false } = options;
   const userId = await getCurrentUserId();
+  if (forceFresh) {
+    const freshEvents = await fetchEventsFromSupabase(userId);
+    setDashboardCache("events", userId, "", freshEvents);
+    notifyDashboardCacheUpdated("events");
+    return freshEvents;
+  }
+
   const cached = getDashboardCache("events", userId);
 
   if (cached) {
