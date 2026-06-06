@@ -30,6 +30,7 @@ import {
   resolveActiveEventFromEvents,
   setStoredActiveEventId,
 } from "../services/activeEventService.js";
+import { DASHBOARD_CACHE_EVENT } from "../services/dashboardCache.js";
 import ThemeToggle from "./ThemeToggle.jsx";
 import logoDark from "../assets/logo/rankify-logo-dark.svg";
 import logoLight from "../assets/logo/rankify-logo-light.svg";
@@ -220,14 +221,14 @@ export default function Sidebar({ mobile = false, onNavigate, onClose }) {
   });
 
   useEffect(() => {
-    async function syncActiveEvent() {
+    async function syncActiveEvent(options = {}) {
       let supabaseEvents = [];
       let teamsCount = 0;
       let participantsCount = 0;
       let categoriesCount = 0;
 
       try {
-        supabaseEvents = await getSupabaseEvents();
+        supabaseEvents = await getSupabaseEvents(options);
       } catch (error) {
         console.error("Unable to load sidebar events.", error);
       }
@@ -237,9 +238,9 @@ export default function Sidebar({ mobile = false, onNavigate, onClose }) {
       if (validActiveEventId) {
         try {
           const [teams, participants, categories] = await Promise.all([
-            getTeamsByEvent(validActiveEventId),
-            getParticipantsByEvent(validActiveEventId),
-            getCategoriesByEvent(validActiveEventId),
+            getTeamsByEvent(validActiveEventId, options),
+            getParticipantsByEvent(validActiveEventId, options),
+            getCategoriesByEvent(validActiveEventId, options),
           ]);
           teamsCount = teams.length;
           participantsCount = participants.length;
@@ -270,6 +271,7 @@ export default function Sidebar({ mobile = false, onNavigate, onClose }) {
     }
 
     syncActiveEvent();
+    const syncFromCache = () => syncActiveEvent({ background: false });
     setUser(getStoredUser());
 
     const syncUser = () => setUser(getStoredUser());
@@ -279,6 +281,7 @@ export default function Sidebar({ mobile = false, onNavigate, onClose }) {
     window.addEventListener("rankify-active-event-changed", syncActiveEvent);
     window.addEventListener("rankify-data-changed", syncActiveEvent);
     window.addEventListener("rankify-events-changed", syncActiveEvent);
+    window.addEventListener(DASHBOARD_CACHE_EVENT, syncFromCache);
 
     const refreshInterval = window.setInterval(() => {
       syncActiveEvent();
@@ -291,6 +294,7 @@ export default function Sidebar({ mobile = false, onNavigate, onClose }) {
       window.removeEventListener("rankify-active-event-changed", syncActiveEvent);
       window.removeEventListener("rankify-data-changed", syncActiveEvent);
       window.removeEventListener("rankify-events-changed", syncActiveEvent);
+      window.removeEventListener(DASHBOARD_CACHE_EVENT, syncFromCache);
       window.clearInterval(refreshInterval);
     };
   }, []);

@@ -3,6 +3,7 @@ import { Edit, MoreVertical, Plus, Trash2, X } from "lucide-react";
 import NoActiveEventState from "../components/NoActiveEventState.jsx";
 import { getEvents } from "../services/eventsService.js";
 import { resolveActiveEventFromEvents } from "../services/activeEventService.js";
+import { DASHBOARD_CACHE_EVENT } from "../services/dashboardCache.js";
 import { getTeamsByEvent } from "../services/teamsService.js";
 import { getCategoriesByEvent } from "../services/categoriesService.js";
 import {
@@ -27,17 +28,17 @@ export default function ParticipantsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  async function syncFromSupabase() {
+  async function syncFromSupabase(options = {}) {
     setLoading(true);
     setError("");
     try {
-      const storedEvents = await getEvents();
+      const storedEvents = await getEvents(options);
       const { activeEventId: validActiveId } = resolveActiveEventFromEvents(storedEvents);
       const [eventTeams, eventCategories, eventParticipants] = validActiveId
         ? await Promise.all([
-            getTeamsByEvent(validActiveId),
-            getCategoriesByEvent(validActiveId),
-            getParticipantsByEvent(validActiveId),
+            getTeamsByEvent(validActiveId, options),
+            getCategoriesByEvent(validActiveId, options),
+            getParticipantsByEvent(validActiveId, options),
           ])
         : [[], [], []];
 
@@ -55,16 +56,19 @@ export default function ParticipantsPage() {
 
   useEffect(() => {
     syncFromSupabase();
+    const syncFromCache = () => syncFromSupabase({ background: false });
 
     window.addEventListener("focus", syncFromSupabase);
     window.addEventListener("storage", syncFromSupabase);
     window.addEventListener("rankify-active-event-changed", syncFromSupabase);
     window.addEventListener("rankify-data-changed", syncFromSupabase);
+    window.addEventListener(DASHBOARD_CACHE_EVENT, syncFromCache);
     return () => {
       window.removeEventListener("focus", syncFromSupabase);
       window.removeEventListener("storage", syncFromSupabase);
       window.removeEventListener("rankify-active-event-changed", syncFromSupabase);
       window.removeEventListener("rankify-data-changed", syncFromSupabase);
+      window.removeEventListener(DASHBOARD_CACHE_EVENT, syncFromCache);
     };
   }, []);
 
@@ -239,7 +243,7 @@ export default function ParticipantsPage() {
 
         {!activeEventId ? (
           <NoActiveEventState />
-        ) : loading ? (
+        ) : loading && visibleParticipants.length === 0 ? (
           <div className="app-card rounded-xl border p-8 text-center">
             <p className="app-muted text-sm font-semibold">Loading participants...</p>
           </div>

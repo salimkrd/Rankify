@@ -3,6 +3,7 @@ import { Edit, MoreVertical, Plus, Trash2, X } from "lucide-react";
 import NoActiveEventState from "../components/NoActiveEventState.jsx";
 import { getEvents } from "../services/eventsService.js";
 import { resolveActiveEventFromEvents } from "../services/activeEventService.js";
+import { DASHBOARD_CACHE_EVENT } from "../services/dashboardCache.js";
 import { createTeam, deleteTeam, getTeamsByEvent, updateTeam } from "../services/teamsService.js";
 
 export default function TeamsPage() {
@@ -17,13 +18,13 @@ export default function TeamsPage() {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    async function syncFromSupabase() {
+    async function syncFromSupabase(options = {}) {
       setLoading(true);
       setError("");
       try {
-        const storedEvents = await getEvents();
+        const storedEvents = await getEvents(options);
         const { activeEventId: validActiveId } = resolveActiveEventFromEvents(storedEvents);
-        const eventTeams = validActiveId ? await getTeamsByEvent(validActiveId) : [];
+        const eventTeams = validActiveId ? await getTeamsByEvent(validActiveId, options) : [];
 
         setEvents(storedEvents);
         setActiveEventId(validActiveId);
@@ -36,10 +37,12 @@ export default function TeamsPage() {
     }
 
     syncFromSupabase();
+    const syncFromCache = () => syncFromSupabase({ background: false });
 
     window.addEventListener("focus", syncFromSupabase);
     window.addEventListener("storage", syncFromSupabase);
     window.addEventListener("rankify-active-event-changed", syncFromSupabase);
+    window.addEventListener(DASHBOARD_CACHE_EVENT, syncFromCache);
 
     return () => {
       window.removeEventListener("focus", syncFromSupabase);
@@ -48,6 +51,7 @@ export default function TeamsPage() {
         "rankify-active-event-changed",
         syncFromSupabase
       );
+      window.removeEventListener(DASHBOARD_CACHE_EVENT, syncFromCache);
     };
   }, []);
 
@@ -182,7 +186,7 @@ export default function TeamsPage() {
 
         {!activeEventId && <NoActiveEventState />}
 
-        {activeEventId && loading ? (
+        {activeEventId && loading && visibleTeams.length === 0 ? (
           <div className="app-card rounded-xl border p-8 text-center">
             <p className="app-muted text-sm font-semibold">Loading teams...</p>
           </div>

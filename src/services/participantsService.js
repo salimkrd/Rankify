@@ -1,5 +1,6 @@
 import { supabase } from "../lib/supabaseClient.js";
 import { formatSupabaseDate, getCurrentUserId, runSupabaseQuery } from "./dashboardSupabase.js";
+import { getDashboardCache, notifyDashboardCacheUpdated, setDashboardCache } from "./dashboardCache.js";
 
 function mapParticipant(row) {
   return {
@@ -16,18 +17,39 @@ function mapParticipant(row) {
   };
 }
 
-export async function getParticipantsByEvent(eventId) {
-  if (!eventId) return [];
-  const userId = await getCurrentUserId();
+async function fetchParticipantsFromSupabase(userId, eventId) {
   const rows = await runSupabaseQuery(
     supabase
       .from("participants")
-      .select("*")
+      .select("id,user_id,event_id,team_id,team_name,category_id,category_name,name,created_at,updated_at")
       .eq("user_id", userId)
       .eq("event_id", eventId)
       .order("created_at", { ascending: false })
   );
   return rows.map(mapParticipant);
+}
+
+export async function getParticipantsByEvent(eventId, options = {}) {
+  const { background = true } = options;
+  if (!eventId) return [];
+  const userId = await getCurrentUserId();
+  const cached = getDashboardCache("participants", userId, eventId);
+
+  if (cached) {
+    if (background) {
+      fetchParticipantsFromSupabase(userId, eventId)
+        .then((fresh) => {
+          setDashboardCache("participants", userId, eventId, fresh);
+          notifyDashboardCacheUpdated("participants", eventId);
+        })
+        .catch((error) => console.error("Unable to refresh cached participants.", error));
+    }
+    return cached;
+  }
+
+  const fresh = await fetchParticipantsFromSupabase(userId, eventId);
+  setDashboardCache("participants", userId, eventId, fresh);
+  return fresh;
 }
 
 export async function createParticipant(eventId, participantData) {
@@ -47,7 +69,11 @@ export async function createParticipant(eventId, participantData) {
       .select("*")
       .single()
   );
-  return mapParticipant(row);
+  const participant = mapParticipant(row);
+  const cached = getDashboardCache("participants", userId, eventId) || [];
+  setDashboardCache("participants", userId, eventId, [participant, ...cached.filter((item) => item.id !== participant.id)]);
+  notifyDashboardCacheUpdated("participants", eventId);
+  return participant;
 }
 
 export async function updateParticipant(id, participantData) {
@@ -67,12 +93,26 @@ export async function updateParticipant(id, participantData) {
       .select("*")
       .single()
   );
-  return mapParticipant(row);
+  const participant = mapParticipant(row);
+  const eventId = participant.eventId || participantData.eventId;
+  if (eventId) {
+    const cached = getDashboardCache("participants", userId, eventId) || [];
+    setDashboardCache("participants", userId, eventId, cached.map((item) => (item.id === participant.id ? participant : item)));
+    notifyDashboardCacheUpdated("participants", eventId);
+  }
+  return participant;
 }
 
 export async function deleteParticipant(id) {
   const userId = await getCurrentUserId();
+  const existing = await runSupabaseQuery(
+    supabase.from("participants").select("event_id").eq("id", id).eq("user_id", userId).maybeSingle()
+  );
   await runSupabaseQuery(supabase.from("participants").delete().eq("id", id).eq("user_id", userId));
+  if (existing?.event_id) {
+    const cached = getDashboardCache("participants", userId, existing.event_id) || [];
+    setDashboardCache("participants", userId, existing.event_id, cached.filter((item) => item.id !== id));
+    notifyDashboardCacheUpdated("participants", existing.event_id);
+  }
   return true;
 }
-

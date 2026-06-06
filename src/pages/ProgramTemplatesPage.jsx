@@ -216,26 +216,175 @@ const escapeSvgText = (value) =>
     .replace(/"/g, "&quot;");
 
 const templatePreviewValue = (element, previewData, winner = null) => {
+  const firstTextValue = (...values) => {
+    for (const value of values) {
+      if (value !== undefined && value !== null && String(value) !== "") return String(value);
+    }
+    return "";
+  };
+  const getObjectPathValue = (source, path) => {
+    if (!source || !path) return undefined;
+    return String(path)
+      .split(".")
+      .reduce((current, part) => (current && current[part] !== undefined ? current[part] : undefined), source);
+  };
   const key = String(
-    element?.field || element?.dataKey || element?.key || element?.name || element?.id || element?.label || element?.content || ""
+    element?.field || element?.dataKey || element?.dataSource || element?.key || element?.name || element?.id || element?.label || element?.content || element?.text || element?.value || ""
   ).toLowerCase();
 
   if (winner) {
-    if (key.includes("position")) return winner.position || "";
-    if (key.includes("team")) return winner.team || "";
-    if (key.includes("name")) return winner.name || "";
-    return element?.content || element?.label || "";
+    if (key.includes("position")) return firstTextValue(winner.position, element?.content, element?.text, element?.value, element?.label);
+    if (key.includes("team")) return firstTextValue(winner.team, winner.teamName, element?.content, element?.text, element?.value, element?.label);
+    if (key.includes("name")) return firstTextValue(winner.name, element?.content, element?.text, element?.value, element?.label);
+    return firstTextValue(element?.content, element?.text, element?.value, element?.label);
   }
 
   if (key.includes("programname") || key.includes("program name") || key === "program") {
-    return previewData.programName || "";
+    return firstTextValue(previewData.programName, element?.content, element?.text, element?.value, element?.label);
   }
-  if (key.includes("category")) return previewData.category || "";
+  if (key.includes("category")) return firstTextValue(previewData.category, previewData.programCategory, element?.content, element?.text, element?.value, element?.label);
+  if (key.includes("eventname") || key.includes("event name")) return firstTextValue(previewData.eventName, element?.content, element?.text, element?.value, element?.label);
+  if (key.includes("organizer")) return firstTextValue(previewData.organizerName, previewData.organizer, element?.content, element?.text, element?.value, element?.label);
+  if (key.includes("eventdate") || key.includes("event date")) return firstTextValue(previewData.eventDate, element?.content, element?.text, element?.value, element?.label);
+  if (key.includes("eventlocation") || key.includes("event location")) return firstTextValue(previewData.eventLocation, element?.content, element?.text, element?.value, element?.label);
   if (key.includes("resultnumber") || key.includes("result number") || key.includes("result")) {
-    return `${element?.prefix || ""}${previewData.resultNumber || ""}`;
+    return `${element?.prefix || ""}${firstTextValue(previewData.resultNumber, element?.content, element?.text, element?.value)}`;
   }
-  return element?.content || element?.label || "";
+  return firstTextValue(
+    previewData?.customFields?.[element?.id],
+    previewData?.[element?.id],
+    getObjectPathValue(previewData, element?.dataKey || element?.dataSource || element?.field || element?.key),
+    element?.content,
+    element?.text,
+    element?.value,
+    element?.label
+  );
 };
+
+const getPreviewableImageUrl = (value) => {
+  if (!value) return "";
+  if (typeof value === "string") return value;
+  if (typeof value === "object") return value.dataUrl || value.dataURL || value.url || value.src || value.imageData || "";
+  return "";
+};
+
+function ProgramTemplateCardPreview({ template }) {
+  const hasSchema = template?.canvas && Array.isArray(template?.elements) && template.elements.length > 0;
+  if (!hasSchema) {
+    return template?.previewImage ? (
+      <img src={template.previewImage} alt={template.name} className="h-full w-full object-contain" />
+    ) : (
+      <div className="flex h-full w-full items-center justify-center text-[var(--app-muted)]">
+        <ImageIcon size={52} strokeWidth={1.8} aria-hidden="true" />
+      </div>
+    );
+  }
+
+  const canvas = template.canvas || {};
+  const width = Number(canvas.width || template.canvasWidth || 800);
+  const height = Number(canvas.height || template.canvasHeight || 600);
+  const scale = Math.min(420 / Math.max(width, 1), 292 / Math.max(height, 1), 1);
+  const previewData = { ...defaultTemplatePreviewData, ...(template.previewData || {}) };
+  const backgroundImage = getPreviewableImageUrl(canvas.backgroundImage || template.backgroundImage);
+  const backgroundColor = canvas.backgroundColor || template.backgroundColor || "#ffffff";
+  const winnerContainer =
+    template.elements.find((element) => element.id === "winnerContainer") ||
+    template.elements.find((element) => element.type === "winnerContainer");
+  const winnerChildren = template.elements.filter((element) => element.type === "winnerText" || element.type === "winnerPhoto");
+  const baseElements = template.elements.filter(
+    (element) => !["winnerContainer", "winnerText", "winnerPhoto"].includes(element.type)
+  );
+
+  const elementStyle = (element, offset = { x: 0, y: 0 }) => ({
+    position: "absolute",
+    left: Number(element.x || 0) + offset.x,
+    top: Number(element.y || 0) + offset.y,
+    width: element.width !== undefined ? Number(element.width) : "auto",
+    minHeight: element.height !== undefined ? Number(element.height) : "auto",
+    fontFamily: element.fontFamily,
+    fontSize: Number(element.fontSize || 16),
+    fontWeight: element.fontWeight,
+    color: element.color,
+    lineHeight: element.lineHeight,
+    textAlign: element.textAlign || element.align,
+    opacity: element.opacity,
+    borderRadius: element.borderRadius,
+    zIndex: element.zIndex,
+    whiteSpace: "pre-line",
+    overflow: "visible",
+    boxSizing: "border-box",
+  });
+
+  const renderElement = (element, winner = null, offset = { x: 0, y: 0 }) => {
+    if (element.visible === false) return null;
+    const key = `${winner?.id || "base"}-${element.id || element.type}-${offset.x}-${offset.y}`;
+    if (element.type === "image" || element.type === "winnerPhoto") {
+      const src =
+        element.type === "winnerPhoto"
+          ? getPreviewableImageUrl(winner?.image || winner?.imageUrl || winner?.photo || winner?.photoUrl || element.src || element.imageData || element.imageUrl)
+          : getPreviewableImageUrl(element.src || element.imageData || element.image || element.imageUrl || element.url);
+      return src ? (
+        <img
+          key={key}
+          src={src}
+          alt=""
+          style={{
+            ...elementStyle(element, offset),
+            height: element.height !== undefined ? Number(element.height) : Number(element.width || 80),
+            objectFit: element.objectFit || "cover",
+            display: "block",
+          }}
+          draggable={false}
+        />
+      ) : null;
+    }
+
+    if (element.type === "text" || element.type === "winnerText") {
+      return (
+        <div key={key} style={elementStyle(element, offset)}>
+          {templatePreviewValue(element, previewData, winner)}
+        </div>
+      );
+    }
+
+    return null;
+  };
+
+  return (
+    <div className="flex h-full w-full items-center justify-center overflow-hidden">
+      <div style={{ width: width * scale, height: height * scale }}>
+        <div
+          style={{
+            position: "relative",
+            width,
+            height,
+            overflow: "hidden",
+            backgroundColor,
+            backgroundImage: backgroundImage ? `url(${backgroundImage})` : undefined,
+            backgroundSize: "cover",
+            backgroundPosition: "center",
+            transform: `scale(${scale})`,
+            transformOrigin: "top left",
+            colorScheme: "light",
+          }}
+        >
+          {baseElements.map((element) => renderElement(element))}
+          {winnerContainer &&
+            winnerChildren.length > 0 &&
+            (previewData.winners || []).flatMap((winner, index) => {
+              const spacing = Number(winnerContainer.spacing || 0);
+              const direction = winnerContainer.direction || "vertical";
+              const offset =
+                direction === "horizontal"
+                  ? { x: Number(winnerContainer.x || 0) + index * spacing, y: Number(winnerContainer.y || 0) }
+                  : { x: Number(winnerContainer.x || 0), y: Number(winnerContainer.y || 0) + index * spacing };
+              return winnerChildren.map((child) => renderElement(child, winner, offset));
+            })}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 const elementSvgStyle = (element, offset = { x: 0, y: 0 }) => ({
   x: Number(element.x || 0) + offset.x,
@@ -551,17 +700,7 @@ export default function ProgramTemplatesPage() {
                 className="app-card overflow-hidden rounded-xl border shadow-sm"
               >
                 <div className="flex h-[340px] items-center justify-center bg-[var(--app-surface-elevated)] p-6">
-                  {template.previewImage ? (
-                    <img
-                      src={template.previewImage}
-                      alt={template.name}
-                      className="h-full w-full object-contain"
-                    />
-                  ) : (
-                    <div className="flex h-full w-full items-center justify-center text-[var(--app-muted)]">
-                      <ImageIcon size={52} strokeWidth={1.8} aria-hidden="true" />
-                    </div>
-                  )}
+                  <ProgramTemplateCardPreview template={template} />
                 </div>
 
                 <div className="p-6">

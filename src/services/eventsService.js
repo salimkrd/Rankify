@@ -1,5 +1,6 @@
 import { supabase } from "../lib/supabaseClient.js";
 import { formatSupabaseDate, getCurrentUserId, runSupabaseQuery } from "./dashboardSupabase.js";
+import { getDashboardCache, notifyDashboardCacheUpdated, setDashboardCache } from "./dashboardCache.js";
 
 function mapEvent(row) {
   return {
@@ -15,16 +16,37 @@ function mapEvent(row) {
   };
 }
 
-export async function getEvents() {
-  const userId = await getCurrentUserId();
+async function fetchEventsFromSupabase(userId) {
   const rows = await runSupabaseQuery(
     supabase
       .from("events")
-      .select("*")
+      .select("id,user_id,name,date,location,description,created_at,updated_at")
       .eq("user_id", userId)
       .order("created_at", { ascending: false })
   );
   return rows.map(mapEvent);
+}
+
+export async function getEvents(options = {}) {
+  const { background = true } = options;
+  const userId = await getCurrentUserId();
+  const cached = getDashboardCache("events", userId);
+
+  if (cached) {
+    if (background) {
+      fetchEventsFromSupabase(userId)
+        .then((fresh) => {
+          setDashboardCache("events", userId, "", fresh);
+          notifyDashboardCacheUpdated("events");
+        })
+        .catch((error) => console.error("Unable to refresh cached events.", error));
+    }
+    return cached;
+  }
+
+  const fresh = await fetchEventsFromSupabase(userId);
+  setDashboardCache("events", userId, "", fresh);
+  return fresh;
 }
 
 export async function createEvent(eventData) {
@@ -42,7 +64,11 @@ export async function createEvent(eventData) {
       .select("*")
       .single()
   );
-  return mapEvent(row);
+  const event = mapEvent(row);
+  const cached = getDashboardCache("events", userId) || [];
+  setDashboardCache("events", userId, "", [event, ...cached.filter((item) => item.id !== event.id)]);
+  notifyDashboardCacheUpdated("events");
+  return event;
 }
 
 export async function updateEvent(id, eventData) {
@@ -61,12 +87,23 @@ export async function updateEvent(id, eventData) {
       .select("*")
       .single()
   );
-  return mapEvent(row);
+  const event = mapEvent(row);
+  const cached = getDashboardCache("events", userId) || [];
+  setDashboardCache(
+    "events",
+    userId,
+    "",
+    cached.map((item) => (item.id === event.id ? event : item))
+  );
+  notifyDashboardCacheUpdated("events");
+  return event;
 }
 
 export async function deleteEvent(id) {
   const userId = await getCurrentUserId();
   await runSupabaseQuery(supabase.from("events").delete().eq("id", id).eq("user_id", userId));
+  const cached = getDashboardCache("events", userId) || [];
+  setDashboardCache("events", userId, "", cached.filter((item) => item.id !== id));
+  notifyDashboardCacheUpdated("events");
   return true;
 }
-

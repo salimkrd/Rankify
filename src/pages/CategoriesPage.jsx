@@ -3,6 +3,7 @@ import { Edit, FolderOpen, Plus, Trash2, X } from "lucide-react";
 import NoActiveEventState from "../components/NoActiveEventState.jsx";
 import { getEvents } from "../services/eventsService.js";
 import { resolveActiveEventFromEvents } from "../services/activeEventService.js";
+import { DASHBOARD_CACHE_EVENT } from "../services/dashboardCache.js";
 import { createCategory, deleteCategory, getCategoriesByEvent, updateCategory } from "../services/categoriesService.js";
 
 const sahityolsavCategories = [
@@ -26,13 +27,13 @@ export default function CategoriesPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  async function syncFromSupabase() {
+  async function syncFromSupabase(options = {}) {
     setLoading(true);
     setError("");
     try {
-      const storedEvents = await getEvents();
+      const storedEvents = await getEvents(options);
       const { activeEventId: validActiveId } = resolveActiveEventFromEvents(storedEvents);
-      const eventCategories = validActiveId ? await getCategoriesByEvent(validActiveId) : [];
+      const eventCategories = validActiveId ? await getCategoriesByEvent(validActiveId, options) : [];
 
       setEvents(storedEvents);
       setActiveEventId(validActiveId);
@@ -46,12 +47,15 @@ export default function CategoriesPage() {
 
   useEffect(() => {
     syncFromSupabase();
+    const syncFromCache = () => syncFromSupabase({ background: false });
 
     window.addEventListener("storage", syncFromSupabase);
     window.addEventListener("rankify-active-event-changed", syncFromSupabase);
+    window.addEventListener(DASHBOARD_CACHE_EVENT, syncFromCache);
     return () => {
       window.removeEventListener("storage", syncFromSupabase);
       window.removeEventListener("rankify-active-event-changed", syncFromSupabase);
+      window.removeEventListener(DASHBOARD_CACHE_EVENT, syncFromCache);
     };
   }, []);
 
@@ -217,7 +221,7 @@ export default function CategoriesPage() {
 
         {!activeEventId ? (
           <NoActiveEventState />
-        ) : loading ? (
+        ) : loading && visibleCategories.length === 0 ? (
           <div className="app-card rounded-xl border p-8 text-center">
             <p className="app-muted text-sm font-semibold">Loading categories...</p>
           </div>

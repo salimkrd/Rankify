@@ -5,6 +5,7 @@ import {
   resolveActiveEventFromEvents,
   setStoredActiveEventId,
 } from "../services/activeEventService.js";
+import { DASHBOARD_CACHE_EVENT } from "../services/dashboardCache.js";
 import { createEvent, deleteEvent, getEvents, updateEvent } from "../services/eventsService.js";
 
 const emptyForm = {
@@ -32,11 +33,11 @@ export default function EventsPage() {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    async function syncEventsAndActiveEvent() {
+    async function syncEventsAndActiveEvent(options = {}) {
       setLoading(true);
       setError("");
       try {
-        const stored = await getEvents();
+        const stored = await getEvents(options);
         setEvents(stored);
         setActiveEventId(resolveActiveEventFromEvents(stored).activeEventId);
       } catch (loadError) {
@@ -47,9 +48,11 @@ export default function EventsPage() {
     }
 
     syncEventsAndActiveEvent();
+    const syncFromCache = () => syncEventsAndActiveEvent({ background: false });
 
     window.addEventListener("storage", syncEventsAndActiveEvent);
     window.addEventListener("rankify-active-event-changed", syncEventsAndActiveEvent);
+    window.addEventListener(DASHBOARD_CACHE_EVENT, syncFromCache);
 
     return () => {
       window.removeEventListener("storage", syncEventsAndActiveEvent);
@@ -57,6 +60,7 @@ export default function EventsPage() {
         "rankify-active-event-changed",
         syncEventsAndActiveEvent
       );
+      window.removeEventListener(DASHBOARD_CACHE_EVENT, syncFromCache);
     };
   }, []);
 
@@ -243,7 +247,7 @@ export default function EventsPage() {
           </div>
         )}
 
-        {loading ? (
+        {loading && events.length === 0 ? (
           <div className="app-card rounded-xl border p-8 text-center">
             <p className="app-muted text-sm font-semibold">Loading events...</p>
           </div>
