@@ -234,6 +234,64 @@ const defaultElements = [
   },
 ];
 
+function asArray(...values) {
+  for (const value of values) {
+    if (Array.isArray(value)) return value;
+    if (value && typeof value === "object") return Object.values(value);
+  }
+  return null;
+}
+
+function normalizeTemplateForEditor(template) {
+  const source = template?.templateData || template?.template_data || template?.data || template || {};
+  const savedCanvas = source.canvas || template?.canvas || {};
+  const width =
+    Number(savedCanvas.width || source.canvasWidth || source.width || template?.canvasWidth || template?.width) ||
+    800;
+  const height =
+    Number(savedCanvas.height || source.canvasHeight || source.height || template?.canvasHeight || template?.height) ||
+    600;
+  const backgroundImage = getPreviewableImageUrl(
+    savedCanvas.backgroundImage ||
+      source.backgroundImage ||
+      source.background ||
+      template?.backgroundImage ||
+      template?.previewImage
+  );
+  const elements = asArray(
+    source.elements,
+    source.layers,
+    source.objects,
+    source.items,
+    template?.elements,
+    template?.layers,
+    template?.objects,
+    template?.items
+  );
+
+  const mergedPreviewData = {
+    ...defaultPreviewData,
+    ...(source.previewData || template?.previewData || {}),
+  };
+
+  return {
+    name: firstTextValue(template?.name, template?.title, source.name, source.title, "Untitled Template"),
+    eventId: template?.eventId || template?.event_id || source.eventId || source.event_id || "",
+    canvas: {
+      ...savedCanvas,
+      width,
+      height,
+      backgroundImage,
+    },
+    elements: Array.isArray(elements) ? elements : [],
+    previewData: {
+      ...mergedPreviewData,
+      winners: Array.isArray(mergedPreviewData.winners) ? mergedPreviewData.winners : defaultPreviewData.winners,
+    },
+    backgroundName: firstTextValue(source.backgroundName, source.imageName, template?.backgroundName, template?.imageName),
+  };
+}
+
 function inputClass(extra = "") {
   return `app-input h-10 rounded-md border px-3 text-sm outline-none focus:border-[var(--app-primary)] focus:ring-2 focus:ring-[var(--app-focus-ring)] ${extra}`;
 }
@@ -254,9 +312,13 @@ export default function TemplateEditorPage() {
   const canvasScrollRef = useRef(null);
   const dragRef = useRef(null);
   const templateShapeRef = useRef("array");
+  const isEditMode = Boolean(templateId);
   const [templateName, setTemplateName] = useState("New Template");
+  const [templateEventId, setTemplateEventId] = useState("");
   const [canvas, setCanvas] = useState({ width: 800, height: 600, backgroundImage: "" });
   const [backgroundName, setBackgroundName] = useState("");
+  const [editorLoading, setEditorLoading] = useState(Boolean(templateId));
+  const [editorError, setEditorError] = useState("");
   const [scalePercent, setScalePercent] = useState(60);
   const [showGrid, setShowGrid] = useState(false);
   const [elements, setElements] = useState(defaultElements);
@@ -279,24 +341,49 @@ export default function TemplateEditorPage() {
 
   useEffect(() => {
     templateShapeRef.current = "array";
-    if (!templateId) return;
+    if (!templateId) {
+      setTemplateName("New Template");
+      setTemplateEventId("");
+      setCanvas({ width: 800, height: 600, backgroundImage: "" });
+      setBackgroundName("");
+      setElements(defaultElements);
+      setSelectedElementId("programName");
+      setPreviewData(defaultPreviewData);
+      setEditorLoading(false);
+      setEditorError("");
+      return;
+    }
 
     let mounted = true;
     async function loadTemplate() {
+      setEditorLoading(true);
+      setEditorError("");
       try {
+        const activeEventId = await getStoredActiveEventIdForCurrentUser();
         const template = await getProgramTemplateById(templateId);
         if (!mounted) return;
-        setTemplateName(template.name || "New Template");
-        setCanvas({
-          width: Number(template.canvas?.width) || 800,
-          height: Number(template.canvas?.height) || 600,
-          backgroundImage: getPreviewableImageUrl(template.canvas?.backgroundImage || template.backgroundImage || template.previewImage),
-        });
-        setElements(Array.isArray(template.elements) && template.elements.length ? template.elements : defaultElements);
-        setPreviewData(template.previewData || defaultPreviewData);
+        const normalized = normalizeTemplateForEditor(template);
+
+        if (normalized.eventId && (!activeEventId || String(normalized.eventId) !== String(activeEventId))) {
+          throw new Error("This template does not belong to the current active event.");
+        }
+
+        setTemplateName(normalized.name);
+        setTemplateEventId(normalized.eventId);
+        setCanvas(normalized.canvas);
+        setBackgroundName(normalized.backgroundName);
+        setElements(normalized.elements);
+        setSelectedElementId(
+          normalized.elements.find((element) => element.id === "programName")?.id ||
+            normalized.elements[0]?.id ||
+            ""
+        );
+        setPreviewData(normalized.previewData);
       } catch (error) {
-        alert(error.message || "Unable to load template.");
-        navigate("/dashboard/program-templates");
+        if (!mounted) return;
+        setEditorError(error.message || "Unable to load this template.");
+      } finally {
+        if (mounted) setEditorLoading(false);
       }
     }
 
@@ -523,6 +610,10 @@ export default function TemplateEditorPage() {
       alert("Please select an active event first.");
       return;
     }
+    if (isEditMode && templateEventId && String(templateEventId) !== String(activeEventId)) {
+      alert("This template does not belong to the current active event.");
+      return;
+    }
     if (!templateName.trim()) {
       alert("Template name is required.");
       return;
@@ -536,9 +627,10 @@ export default function TemplateEditorPage() {
     };
 
     const now = new Date().toISOString();
+    const eventId = isEditMode ? templateEventId || activeEventId : activeEventId;
     const template = {
-      ...(templateId ? { id: templateId } : {}),
-      eventId: activeEventId,
+      ...(isEditMode ? { id: templateId } : {}),
+      eventId,
       name: templateName.trim(),
       type: "program",
       canvas: normalizedCanvas,
@@ -550,10 +642,10 @@ export default function TemplateEditorPage() {
     };
 
     try {
-      if (templateId) {
+      if (isEditMode) {
         await updateProgramTemplate(templateId, template);
       } else {
-        await createProgramTemplate(activeEventId, template);
+        await createProgramTemplate(eventId, template);
       }
       window.dispatchEvent(new Event("rankify-data-changed"));
       navigate("/dashboard/program-templates");
@@ -719,6 +811,62 @@ export default function TemplateEditorPage() {
   );
   const backgroundImageUrl = getPreviewableImageUrl(canvas.backgroundImage);
 
+  if (editorLoading) {
+    return (
+      <div className="template-editor-page app-page min-h-screen overflow-x-hidden pb-28">
+        <style>{templateEditorThemeStyles}</style>
+        <header className="app-header sticky top-0 z-30 border-b px-5 py-4">
+          <div className="flex min-w-0 items-center gap-4">
+            <button
+              type="button"
+              onClick={() => navigate("/dashboard/program-templates")}
+              className="rounded-md px-2 py-1 text-2xl text-[var(--app-muted)] hover:bg-[var(--app-surface-elevated)]"
+            >
+              <ArrowLeft size={22} strokeWidth={1.9} aria-hidden="true" />
+            </button>
+            <div className="min-w-0">
+              <p className="app-muted text-sm">Poster Templates</p>
+              <h1 className="app-heading truncate text-2xl font-bold">Loading template...</h1>
+            </div>
+          </div>
+        </header>
+        <main className="p-4">
+          <div className="app-card rounded-xl border p-8 text-center">
+            <p className="app-muted text-sm font-semibold">Loading template...</p>
+          </div>
+        </main>
+      </div>
+    );
+  }
+
+  if (editorError) {
+    return (
+      <div className="template-editor-page app-page min-h-screen overflow-x-hidden pb-28">
+        <style>{templateEditorThemeStyles}</style>
+        <header className="app-header sticky top-0 z-30 border-b px-5 py-4">
+          <div className="flex min-w-0 items-center gap-4">
+            <button
+              type="button"
+              onClick={() => navigate("/dashboard/program-templates")}
+              className="rounded-md px-2 py-1 text-2xl text-[var(--app-muted)] hover:bg-[var(--app-surface-elevated)]"
+            >
+              <ArrowLeft size={22} strokeWidth={1.9} aria-hidden="true" />
+            </button>
+            <div className="min-w-0">
+              <p className="app-muted text-sm">Poster Templates</p>
+              <h1 className="app-heading truncate text-2xl font-bold">Template not found</h1>
+            </div>
+          </div>
+        </header>
+        <main className="p-4">
+          <div className="app-card rounded-xl border border-[var(--app-danger)] p-6 text-sm text-[var(--app-danger)]">
+            {editorError}
+          </div>
+        </main>
+      </div>
+    );
+  }
+
   return (
     <div className="template-editor-page app-page min-h-screen overflow-x-hidden pb-28">
       <style>{templateEditorThemeStyles}</style>
@@ -734,7 +882,7 @@ export default function TemplateEditorPage() {
             </button>
             <div className="min-w-0">
               <p className="app-muted text-sm">Poster Templates</p>
-              <h1 className="app-heading truncate text-2xl font-bold">{templateId ? `Edit - ${templateName || "New Template"}` : "Create poster template"}</h1>
+              <h1 className="app-heading truncate text-2xl font-bold">{isEditMode ? `Edit - ${templateName || "Untitled Template"}` : "Create poster template"}</h1>
             </div>
           </div>
           <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
@@ -752,7 +900,7 @@ export default function TemplateEditorPage() {
               className="app-success-btn inline-flex h-10 items-center justify-center gap-2 rounded-md px-4 text-sm font-semibold shadow-sm hover:opacity-90"
             >
               <Save size={16} strokeWidth={1.9} aria-hidden="true" />
-              {templateId ? "Save changes" : "Create template"}
+              {isEditMode ? "Save changes" : "Create template"}
             </button>
           </div>
         </div>
@@ -940,7 +1088,7 @@ export default function TemplateEditorPage() {
           </div>
           <div className="mt-48 border-t border-[var(--app-border)] pt-6">
             <button type="button" onClick={saveTemplate} className="app-success-btn h-14 w-full rounded-md text-lg font-bold hover:opacity-90">
-              {templateId ? "Save Template Changes" : "Create New Template"}
+              {isEditMode ? "Save Template Changes" : "Create New Template"}
             </button>
             <p className="app-muted mt-3 text-center text-xs">Tip: you can also save from the sticky bar at the top.</p>
           </div>

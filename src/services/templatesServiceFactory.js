@@ -12,6 +12,8 @@ export function mapTemplateRow(row) {
   const templateData = row.template_data || {};
   return {
     ...templateData,
+    templateData,
+    template_data: templateData,
     id: row.id,
     eventId: row.event_id,
     name: row.title || templateData.name || templateData.title || "Untitled Template",
