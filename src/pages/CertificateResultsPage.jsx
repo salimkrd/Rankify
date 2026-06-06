@@ -1,108 +1,18 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { Download, Edit, Eye, FileText, Plus, Trash2, X } from "lucide-react";
-import { getUserStorageKey } from "../utils/storage.js";
 import NoActiveEventState from "../components/NoActiveEventState.jsx";
-
-const EVENTS_KEY = "rankify_events";
-const ACTIVE_EVENT_KEY = "rankify_active_event_id";
-const RESULTS_KEY = "rankify_certificate_results";
-const TEMPLATES_KEY = "rankify_certificate_templates";
-const TEAMS_KEY = "rankify_teams";
-const CATEGORIES_KEY = "rankify_categories";
-
-const uid = () => {
-  if (window.crypto?.randomUUID) return window.crypto.randomUUID();
-  return `certificate_result_${Date.now()}_${Math.random().toString(16).slice(2)}`;
-};
-
-const safeJsonParse = (value, fallback) => {
-  try {
-    const parsed = JSON.parse(value || "");
-    return parsed || fallback;
-  } catch {
-    return fallback;
-  }
-};
-
-const asArray = (value) => {
-  if (Array.isArray(value)) return value;
-  if (value && typeof value === "object") {
-    return Object.entries(value).flatMap(([eventId, items]) =>
-      Array.isArray(items) ? items.map((item) => ({ ...item, eventId: item.eventId || eventId })) : []
-    );
-  }
-  return [];
-};
-
-const readMixedArray = (key) => {
-  const direct = asArray(safeJsonParse(localStorage.getItem(key), []));
-  const userScoped = asArray(safeJsonParse(localStorage.getItem(getUserStorageKey(key)), []));
-  const seen = new Set();
-  return [...direct, ...userScoped].filter((item, index) => {
-    const id = String(item?.id || item?.templateId || `${key}-${index}`);
-    if (seen.has(id)) return false;
-    seen.add(id);
-    return true;
-  });
-};
-
-const textOf = (item, keys, fallback = "") => {
-  for (const key of keys) {
-    if (item?.[key] !== undefined && item?.[key] !== null && item?.[key] !== "") {
-      return String(item[key]);
-    }
-  }
-  return fallback;
-};
-
-const readEvents = () => asArray(safeJsonParse(localStorage.getItem(getUserStorageKey(EVENTS_KEY)), []));
-
-const getActiveEvent = () => {
-  const events = readEvents();
-  const activeEventId = localStorage.getItem(getUserStorageKey(ACTIVE_EVENT_KEY)) || "";
-  if (!activeEventId) return null;
-  return events.find((event) => String(event.id) === String(activeEventId)) || null;
-};
-
-const readOptionsForEvent = (key, eventId, nameKeys) => {
-  const stored = safeJsonParse(localStorage.getItem(getUserStorageKey(key)), null);
-  let items = [];
-
-  if (Array.isArray(stored)) {
-    items = stored.filter((item) => String(item?.eventId) === String(eventId));
-  } else if (stored && typeof stored === "object") {
-    items = Array.isArray(stored[eventId]) ? stored[eventId] : [];
-  }
-
-  return items
-    .map((item, index) => {
-      const name = textOf(item, nameKeys);
-      if (!name) return null;
-      return {
-        id: String(item?.id || item?.teamId || item?.categoryId || name || `${key}-${index}`),
-        name,
-      };
-    })
-    .filter(Boolean);
-};
-
-const readTemplatesForEvent = (eventId) =>
-  readMixedArray(TEMPLATES_KEY)
-    .filter((template) => !template?.eventId || String(template.eventId) === String(eventId))
-    .map((template, index) => ({
-      ...template,
-      id: String(template.id || template.templateId || `certificate-template-${index}`),
-      name: textOf(template, ["name", "templateName", "title"], `Certificate Template ${index + 1}`),
-    }));
-
-const readResults = () => readMixedArray(RESULTS_KEY);
-
-const saveResults = (results) => {
-  localStorage.setItem(RESULTS_KEY, JSON.stringify(results));
-  window.dispatchEvent(new Event("storage"));
-  window.dispatchEvent(new Event("rankify-data-changed"));
-};
+import { getEvents } from "../services/eventsService.js";
+import { resolveActiveEventFromEvents } from "../services/activeEventService.js";
+import { getTeamsByEvent } from "../services/teamsService.js";
+import { getCategoriesByEvent } from "../services/categoriesService.js";
+import { listCertificateTemplatesByEvent } from "../services/certificateTemplatesService.js";
+import {
+  createCertificateResult,
+  deleteCertificateResult,
+  listCertificateResultsByEvent,
+  updateCertificateResult,
+} from "../services/certificateResultsService.js";
 
 const formatDate = (value) => {
   if (!value) return "Unknown";
@@ -274,23 +184,54 @@ export default function CertificateResultsPage() {
   const [editingId, setEditingId] = useState(null);
   const [viewing, setViewing] = useState(null);
   const [deleting, setDeleting] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   useEffect(() => {
-    function load() {
-      const event = getActiveEvent();
-      setActiveEvent(event);
-      setResults(readResults());
+    let cancelled = false;
 
-      if (!event?.id) {
-        setTemplates([]);
-        setTeams([]);
-        setCategories([]);
-        return;
+    async function load() {
+      setLoading(true);
+      setError("");
+      try {
+        const events = await getEvents();
+        if (cancelled) return;
+        const { activeEvent: event } = resolveActiveEventFromEvents(events);
+        setActiveEvent(event || null);
+
+        if (!event?.id) {
+          setResults([]);
+          setTemplates([]);
+          setTeams([]);
+          setCategories([]);
+          return;
+        }
+
+        const [eventResults, eventTemplates, eventTeams, eventCategories] = await Promise.all([
+          listCertificateResultsByEvent(event.id),
+          listCertificateTemplatesByEvent(event.id),
+          getTeamsByEvent(event.id),
+          getCategoriesByEvent(event.id),
+        ]);
+
+        if (cancelled) return;
+        setResults(eventResults);
+        setTemplates(eventTemplates);
+        setTeams(eventTeams.map((team) => ({ ...team, name: team.name || team.teamName || team.title || "Untitled Team" })));
+        setCategories(
+          eventCategories.map((category) => ({
+            ...category,
+            name: category.name || category.category || category.title || "Untitled Category",
+          }))
+        );
+      } catch (err) {
+        console.error("Failed to load certificate results.", err);
+        if (!cancelled) {
+          setError(err?.message || "Unable to load certificate results. Please try again.");
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
       }
-
-      setTemplates(readTemplatesForEvent(event.id));
-      setTeams(readOptionsForEvent(TEAMS_KEY, event.id, ["name", "teamName", "title"]));
-      setCategories(readOptionsForEvent(CATEGORIES_KEY, event.id, ["name", "category", "title"]));
     }
 
     load();
@@ -299,6 +240,7 @@ export default function CertificateResultsPage() {
     window.addEventListener("rankify-data-changed", load);
     window.addEventListener("rankify-events-changed", load);
     return () => {
+      cancelled = true;
       window.removeEventListener("storage", load);
       window.removeEventListener("rankify-active-event-changed", load);
       window.removeEventListener("rankify-data-changed", load);
@@ -347,7 +289,7 @@ export default function CertificateResultsPage() {
 
   function persist(nextResults) {
     setResults(nextResults);
-    saveResults(nextResults);
+    window.dispatchEvent(new Event("rankify-data-changed"));
   }
 
   function openCreate() {
@@ -392,7 +334,7 @@ export default function CertificateResultsPage() {
     setEditingId(null);
   }
 
-  function submitResult(event) {
+  async function submitResult(event) {
     event.preventDefault();
 
     if (!hasActiveEvent) {
@@ -423,33 +365,49 @@ export default function CertificateResultsPage() {
       candidateName: form.candidateName.trim(),
       programName: form.programName.trim(),
       candidatePosition: form.candidatePosition.trim(),
+      teamId: selectedTeam.id,
       candidateTeam: selectedTeam.name,
+      categoryId: selectedCategory.id,
       programCategory: selectedCategory.name,
       candidateGrade: form.candidateGrade.trim(),
       issueDate: form.issueDate,
     };
 
-    if (modalMode === "edit") {
-      persist(results.map((result) => (String(result.id) === String(editingId) ? { ...result, ...cleaned } : result)));
-    } else {
-      persist([
-        ...results,
-        {
-          id: uid(),
+    try {
+      if (modalMode === "edit") {
+        const existing = results.find((result) => String(result.id) === String(editingId)) || {};
+        const saved = await updateCertificateResult(editingId, {
+          ...existing,
+          ...cleaned,
+          eventId: activeEvent.id,
+          createdAt: existing.createdAt || now,
+        });
+        persist(results.map((result) => (String(result.id) === String(editingId) ? saved : result)));
+      } else {
+        const saved = await createCertificateResult(activeEvent.id, {
           eventId: activeEvent.id,
           ...cleaned,
           createdAt: now,
-        },
-      ]);
+        });
+        persist([saved, ...results]);
+      }
+      closeEditor();
+    } catch (err) {
+      console.error("Failed to save certificate result.", err);
+      alert(err?.message || "Unable to save this certificate result. Please try again.");
     }
-
-    closeEditor();
   }
 
-  function confirmDelete() {
+  async function confirmDelete() {
     if (!deleting) return;
-    persist(results.filter((result) => String(result.id) !== String(deleting.id)));
-    setDeleting(null);
+    try {
+      await deleteCertificateResult(deleting.id);
+      persist(results.filter((result) => String(result.id) !== String(deleting.id)));
+      setDeleting(null);
+    } catch (err) {
+      console.error("Failed to delete certificate result.", err);
+      alert(err?.message || "Unable to delete this certificate result. Please try again.");
+    }
   }
 
   async function waitForImages(root) {
@@ -576,7 +534,18 @@ export default function CertificateResultsPage() {
             </select>
           </div>
 
-          {filteredResults.length ? (
+          {error ? (
+            <div className="empty-state">
+              <h2>Unable to Load Certificate Results</h2>
+              <p>{error}</p>
+            </div>
+          ) : null}
+
+          {loading && !filteredResults.length ? (
+            <div className="empty-state">
+              <h2>Loading certificate results...</h2>
+            </div>
+          ) : filteredResults.length ? (
             <div className="results-grid">
               {filteredResults.map((result) => (
                 <article className="result-card" key={result.id}>

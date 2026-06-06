@@ -1,13 +1,16 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import html2canvas from "html2canvas";
 import { Download, Edit, Eye, FilePlus2, Plus, RefreshCw, Trash2, X } from "lucide-react";
-import { getUserStorageKey } from "../utils/storage.js";
 import NoActiveEventState from "../components/NoActiveEventState.jsx";
-
-const EVENTS_KEY = "rankify_events";
-const ACTIVE_EVENT_KEY = "rankify_active_event_id";
-const TEMPLATE_KEY = "rankify_framed_post_templates";
-const STORAGE_KEY = "rankify_framed_posts";
+import { getEvents } from "../services/eventsService.js";
+import { resolveActiveEventFromEvents } from "../services/activeEventService.js";
+import { listFramedPostTemplatesByEvent } from "../services/framedPostTemplatesService.js";
+import {
+  createFramedPost,
+  deleteFramedPost,
+  listFramedPostsByEvent,
+  updateFramedPost,
+} from "../services/framedPostsService.js";
 
 const STATUS_OPTIONS = ["All Status", "Published", "Draft", "Archived"];
 const SORT_OPTIONS = [
@@ -17,34 +20,6 @@ const SORT_OPTIONS = [
 const MAX_CONTENT_IMAGE_DIMENSION = 1080;
 const CONTENT_IMAGE_QUALITY = 0.92;
 const DOWNLOAD_IMAGE_QUALITY = 0.9;
-
-const fallbackEvents = [
-  {
-    id: "event_panangara",
-    name: "SSF PANANGARA UNIT SAHITYOLSAV",
-    organizer: "Panangara Unit",
-    date: "May 25",
-    location: "Panangara",
-    created: "5/24/2026",
-  },
-  {
-    id: "event_cherikallu",
-    name: "SSF CHERIKALLU UNIT SAHITYOLSAV",
-    organizer: "Cherikallu Unit",
-    date: "May 22",
-    location: "Nambram",
-    created: "5/22/2026",
-  },
-];
-
-function safeJsonParse(value, fallback) {
-  try {
-    const parsed = JSON.parse(value || "");
-    return parsed || fallback;
-  } catch {
-    return fallback;
-  }
-}
 
 const framedPostsThemeStyles = `
 .framed-posts-page h1,
@@ -87,82 +62,6 @@ const framedPostsThemeStyles = `
 .framed-posts-page .framed-post-canvas .bg-\\[\\#f8f2ff\\],
 .framed-posts-page .bg-\\[\\#f8f2ff\\]{color-scheme:light}
 `;
-
-function normalizeStored(raw) {
-  if (Array.isArray(raw)) return raw;
-  if (raw && typeof raw === "object") {
-    return Object.values(raw).flat();
-  }
-  return [];
-}
-
-function getStoredEvents() {
-  const stored = safeJsonParse(localStorage.getItem(getUserStorageKey(EVENTS_KEY)), []);
-  if (Array.isArray(stored) && stored.length > 0) {
-    return stored;
-  }
-  return [];
-}
-
-function getValidActiveEventId(events) {
-  const storedId = localStorage.getItem(getUserStorageKey(ACTIVE_EVENT_KEY));
-  const hasStored = events.some((event) => String(event.id) === String(storedId));
-  if (hasStored) return storedId;
-  localStorage.removeItem(getUserStorageKey(ACTIVE_EVENT_KEY));
-  return "";
-}
-
-function getActiveEvent(activeEventId) {
-  const events = getStoredEvents();
-  return events.find((event) => String(event.id) === String(activeEventId)) || null;
-}
-
-function getEventTemplates(activeEventId) {
-  const raw = safeJsonParse(localStorage.getItem(getUserStorageKey(TEMPLATE_KEY)), []);
-  const templates = normalizeStored(raw);
-  return templates.filter((template) => String(template.eventId) === String(activeEventId));
-}
-
-function getEventPosts(activeEventId) {
-  const raw = safeJsonParse(localStorage.getItem(getUserStorageKey(STORAGE_KEY)), []);
-  if (Array.isArray(raw)) {
-    return raw.filter((post) => String(post.eventId) === String(activeEventId));
-  }
-  if (raw && typeof raw === "object") {
-    return Array.isArray(raw[activeEventId]) ? raw[activeEventId] : [];
-  }
-  return [];
-}
-
-function getRawPosts() {
-  return safeJsonParse(localStorage.getItem(getUserStorageKey(STORAGE_KEY)), []);
-}
-
-function getPostsStorageShape(raw) {
-  if (Array.isArray(raw)) return "array";
-  if (raw && typeof raw === "object") return "object";
-  return "array";
-}
-
-function persistPosts(activeEventId, posts) {
-  const raw = getRawPosts();
-  const shape = getPostsStorageShape(raw);
-
-  if (shape === "object") {
-    const next = { ...(raw || {}) };
-    if (posts.length) next[activeEventId] = posts;
-    else delete next[activeEventId];
-    localStorage.setItem(getUserStorageKey(STORAGE_KEY), JSON.stringify(next));
-    window.dispatchEvent(new Event("rankify-data-changed"));
-    return;
-  }
-
-  const existing = Array.isArray(raw) ? raw : [];
-  const filtered = existing.filter((post) => String(post.eventId) !== String(activeEventId));
-  const merged = [...filtered, ...posts.map((post) => ({ ...post, eventId: activeEventId }))];
-  localStorage.setItem(getUserStorageKey(STORAGE_KEY), JSON.stringify(merged));
-  window.dispatchEvent(new Event("rankify-data-changed"));
-}
 
 function makeId(prefix = "post") {
   return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
@@ -335,11 +234,11 @@ function waitForImages(root) {
 }
 
 export default function FramedPostsPage() {
-  const [events, setEvents] = useState(getStoredEvents());
-  const [activeEventId, setActiveEventId] = useState(getValidActiveEventId(events));
-  const [activeEvent, setActiveEvent] = useState(getActiveEvent(activeEventId));
-  const [templates, setTemplates] = useState(getEventTemplates(activeEventId));
-  const [posts, setPosts] = useState(getEventPosts(activeEventId));
+  const [events, setEvents] = useState([]);
+  const [activeEventId, setActiveEventId] = useState("");
+  const [activeEvent, setActiveEvent] = useState(null);
+  const [templates, setTemplates] = useState([]);
+  const [posts, setPosts] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("All Status");
   const [sortOrder, setSortOrder] = useState("newest");
@@ -352,20 +251,47 @@ export default function FramedPostsPage() {
   const [isProcessingImage, setIsProcessingImage] = useState(false);
   const [imageUploadError, setImageUploadError] = useState("");
   const [isDraggingImage, setIsDraggingImage] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
   const exportRef = useRef(null);
   const adjustDragState = useRef({ isDragging: false, startX: 0, startY: 0, startCropX: 0, startCropY: 0 });
 
   const templateOptions = templates;
 
   useEffect(() => {
-    function sync() {
-      const storedEvents = getStoredEvents();
-      const validActiveId = getValidActiveEventId(storedEvents);
-      setEvents(storedEvents);
-      setActiveEventId(validActiveId);
-      setActiveEvent(getActiveEvent(validActiveId));
-      setTemplates(getEventTemplates(validActiveId));
-      setPosts(getEventPosts(validActiveId));
+    let cancelled = false;
+
+    async function sync() {
+      setError("");
+      setLoading(true);
+      try {
+        const nextEvents = await getEvents();
+        if (cancelled) return;
+        const { activeEventId: validActiveId, activeEvent: event } = resolveActiveEventFromEvents(nextEvents);
+        let eventTemplates = [];
+        let eventPosts = [];
+
+        if (validActiveId) {
+          [eventTemplates, eventPosts] = await Promise.all([
+            listFramedPostTemplatesByEvent(validActiveId),
+            listFramedPostsByEvent(validActiveId),
+          ]);
+        }
+
+        if (cancelled) return;
+        setEvents(nextEvents);
+        setActiveEventId(validActiveId || "");
+        setActiveEvent(event || null);
+        setTemplates(eventTemplates);
+        setPosts(eventPosts);
+      } catch (err) {
+        console.error("Failed to load framed posts.", err);
+        if (!cancelled) {
+          setError(err?.message || "Unable to load framed posts. Please try again.");
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
     }
 
     sync();
@@ -376,6 +302,7 @@ export default function FramedPostsPage() {
     window.addEventListener("rankify-events-changed", sync);
 
     return () => {
+      cancelled = true;
       window.removeEventListener("storage", sync);
       window.removeEventListener("rankify-active-event-changed", sync);
       window.removeEventListener("rankify-data-changed", sync);
@@ -384,8 +311,8 @@ export default function FramedPostsPage() {
   }, []);
 
   useEffect(() => {
-    setActiveEvent(getActiveEvent(activeEventId));
-  }, [activeEventId]);
+    setActiveEvent(events.find((event) => String(event.id) === String(activeEventId)) || null);
+  }, [activeEventId, events]);
 
   const filteredPosts = useMemo(() => {
     let items = [...posts];
@@ -627,7 +554,7 @@ export default function FramedPostsPage() {
     }
   }
 
-  function savePost() {
+  async function savePost() {
     if (isProcessingImage) {
       alert("Please wait for the image to finish processing.");
       return;
@@ -672,29 +599,36 @@ export default function FramedPostsPage() {
       updatedAt: now,
     };
 
-    const nextPosts = editingPost
-      ? posts.map((post) => (String(post.id) === String(editingPost.id) ? nextPost : post))
-      : [nextPost, ...posts];
-
     try {
-      persistPosts(activeEventId, nextPosts);
-      setPosts(nextPosts);
+      if (editingPost) {
+        const saved = await updateFramedPost(editingPost.id, nextPost);
+        setPosts((current) => current.map((post) => (String(post.id) === String(editingPost.id) ? saved : post)));
+      } else {
+        const saved = await createFramedPost(activeEventId, nextPost);
+        setPosts((current) => [saved, ...current]);
+      }
+      window.dispatchEvent(new Event("rankify-data-changed"));
       closeForm();
     } catch (error) {
       console.error("Failed to save framed post.", error);
       alert(
-        "Unable to save this framed post. Please remove older oversized posts or try a smaller image."
+        error?.message || "Unable to save this framed post. Please try again."
       );
     }
   }
 
-  function deletePost(postId) {
+  async function deletePost(postId) {
     const confirmed = window.confirm("Are you sure you want to delete this framed post?");
     if (!confirmed) return;
-    const nextPosts = posts.filter((post) => String(post.id) !== String(postId));
-    persistPosts(activeEventId, nextPosts);
-    setPosts(nextPosts);
-    if (viewingPost?.id === postId) closeViewModal();
+    try {
+      await deleteFramedPost(postId);
+      setPosts((current) => current.filter((post) => String(post.id) !== String(postId)));
+      window.dispatchEvent(new Event("rankify-data-changed"));
+      if (viewingPost?.id === postId) closeViewModal();
+    } catch (error) {
+      console.error("Failed to delete framed post.", error);
+      alert(error?.message || "Unable to delete this framed post. Please try again.");
+    }
   }
 
   async function handleDownload() {
@@ -1049,7 +983,19 @@ export default function FramedPostsPage() {
           </div>
         </div>
 
-        {hasPosts ? (
+        {error ? (
+          <div className="app-card mb-6 rounded-3xl border border-red-200 p-5 text-center text-sm font-semibold text-red-600 shadow-sm">
+            {error}
+          </div>
+        ) : null}
+
+        {loading && !hasPosts ? (
+          <div className="app-card flex min-h-[52vh] items-center justify-center rounded-[32px] border border-dashed p-10 shadow-sm">
+            <div className="text-center">
+              <h2 className="app-heading text-2xl font-semibold">Loading framed posts...</h2>
+            </div>
+          </div>
+        ) : hasPosts ? (
           <div className="grid min-w-0 gap-6 xl:grid-cols-2">
             {filteredPosts.map((post) => {
               const template = getTemplateById(templates, post.templateId);

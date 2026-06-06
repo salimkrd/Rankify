@@ -2,43 +2,19 @@ import React, { useEffect, useMemo, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { BarChart3, Download, Edit, Eye, MoreVertical, Plus, Trash2, X } from "lucide-react";
 import TeamStatusTemplatePreview from "../components/TeamStatusTemplatePreview";
-import { getUserStorageKey } from "../utils/storage.js";
 import NoActiveEventState from "../components/NoActiveEventState.jsx";
-
-const STORAGE_KEY = "rankify_team_status_results";
-const TEMPLATES_KEY = "rankify_team_status_templates";
-const TEAMS_KEY = "rankify_teams";
-const EVENTS_KEY = "rankify_events";
-const ACTIVE_EVENT_KEY = "rankify_active_event_id";
+import { getEvents } from "../services/eventsService.js";
+import { resolveActiveEventFromEvents } from "../services/activeEventService.js";
+import { getTeamsByEvent } from "../services/teamsService.js";
+import { listTeamStatusTemplatesByEvent } from "../services/teamStatusTemplatesService.js";
+import {
+  createTeamStatusResult,
+  deleteTeamStatusResult,
+  listTeamStatusResultsByEvent,
+  updateTeamStatusResult,
+} from "../services/teamStatusResultsService.js";
 
 const uid = () => `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 9)}`;
-const safeParse = (v, fallback = null) => {
-  try {
-    return v ? JSON.parse(v) : fallback;
-  } catch {
-    return fallback;
-  }
-};
-const asArray = (value) => (Array.isArray(value) ? value : value && typeof value === "object" ? Object.values(value) : []);
-
-function readTeamsForActiveEvent(activeEventId) {
-  const stored = safeParse(localStorage.getItem(getUserStorageKey(TEAMS_KEY)), null);
-  let eventTeams = [];
-  if (Array.isArray(stored)) eventTeams = stored.filter((t) => String(t?.eventId) === String(activeEventId));
-  else if (stored && typeof stored === "object") eventTeams = Array.isArray(stored[activeEventId]) ? stored[activeEventId] : [];
-  return eventTeams.map((t) => ({ id: t.id || uid(), name: t.name || t.teamName || t.title || "Alpha" }));
-}
-
-function flattenTemplatesStorage(key) {
-  const raw = safeParse(localStorage.getItem(getUserStorageKey(key)), []);
-  if (!raw) return [];
-  if (Array.isArray(raw)) return raw;
-  if (typeof raw === "object") {
-    // object mapping eventId->[templates]
-    return Object.values(raw).filter(Array.isArray).flat();
-  }
-  return [];
-}
 
 function injectResultIntoTemplate(template, result) {
   const tpl = { ...(template || {}) };
@@ -85,29 +61,40 @@ export default function TeamStatusResultsPage() {
   const [editingId, setEditingId] = useState(null);
   const [viewing, setViewing] = useState(null); // viewing result for posters
   const [menuOpenId, setMenuOpenId] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   useEffect(() => {
-    function load() {
-      const events = asArray(safeParse(localStorage.getItem(getUserStorageKey(EVENTS_KEY)), []));
-      const activeId = localStorage.getItem(getUserStorageKey(ACTIVE_EVENT_KEY)) || "";
-      const event = events.find((e) => String(e.id) === String(activeId)) || null;
+    async function load() {
+      setLoading(true);
+      setError("");
+      try {
+        const events = await getEvents();
+        const { activeEvent: event } = resolveActiveEventFromEvents(events);
 
-      if (!event?.id) {
-        setActiveEvent(null);
-        setTemplates([]);
-        setTeams([]);
-        setResults([]);
-        return;
+        if (!event?.id) {
+          setActiveEvent(null);
+          setTemplates([]);
+          setTeams([]);
+          setResults([]);
+          return;
+        }
+
+        const [eventTemplates, eventTeams, eventResults] = await Promise.all([
+          listTeamStatusTemplatesByEvent(event.id),
+          getTeamsByEvent(event.id),
+          listTeamStatusResultsByEvent(event.id),
+        ]);
+
+        setActiveEvent({ id: String(event.id), name: event.name || event.title || "Active Event" });
+        setTemplates(eventTemplates);
+        setTeams(eventTeams);
+        setResults(eventResults);
+      } catch (loadError) {
+        setError(loadError.message || "Unable to load team status results.");
+      } finally {
+        setLoading(false);
       }
-
-      setActiveEvent({ id: String(event.id || activeId), name: event.name || event.title || "Active Event" });
-      setTemplates(flattenTemplatesStorage(TEMPLATES_KEY));
-      setTeams(readTeamsForActiveEvent(activeId));
-
-      const raw = safeParse(localStorage.getItem(getUserStorageKey(STORAGE_KEY)), []);
-      // support grouped by event id or array
-      const list = asArray(raw).filter((item) => String(item.eventId) === String(activeId));
-      setResults(list);
     }
     load();
     window.addEventListener("storage", load);
@@ -126,19 +113,6 @@ export default function TeamStatusResultsPage() {
     if (!activeEvent?.id) return;
 
     setResults(next);
-    // write grouped by eventId if existing stored as object
-    const raw = safeParse(localStorage.getItem(getUserStorageKey(STORAGE_KEY)), null);
-    if (raw && !Array.isArray(raw) && typeof raw === "object") {
-      const activeId = activeEvent.id;
-      const nextRaw = { ...(raw || {}), [activeId]: next };
-      localStorage.setItem(getUserStorageKey(STORAGE_KEY), JSON.stringify(nextRaw));
-    } else {
-      // fallback: store as array (flat)
-      // merge with other-event items
-      const existing = asArray(safeParse(localStorage.getItem(getUserStorageKey(STORAGE_KEY)), []));
-      const others = existing.filter((item) => String(item.eventId) !== String(activeEvent.id));
-      localStorage.setItem(getUserStorageKey(STORAGE_KEY), JSON.stringify([...others, ...next]));
-    }
     window.dispatchEvent(new Event("rankify-data-changed"));
   };
 
@@ -165,7 +139,7 @@ export default function TeamStatusResultsPage() {
     setEditingId(null);
   };
 
-  const submit = (e) => {
+  const submit = async (e) => {
     e.preventDefault();
     if (!activeEvent?.id) {
       alert("Please select an active event first.");
@@ -184,18 +158,32 @@ export default function TeamStatusResultsPage() {
       updatedAt: new Date().toISOString(),
     };
 
-    if (modalMode === "edit") {
-      const next = results.map((r) => (r.id === editingId ? { ...r, ...cleaned, createdAt: r.createdAt || cleaned.createdAt } : r));
-      saveResults(next);
-    } else {
-      saveResults([...(results || []), cleaned]);
+    try {
+      if (modalMode === "edit") {
+        const updated = await updateTeamStatusResult(editingId, {
+          ...results.find((r) => r.id === editingId),
+          ...cleaned,
+          createdAt: results.find((r) => r.id === editingId)?.createdAt || cleaned.createdAt,
+        });
+        saveResults(results.map((r) => (r.id === editingId ? updated : r)));
+      } else {
+        const created = await createTeamStatusResult(activeEvent.id, cleaned);
+        saveResults([created, ...(results || [])]);
+      }
+      closeEditor();
+    } catch (saveError) {
+      setError(saveError.message || "Unable to save team status result.");
     }
-    closeEditor();
   };
 
-  const remove = (id) => {
+  const remove = async (id) => {
     if (!window.confirm("Delete this status?")) return;
-    saveResults((results || []).filter((r) => r.id !== id));
+    try {
+      await deleteTeamStatusResult(id);
+      saveResults((results || []).filter((r) => r.id !== id));
+    } catch (deleteError) {
+      setError(deleteError.message || "Unable to delete team status result.");
+    }
   };
 
   const openViewPosters = (result) => {
@@ -331,7 +319,16 @@ export default function TeamStatusResultsPage() {
       </div>
 
       <div className="mt-8">
-        {filtered.length === 0 ? (
+        {error ? (
+          <div className="app-card rounded-xl border border-red-200 px-4 py-6 text-center text-red-600">
+            {error}
+          </div>
+        ) : null}
+        {loading && filtered.length === 0 ? (
+          <div className="app-card rounded-xl border border-dashed px-4 py-20 text-center">
+            <h3 className="app-heading text-xl font-bold">Loading team point statuses...</h3>
+          </div>
+        ) : filtered.length === 0 ? (
           <div className="app-card rounded-xl border border-dashed px-4 py-20 text-center">
             <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-[var(--app-surface-elevated)] text-[var(--app-muted)]">
               <BarChart3 size={44} strokeWidth={1.8} aria-hidden="true" />
@@ -490,7 +487,7 @@ export default function TeamStatusResultsPage() {
             </header>
 
             <div className="mt-4 space-y-4" style={{ maxHeight: 'calc(100vh - 200px)', overflow: 'auto' }}>
-              {(flattenTemplatesStorage(TEMPLATES_KEY) || []).map((template) => {
+              {(templates || []).map((template) => {
                 const tpl = injectResultIntoTemplate(template, viewing);
                 return (
                   <div key={template.id} className="app-card w-full rounded-lg border p-6 shadow-sm">

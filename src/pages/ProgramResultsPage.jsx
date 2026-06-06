@@ -1,178 +1,23 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { BarChart3, Download, Edit, Eye, Plus, Trash2, X } from "lucide-react";
-import { getUserStorageKey } from "../utils/storage.js";
 import NoActiveEventState from "../components/NoActiveEventState.jsx";
+import { getEvents } from "../services/eventsService.js";
+import { resolveActiveEventFromEvents } from "../services/activeEventService.js";
+import { getTeamsByEvent } from "../services/teamsService.js";
+import { getCategoriesByEvent } from "../services/categoriesService.js";
+import { getParticipantsByEvent } from "../services/participantsService.js";
+import { listProgramTemplatesByEvent } from "../services/programTemplatesService.js";
+import {
+  createProgramResult,
+  deleteProgramResult,
+  listProgramResultsByEvent,
+  updateProgramResult,
+} from "../services/programResultsService.js";
 
-const STORAGE_KEY = "rankify_program_results";
 const FALLBACK_TEAMS = ["Alpha"];
 const CUSTOM_WINNER_VALUE = "__custom__";
 const uid = () => `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 9)}`;
-const safeParse = (value, fallback = null) => {
-  try {
-    return value ? JSON.parse(value) : fallback;
-  } catch {
-    return fallback;
-  }
-};
-const asArray = (value) => Array.isArray(value) ? value : value && typeof value === "object" ? Object.values(value) : [];
-const readStorageArray = (keys) => {
-  for (const key of keys) {
-    const list = asArray(safeParse(localStorage.getItem(getUserStorageKey(key)), null));
-    if (list.length) return list;
-  }
-  return [];
-};
-const readTeamObjectsForActiveEvent = (activeEventId) => {
-  const storedTeams = safeParse(localStorage.getItem(getUserStorageKey("rankify_teams")), null);
-  let eventTeams = [];
-
-  if (Array.isArray(storedTeams)) {
-    eventTeams = storedTeams.filter(
-      (team) => String(team?.eventId) === String(activeEventId)
-    );
-  } else if (storedTeams && typeof storedTeams === "object") {
-    eventTeams = Array.isArray(storedTeams[activeEventId])
-      ? storedTeams[activeEventId]
-      : [];
-  }
-
-  return eventTeams
-    .map((team, index) => {
-      const name = textOf(team, ["name", "teamName", "title"]);
-      if (!name) return null;
-      return {
-        id: String(team?.id || team?.teamId || name || `team-${index}`),
-        name,
-      };
-    })
-    .filter(Boolean);
-};
-const readTeamsForActiveEvent = (activeEventId) =>
-  readTeamObjectsForActiveEvent(activeEventId).map((team) => team.name);
-const readCategoryOptionsForActiveEvent = (activeEventId) => {
-  const storedCategories = safeParse(
-    localStorage.getItem(getUserStorageKey("rankify_categories")),
-    null
-  );
-  let eventCategories = [];
-
-  if (Array.isArray(storedCategories)) {
-    eventCategories = storedCategories.filter(
-      (category) => String(category?.eventId) === String(activeEventId)
-    );
-  } else if (storedCategories && typeof storedCategories === "object") {
-    eventCategories = Array.isArray(storedCategories[activeEventId])
-      ? storedCategories[activeEventId]
-      : [];
-  }
-
-  return eventCategories
-    .map((category, index) => {
-      const name = textOf(category, ["name", "category", "title"]);
-      if (!name) return null;
-      return {
-        id: String(category?.id || category?.categoryId || name || `category-${index}`),
-        name,
-      };
-    })
-    .filter(Boolean);
-};
-const readParticipantsForActiveEvent = (activeEventId) => {
-  const storedParticipants = safeParse(
-    localStorage.getItem(getUserStorageKey("rankify_participants")),
-    null
-  );
-  let eventParticipants = [];
-
-  if (Array.isArray(storedParticipants)) {
-    eventParticipants = storedParticipants.filter(
-      (participant) => String(participant?.eventId) === String(activeEventId)
-    );
-  } else if (storedParticipants && typeof storedParticipants === "object") {
-    eventParticipants = Array.isArray(storedParticipants[activeEventId])
-      ? storedParticipants[activeEventId]
-      : [];
-  }
-
-  return eventParticipants
-    .map((participant) => ({
-      id: String(participant?.id || participant?.participantId || ""),
-      eventId: String(participant?.eventId || activeEventId),
-      name: textOf(participant, ["name", "participantName", "title"]),
-      teamId: String(participant?.teamId || ""),
-      teamName: textOf(participant, ["teamName", "team"]),
-    }))
-    .filter((participant) => participant.id && participant.name);
-};
-const isResultWinnerLike = (value) =>
-  value &&
-  typeof value === "object" &&
-  value.name !== undefined &&
-  (value.position !== undefined || value.team !== undefined) &&
-  !value.canvas &&
-  !value.previewImage &&
-  !value.elements;
-const isValidProgramTemplate = (value) => {
-  if (!value || typeof value !== "object") return false;
-  if (isResultWinnerLike(value)) return false;
-  return Boolean(
-    value.type === "program" ||
-      (value.canvas && Array.isArray(value.elements)) ||
-      (value.previewImage && value.source === "public")
-  );
-};
-const flattenTemplateStorage = (value) => {
-  if (!value) return [];
-  if (Array.isArray(value)) return value.filter(isValidProgramTemplate);
-  if (typeof value !== "object") return [];
-  if (isValidProgramTemplate(value)) return [value];
-  return Object.values(value)
-    .filter(Array.isArray)
-    .flatMap((items) => items.filter(isValidProgramTemplate));
-};
-const readSavedProgramTemplates = (eventId) => {
-  const collected = flattenTemplateStorage(
-    safeParse(localStorage.getItem(getUserStorageKey("rankify_program_templates")), [])
-  );
-
-  const seen = new Set();
-  const normalized = collected
-    .map((item, index) => {
-      const id = String(item.id ?? item.templateId ?? `${item.name || "template"}-${index}`);
-      const preview = textOf(item, [
-        "preview",
-        "previewImage",
-        "previewUrl",
-        "thumbnail",
-        "thumbnailUrl",
-        "image",
-        "imageUrl",
-        "dataUrl",
-        "canvasDataUrl",
-      ]);
-      return {
-        ...item,
-        id,
-        name: textOf(item, ["name", "templateName", "title"], `Template ${index + 1}`),
-        preview,
-      };
-    })
-    .filter((item) => {
-      if (seen.has(item.id)) return false;
-      seen.add(item.id);
-      return true;
-    });
-
-  const activeOrLegacy = normalized.filter(
-    (item) => !item?.eventId || String(item.eventId) === String(eventId)
-  );
-  return activeOrLegacy.length ? activeOrLegacy : normalized;
-};
-const textOf = (item, keys, fallback = "") => {
-  for (const key of keys) if (item?.[key]) return String(item[key]);
-  return fallback;
-};
 const defaultWinners = () => [1, 2, 3].map((position) => ({
   id: uid(),
   position: String(position),
@@ -819,43 +664,56 @@ function ProgramResultsPage() {
   const [editingId, setEditingId] = useState(null);
   const [deleting, setDeleting] = useState(null);
   const [viewing, setViewing] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   useEffect(() => {
-    const load = () => {
-      const events = readStorageArray(["rankify_events", "events"]);
-      const activeRaw = safeParse(localStorage.getItem(getUserStorageKey("rankify_active_event")), null) || safeParse(localStorage.getItem("activeEvent"), null);
-      const activeId = localStorage.getItem(getUserStorageKey("rankify_active_event_id")) || localStorage.getItem("activeEventId") || localStorage.getItem("active_event_id") || (typeof activeRaw === "string" ? activeRaw : activeRaw?.id);
-      const event = events.find((item) => String(item?.id) === String(activeId)) || null;
-      const normalizedEvent = event
-        ? { id: String(event.id ?? event.eventId), name: textOf(event, ["name", "eventName", "title"], "Active Event") }
-        : null;
+    async function load() {
+      setLoading(true);
+      setError("");
+      try {
+        const events = await getEvents();
+        const { activeEvent: normalizedEvent } = resolveActiveEventFromEvents(events);
 
-      if (!normalizedEvent?.id) {
+        if (!normalizedEvent?.id) {
+          setActiveEvent(null);
+          setCategories([]);
+          setTeamOptions(FALLBACK_TEAMS.map((name) => ({ id: name, name })));
+          setTeams(FALLBACK_TEAMS);
+          setParticipants([]);
+          setTemplates([]);
+          setResults([]);
+          return;
+        }
+
+        const [eventCategories, eventTeamOptions, eventParticipants, eventTemplates, eventResults] = await Promise.all([
+          getCategoriesByEvent(normalizedEvent.id),
+          getTeamsByEvent(normalizedEvent.id),
+          getParticipantsByEvent(normalizedEvent.id),
+          listProgramTemplatesByEvent(normalizedEvent.id),
+          listProgramResultsByEvent(normalizedEvent.id),
+        ]);
+
+        setActiveEvent(normalizedEvent);
+        setCategories(eventCategories);
+        setTeamOptions(eventTeamOptions.length ? eventTeamOptions : FALLBACK_TEAMS.map((name) => ({ id: name, name })));
+        setTeams(eventTeamOptions.length ? eventTeamOptions.map((team) => team.name) : FALLBACK_TEAMS);
+        setParticipants(eventParticipants);
+        setTemplates(eventTemplates);
+        setResults(eventResults);
+      } catch (loadError) {
+        setError(loadError.message || "Unable to load program results.");
         setActiveEvent(null);
         setCategories([]);
         setTeamOptions(FALLBACK_TEAMS.map((name) => ({ id: name, name })));
         setTeams(FALLBACK_TEAMS);
         setParticipants([]);
         setTemplates([]);
-        setResults(asArray(safeParse(localStorage.getItem(getUserStorageKey(STORAGE_KEY)), [])));
-        return;
+        setResults([]);
+      } finally {
+        setLoading(false);
       }
-
-      const eventCategories = readCategoryOptionsForActiveEvent(normalizedEvent.id);
-      const eventTeamOptions = readTeamObjectsForActiveEvent(
-        localStorage.getItem(getUserStorageKey("rankify_active_event_id")) || normalizedEvent.id
-      );
-      const eventParticipants = readParticipantsForActiveEvent(normalizedEvent.id);
-      const eventTemplates = readSavedProgramTemplates(normalizedEvent.id);
-
-      setActiveEvent(normalizedEvent);
-      setCategories(eventCategories);
-      setTeamOptions(eventTeamOptions.length ? eventTeamOptions : FALLBACK_TEAMS.map((name) => ({ id: name, name })));
-      setTeams(eventTeamOptions.length ? eventTeamOptions.map((team) => team.name) : FALLBACK_TEAMS);
-      setParticipants(eventParticipants);
-      setTemplates(eventTemplates);
-      setResults(asArray(safeParse(localStorage.getItem(getUserStorageKey(STORAGE_KEY)), [])));
-    };
+    }
     load();
     window.addEventListener("storage", load);
     window.addEventListener("rankify-data-changed", load);
@@ -867,11 +725,9 @@ function ProgramResultsPage() {
 
   const saveResults = (next) => {
     setResults(next);
-    localStorage.setItem(getUserStorageKey(STORAGE_KEY), JSON.stringify(next));
-    window.dispatchEvent(new Event("storage"));
+    window.dispatchEvent(new Event("rankify-data-changed"));
   };
   const openView = (result) => {
-    setTemplates(readSavedProgramTemplates(activeEvent?.id));
     setViewing(result);
   };
 
@@ -1039,7 +895,7 @@ function ProgramResultsPage() {
     };
   });
 
-  const submitResult = (event) => {
+  const submitResult = async (event) => {
     event.preventDefault();
     const selectedCategory = getCategoryOption(form.categoryId);
 
@@ -1068,15 +924,47 @@ function ProgramResultsPage() {
         imageName: winner.imageName || "",
       })),
     };
-    if (modalMode === "edit") saveResults(results.map((item) => item.id === editingId ? { ...item, ...cleaned } : item));
-    else saveResults([...results, { id: uid(), eventId: activeEvent.id, ...cleaned, published: false, created: new Date().toISOString() }]);
-    closeEditor();
+    try {
+      if (modalMode === "edit") {
+        const updated = await updateProgramResult(editingId, {
+          ...results.find((item) => item.id === editingId),
+          ...cleaned,
+          eventId: activeEvent.id,
+        });
+        saveResults(results.map((item) => (item.id === editingId ? updated : item)));
+      } else {
+        const created = await createProgramResult(activeEvent.id, {
+          eventId: activeEvent.id,
+          ...cleaned,
+          published: false,
+          created: new Date().toISOString(),
+        });
+        saveResults([created, ...results]);
+      }
+      closeEditor();
+    } catch (saveError) {
+      setError(saveError.message || "Unable to save program result.");
+    }
   };
-  const togglePublished = (id) => saveResults(results.map((item) => item.id === id ? { ...item, published: !item.published } : item));
-  const confirmDelete = () => {
+  const togglePublished = async (id) => {
+    const current = results.find((item) => item.id === id);
+    if (!current) return;
+    try {
+      const updated = await updateProgramResult(id, { ...current, published: !current.published, eventId: activeEvent.id });
+      saveResults(results.map((item) => (item.id === id ? updated : item)));
+    } catch (saveError) {
+      setError(saveError.message || "Unable to update result.");
+    }
+  };
+  const confirmDelete = async () => {
     if (!deleting) return;
-    saveResults(results.filter((item) => item.id !== deleting.id));
-    setDeleting(null);
+    try {
+      await deleteProgramResult(deleting.id);
+      saveResults(results.filter((item) => item.id !== deleting.id));
+      setDeleting(null);
+    } catch (deleteError) {
+      setError(deleteError.message || "Unable to delete result.");
+    }
   };
   const downloadPoster = async (template, result) => {
     let offscreen = null;
@@ -1276,8 +1164,11 @@ function ProgramResultsPage() {
         <select value={status} onChange={(event) => setStatus(event.target.value)}><option>All Status</option><option>Published</option><option>Draft</option></select>
         <select value={sort} onChange={(event) => setSort(event.target.value)}><option>Sort by Date</option><option>Newest First</option><option>Oldest First</option><option>Program Name</option></select>
       </section>
+      {error && <div className="empty-state"><p>{error}</p></div>}
 
-      {filteredResults.length ? (
+      {loading && !filteredResults.length ? (
+        <section className="empty-state"><p>Loading results...</p></section>
+      ) : filteredResults.length ? (
         <section className="results-grid">
           {filteredResults.map((result) => (
             <article className="result-card" key={result.id}>
