@@ -19,20 +19,23 @@ import {
   Users,
   X,
 } from "lucide-react";
-import { getUserStorageKey } from "../utils/storage.js";
 import { getInitials, logoutWithSupabase } from "../utils/auth.js";
 import { getTeamsByEvent } from "../services/teamsService.js";
 import { getCategoriesByEvent } from "../services/categoriesService.js";
 import { getParticipantsByEvent } from "../services/participantsService.js";
+import { listProgramTemplatesByEvent } from "../services/programTemplatesService.js";
+import { listProgramResultsByEvent } from "../services/programResultsService.js";
+import { listTeamStatusTemplatesByEvent } from "../services/teamStatusTemplatesService.js";
+import { listTeamStatusResultsByEvent } from "../services/teamStatusResultsService.js";
+import { listFramedPostTemplatesByEvent } from "../services/framedPostTemplatesService.js";
+import { listFramedPostsByEvent } from "../services/framedPostsService.js";
+import { listCertificateTemplatesByEvent } from "../services/certificateTemplatesService.js";
+import { listCertificateResultsByEvent } from "../services/certificateResultsService.js";
 import { useActiveEvent } from "../contexts/ActiveEventContext.jsx";
 import { DASHBOARD_CACHE_EVENT } from "../services/dashboardCache.js";
 import ThemeToggle from "./ThemeToggle.jsx";
 import logoDark from "../assets/logo/rankify-logo-dark.svg";
 import logoLight from "../assets/logo/rankify-logo-light.svg";
-
-const PROGRAM_TEMPLATES_KEY = "rankify_program_templates";
-const CERTIFICATE_TEMPLATES_KEY = "rankify_certificate_templates";
-const CERTIFICATE_RESULTS_KEY = "rankify_certificate_results";
 
 const sections = [
   {
@@ -54,7 +57,7 @@ const sections = [
         icon: ScrollText,
         countKey: "programTemplates",
       },
-      { label: "Results", to: "/dashboard/program-results", icon: BarChart3 },
+      { label: "Results", to: "/dashboard/program-results", icon: BarChart3, countKey: "programResults" },
     ],
   },
   {
@@ -75,7 +78,7 @@ const sections = [
         activeExcludePrefixes: ["/dashboard/framed-posts/my-posts"],
         countKey: "framedPostTemplates",
       },
-      { label: "My Posts", to: "/dashboard/framed-posts/my-posts", icon: Layers },
+      { label: "My Posts", to: "/dashboard/framed-posts/my-posts", icon: Layers, countKey: "framedPosts" },
     ],
   },
   {
@@ -125,33 +128,6 @@ function getStoredUser() {
     };
   }
   return { name: "User", email: "" };
-}
-
-function getGroupedCount(storageKey, activeEventId) {
-  if (!activeEventId) return 0;
-
-  const storedData = safeJsonParse(localStorage.getItem(storageKey), {});
-
-  if (Array.isArray(storedData)) {
-    return storedData.filter((item) => item?.eventId === activeEventId).length;
-  }
-
-  const activeItems = storedData?.[activeEventId];
-  return Array.isArray(activeItems) ? activeItems.length : 0;
-}
-
-function getCertificateTemplatesCount(activeEventId) {
-  const baseCount = getGroupedCount(CERTIFICATE_TEMPLATES_KEY, activeEventId);
-  if (baseCount > 0) return baseCount;
-
-  return getGroupedCount(getUserStorageKey(CERTIFICATE_TEMPLATES_KEY), activeEventId);
-}
-
-function getCertificateResultsCount(activeEventId) {
-  const baseCount = getGroupedCount(CERTIFICATE_RESULTS_KEY, activeEventId);
-  if (baseCount > 0) return baseCount;
-
-  return getGroupedCount(getUserStorageKey(CERTIFICATE_RESULTS_KEY), activeEventId);
 }
 
 function SidebarLink({ link, counts, onNavigate }) {
@@ -207,9 +183,11 @@ export default function Sidebar({ mobile = false, onNavigate, onClose }) {
     participants: 0,
     categories: 0,
     programTemplates: 0,
+    programResults: 0,
     teamStatusTemplates: 0,
     teamStatusResults: 0,
     framedPostTemplates: 0,
+    framedPosts: 0,
     certificateTemplates: 0,
     certificateResults: 0,
   });
@@ -219,18 +197,54 @@ export default function Sidebar({ mobile = false, onNavigate, onClose }) {
       let teamsCount = 0;
       let participantsCount = 0;
       let categoriesCount = 0;
+      let programTemplatesCount = 0;
+      let programResultsCount = 0;
+      let teamStatusTemplatesCount = 0;
+      let teamStatusResultsCount = 0;
+      let framedPostTemplatesCount = 0;
+      let framedPostsCount = 0;
+      let certificateTemplatesCount = 0;
+      let certificateResultsCount = 0;
       const validActiveEventId = activeEvent?.id || "";
 
       if (validActiveEventId) {
         try {
-          const [teams, participants, categories] = await Promise.all([
+          const [
+            teams,
+            participants,
+            categories,
+            programTemplates,
+            programResults,
+            teamStatusTemplates,
+            teamStatusResults,
+            framedPostTemplates,
+            framedPosts,
+            certificateTemplates,
+            certificateResults,
+          ] = await Promise.all([
             getTeamsByEvent(validActiveEventId, options),
             getParticipantsByEvent(validActiveEventId, options),
             getCategoriesByEvent(validActiveEventId, options),
+            listProgramTemplatesByEvent(validActiveEventId),
+            listProgramResultsByEvent(validActiveEventId),
+            listTeamStatusTemplatesByEvent(validActiveEventId),
+            listTeamStatusResultsByEvent(validActiveEventId),
+            listFramedPostTemplatesByEvent(validActiveEventId),
+            listFramedPostsByEvent(validActiveEventId),
+            listCertificateTemplatesByEvent(validActiveEventId),
+            listCertificateResultsByEvent(validActiveEventId),
           ]);
           teamsCount = teams.length;
           participantsCount = participants.length;
           categoriesCount = categories.length;
+          programTemplatesCount = programTemplates.length;
+          programResultsCount = programResults.length;
+          teamStatusTemplatesCount = teamStatusTemplates.length;
+          teamStatusResultsCount = teamStatusResults.length;
+          framedPostTemplatesCount = framedPostTemplates.length;
+          framedPostsCount = framedPosts.length;
+          certificateTemplatesCount = certificateTemplates.length;
+          certificateResultsCount = certificateResults.length;
         } catch (error) {
           console.error("Unable to load sidebar data counts.", error);
         }
@@ -241,16 +255,14 @@ export default function Sidebar({ mobile = false, onNavigate, onClose }) {
         teams: teamsCount,
         participants: participantsCount,
         categories: categoriesCount,
-        programTemplates: getGroupedCount(
-          getUserStorageKey(PROGRAM_TEMPLATES_KEY),
-          validActiveEventId
-        ),
-        teamStatusTemplates: getGroupedCount(getUserStorageKey("rankify_team_status_templates"), validActiveEventId),
-        teamStatusResults: getGroupedCount(getUserStorageKey("rankify_team_status_results"), validActiveEventId),
-        framedPostTemplates: getGroupedCount(getUserStorageKey("rankify_framed_post_templates"), validActiveEventId),
-        certificateTemplates: getCertificateTemplatesCount(validActiveEventId),
-        certificateResults: getCertificateResultsCount(validActiveEventId),
-        framedPosts: getGroupedCount(getUserStorageKey("rankify_framed_posts"), validActiveEventId),
+        programTemplates: programTemplatesCount,
+        programResults: programResultsCount,
+        teamStatusTemplates: teamStatusTemplatesCount,
+        teamStatusResults: teamStatusResultsCount,
+        framedPostTemplates: framedPostTemplatesCount,
+        framedPosts: framedPostsCount,
+        certificateTemplates: certificateTemplatesCount,
+        certificateResults: certificateResultsCount,
       });
     }
 
