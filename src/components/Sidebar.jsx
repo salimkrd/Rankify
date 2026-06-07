@@ -20,17 +20,7 @@ import {
   X,
 } from "lucide-react";
 import { getInitials, logoutWithSupabase } from "../utils/auth.js";
-import { getTeamsByEvent } from "../services/teamsService.js";
-import { getCategoriesByEvent } from "../services/categoriesService.js";
-import { getParticipantsByEvent } from "../services/participantsService.js";
-import { listProgramTemplatesByEvent } from "../services/programTemplatesService.js";
-import { listProgramResultsByEvent } from "../services/programResultsService.js";
-import { listTeamStatusTemplatesByEvent } from "../services/teamStatusTemplatesService.js";
-import { listTeamStatusResultsByEvent } from "../services/teamStatusResultsService.js";
-import { listFramedPostTemplatesByEvent } from "../services/framedPostTemplatesService.js";
-import { listFramedPostsByEvent } from "../services/framedPostsService.js";
-import { listCertificateTemplatesByEvent } from "../services/certificateTemplatesService.js";
-import { listCertificateResultsByEvent } from "../services/certificateResultsService.js";
+import { getSidebarCounts } from "../services/sidebarCountsService.js";
 import { useActiveEvent } from "../contexts/ActiveEventContext.jsx";
 import { DASHBOARD_CACHE_EVENT } from "../services/dashboardCache.js";
 import ThemeToggle from "./ThemeToggle.jsx";
@@ -193,101 +183,39 @@ export default function Sidebar({ mobile = false, onNavigate, onClose }) {
   });
 
   useEffect(() => {
-    async function syncCounts(options = {}) {
-      let teamsCount = 0;
-      let participantsCount = 0;
-      let categoriesCount = 0;
-      let programTemplatesCount = 0;
-      let programResultsCount = 0;
-      let teamStatusTemplatesCount = 0;
-      let teamStatusResultsCount = 0;
-      let framedPostTemplatesCount = 0;
-      let framedPostsCount = 0;
-      let certificateTemplatesCount = 0;
-      let certificateResultsCount = 0;
+    let cancelled = false;
+
+    async function syncCounts() {
       const validActiveEventId = activeEvent?.id || "";
 
-      if (validActiveEventId) {
-        try {
-          const [
-            teams,
-            participants,
-            categories,
-            programTemplates,
-            programResults,
-            teamStatusTemplates,
-            teamStatusResults,
-            framedPostTemplates,
-            framedPosts,
-            certificateTemplates,
-            certificateResults,
-          ] = await Promise.all([
-            getTeamsByEvent(validActiveEventId, options),
-            getParticipantsByEvent(validActiveEventId, options),
-            getCategoriesByEvent(validActiveEventId, options),
-            listProgramTemplatesByEvent(validActiveEventId),
-            listProgramResultsByEvent(validActiveEventId),
-            listTeamStatusTemplatesByEvent(validActiveEventId),
-            listTeamStatusResultsByEvent(validActiveEventId),
-            listFramedPostTemplatesByEvent(validActiveEventId),
-            listFramedPostsByEvent(validActiveEventId),
-            listCertificateTemplatesByEvent(validActiveEventId),
-            listCertificateResultsByEvent(validActiveEventId),
-          ]);
-          teamsCount = teams.length;
-          participantsCount = participants.length;
-          categoriesCount = categories.length;
-          programTemplatesCount = programTemplates.length;
-          programResultsCount = programResults.length;
-          teamStatusTemplatesCount = teamStatusTemplates.length;
-          teamStatusResultsCount = teamStatusResults.length;
-          framedPostTemplatesCount = framedPostTemplates.length;
-          framedPostsCount = framedPosts.length;
-          certificateTemplatesCount = certificateTemplates.length;
-          certificateResultsCount = certificateResults.length;
-        } catch (error) {
-          console.error("Unable to load sidebar data counts.", error);
-        }
+      try {
+        const nextCounts = await getSidebarCounts(validActiveEventId);
+        if (!cancelled) setCounts(nextCounts);
+      } catch (error) {
+        console.error("Unable to load sidebar data counts.", error);
       }
-
-      setCounts({
-        events: events.length,
-        teams: teamsCount,
-        participants: participantsCount,
-        categories: categoriesCount,
-        programTemplates: programTemplatesCount,
-        programResults: programResultsCount,
-        teamStatusTemplates: teamStatusTemplatesCount,
-        teamStatusResults: teamStatusResultsCount,
-        framedPostTemplates: framedPostTemplatesCount,
-        framedPosts: framedPostsCount,
-        certificateTemplates: certificateTemplatesCount,
-        certificateResults: certificateResultsCount,
-      });
     }
 
     syncCounts();
-    const syncFromCache = () => syncCounts({ background: false });
     setUser(getStoredUser());
 
     const syncUser = () => setUser(getStoredUser());
 
     window.addEventListener("storage", syncUser);
     window.addEventListener("rankify-data-changed", syncCounts);
-    window.addEventListener(DASHBOARD_CACHE_EVENT, syncFromCache);
-
-    const refreshInterval = window.setInterval(() => {
-      syncCounts();
-      syncUser();
-    }, 1000);
+    window.addEventListener("rankify-events-changed", syncCounts);
+    window.addEventListener("rankify-active-event-changed", syncCounts);
+    window.addEventListener(DASHBOARD_CACHE_EVENT, syncCounts);
 
     return () => {
+      cancelled = true;
       window.removeEventListener("storage", syncUser);
       window.removeEventListener("rankify-data-changed", syncCounts);
-      window.removeEventListener(DASHBOARD_CACHE_EVENT, syncFromCache);
-      window.clearInterval(refreshInterval);
+      window.removeEventListener("rankify-events-changed", syncCounts);
+      window.removeEventListener("rankify-active-event-changed", syncCounts);
+      window.removeEventListener(DASHBOARD_CACHE_EVENT, syncCounts);
     };
-  }, [activeEvent?.id, events]);
+  }, [activeEvent?.id]);
 
   async function handleActiveEventChange(event) {
     const nextEventId = event.target.value;

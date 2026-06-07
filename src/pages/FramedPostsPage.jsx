@@ -1,5 +1,4 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import html2canvas from "html2canvas";
 import { Download, Edit, Eye, FilePlus2, Plus, RefreshCw, Trash2, X } from "lucide-react";
 import NoActiveEventState from "../components/NoActiveEventState.jsx";
 import { useActiveEvent } from "../contexts/ActiveEventContext.jsx";
@@ -637,6 +636,7 @@ export default function FramedPostsPage() {
       await waitForImages(exportNode);
       await new Promise((resolve) => requestAnimationFrame(resolve));
       const templateSize = getTemplatePreviewSize(currentViewTemplate || {});
+      const { default: html2canvas } = await import("html2canvas");
       const canvas = await html2canvas(exportNode, {
         backgroundColor: "#f8f2ff",
         scale: 1,

@@ -267,7 +267,7 @@ const getPreviewableImageUrl = (value) => {
   return "";
 };
 
-function ProgramTemplateCardPreview({ template }) {
+const ProgramTemplateCardPreview = React.memo(function ProgramTemplateCardPreview({ template }) {
   const hasSchema = template?.canvas && Array.isArray(template?.elements) && template.elements.length > 0;
   if (!hasSchema) {
     return template?.previewImage ? (
@@ -383,7 +383,7 @@ function ProgramTemplateCardPreview({ template }) {
       </div>
     </div>
   );
-}
+});
 
 const elementSvgStyle = (element, offset = { x: 0, y: 0 }) => ({
   x: Number(element.x || 0) + offset.x,
