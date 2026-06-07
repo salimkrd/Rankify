@@ -694,7 +694,7 @@ export default function FramedPostsPage() {
     if (!value) return "";
     if (typeof value === "string") return value;
     if (typeof value === "object") {
-      return value.url || value.src || value.data || "";
+      return value.dataUrl || value.dataURL || value.url || value.src || value.imageData || value.data || "";
     }
     return "";
   }
@@ -813,6 +813,43 @@ export default function FramedPostsPage() {
           const left = (Number(field.x) || 0) * scale;
           const top = (Number(field.y) || 0) * scale;
           const widthValue = field.width ? Number(field.width) * scale : undefined;
+          const heightValue = field.height ? Number(field.height) * scale : undefined;
+          const zIndex = 3 + index;
+
+          if (field.type === "image") {
+            const imageSrc =
+              resolveImageSource(fieldValues?.[field.id]) ||
+              resolveImageSource(field.src) ||
+              resolveImageSource(field.imageData) ||
+              resolveImageSource(field.imageUrl) ||
+              resolveImageSource(field.url) ||
+              resolveImageSource(field.dataUrl) ||
+              resolveImageSource(field.dataURL);
+
+            if (!imageSrc) return null;
+
+            return (
+              <img
+                key={field.id || `${field.label}-${index}`}
+                src={imageSrc}
+                alt=""
+                className="absolute"
+                style={{
+                  left,
+                  top,
+                  width: widthValue || 200 * scale,
+                  height: heightValue || 160 * scale,
+                  objectFit: field.objectFit || "cover",
+                  opacity: field.opacity === undefined ? 1 : Number(field.opacity),
+                  borderRadius: (Number(field.borderRadius) || 0) * scale,
+                  zIndex,
+                  display: "block",
+                }}
+                draggable={false}
+              />
+            );
+          }
+
           const fontSize = (Number(field.fontSize) || 24) * scale;
           const fontFamily = field.fontFamily || "Inter";
           const fontWeight = field.fontWeight || "400";
@@ -836,7 +873,7 @@ export default function FramedPostsPage() {
                 textAlign,
                 lineHeight,
                 whiteSpace: "pre-wrap",
-                zIndex: 3,
+                zIndex,
                 padding: 2,
                 boxSizing: "border-box",
               }}
