@@ -10,8 +10,11 @@ import {
   duplicateTeamStatusTemplate,
   listTeamStatusTemplatesByEvent,
 } from "../services/teamStatusTemplatesService.js";
-
-const publicTemplates = [];
+import {
+  buildUserTemplateFromPublicTemplate,
+  getPublishedPublicTemplates,
+  PUBLIC_TEMPLATE_TYPES,
+} from "../services/publicTemplatesService.js";
 
 function publicBackgroundImage(variant = "green") {
   const isLight = variant === "light";
@@ -126,22 +129,20 @@ function publicEditableSchema(template) {
 
 function createTemplateFromPublic(template, activeEventId) {
   const now = today();
-  const schema = publicEditableSchema(template);
   return {
-    id: newTemplateId(),
-    eventId: activeEventId,
-    name: `${template.name} (from Public)`,
-    previewImage: template.previewImage || schema.canvas.backgroundImage,
+    ...buildUserTemplateFromPublicTemplate(template, activeEventId, {
+      overrides: {
+        id: newTemplateId(),
+        createdAt: now,
+        updatedAt: now,
+        type: "team-status",
+      },
+    }),
     elementsCount: template.elementsCount,
     teamScoresCount: template.teamScoresCount,
     createdAt: now,
     updatedAt: now,
-    source: template.source,
-    type: "team-status",
     variant: template.variant,
-    canvas: schema.canvas,
-    elements: schema.elements,
-    previewData: schema.previewData,
   };
 }
 
@@ -188,6 +189,9 @@ export default function TeamStatusTemplatesPage() {
   const { activeEvent, loading: activeEventLoading } = useActiveEvent();
   const [templatesByEvent, setTemplatesByEvent] = useState({});
   const [publicModalOpen, setPublicModalOpen] = useState(false);
+  const [publicTemplates, setPublicTemplates] = useState([]);
+  const [publicTemplatesLoading, setPublicTemplatesLoading] = useState(false);
+  const [publicTemplatesError, setPublicTemplatesError] = useState("");
   const [toast, setToast] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -249,6 +253,27 @@ export default function TeamStatusTemplatesPage() {
     }
 
     navigate("/dashboard/team-status-templates/new");
+  }
+
+  async function openPublicTemplatesModal() {
+    if (!activeEvent?.id) {
+      alert("Please select an active event first.");
+      return;
+    }
+
+    setPublicModalOpen(true);
+    setPublicTemplatesLoading(true);
+    setPublicTemplatesError("");
+    try {
+      const templates = await getPublishedPublicTemplates(PUBLIC_TEMPLATE_TYPES.TEAM_STATUS);
+      setPublicTemplates(templates);
+    } catch (loadError) {
+      console.error("Failed to load public team status templates.", loadError);
+      setPublicTemplates([]);
+      setPublicTemplatesError("Unable to load public templates. Please try again.");
+    } finally {
+      setPublicTemplatesLoading(false);
+    }
   }
 
   async function handleUsePublic(template) {
@@ -318,13 +343,7 @@ export default function TeamStatusTemplatesPage() {
             <Plus size={18} />
             Create New Template
           </button>
-          <button type="button" className="secondary-header-btn" onClick={() => {
-            if (!activeEvent?.id) {
-              alert("Please select an active event first.");
-              return;
-            }
-            setPublicModalOpen(true);
-          }} disabled={!activeEvent?.id}>
+          <button type="button" className="secondary-header-btn" onClick={openPublicTemplatesModal} disabled={!activeEvent?.id}>
             Explore Public Templates
           </button>
         </div>
@@ -407,24 +426,46 @@ export default function TeamStatusTemplatesPage() {
               <X size={18} />
             </button>
             <h2>Explore Public Team Status Templates</h2>
-            {publicTemplates.length === 0 ? (
+            {publicTemplatesLoading ? (
+              <div className="public-empty-state">
+                <p>Loading public templates...</p>
+              </div>
+            ) : publicTemplatesError ? (
+              <div className="public-empty-state">
+                <h3>Unable to Load Public Templates</h3>
+                <p>{publicTemplatesError}</p>
+              </div>
+            ) : publicTemplates.length === 0 ? (
               <div className="public-empty-state">
                 <h3>No Public Templates Available</h3>
                 <p>Public templates will appear here after admin publishes them.</p>
               </div>
             ) : (
               <div className="public-grid">
-                {publicTemplates.map((template) => (
-                  <article className="public-card" key={template.id}>
-                    <Preview variant={template.variant} />
-                    <div className="public-body">
-                      <h3>{template.name}</h3>
-                      <button type="button" className="use-btn" onClick={() => handleUsePublic(template)}>
-                        USE
-                      </button>
-                    </div>
-                  </article>
-                ))}
+                {publicTemplates.map((template) => {
+                  const previewTemplate = createTemplateFromPublic(template, activeEvent?.id);
+                  return (
+                    <article className="public-card" key={template.id}>
+                      {previewTemplate.canvas && previewTemplate.elements ? (
+                        <div className="template-preview-wrap">
+                          <SchemaPreview template={previewTemplate} />
+                        </div>
+                      ) : template.previewImage ? (
+                        <div className="template-preview-wrap">
+                          <img src={template.previewImage} alt="" />
+                        </div>
+                      ) : (
+                        <Preview variant={template.variant} />
+                      )}
+                      <div className="public-body">
+                        <h3>{template.displayTitle || template.name}</h3>
+                        <button type="button" className="use-btn" onClick={() => handleUsePublic(template)}>
+                          USE
+                        </button>
+                      </div>
+                    </article>
+                  );
+                })}
               </div>
             )}
           </div>

@@ -49,7 +49,7 @@ export default function AdminPublicTemplatesPage() {
   const filteredTemplates = useMemo(() => {
     const query = search.trim().toLowerCase();
     return templates.filter((template) => {
-      const matchesSearch = !query || [template.name, template.type, template.description].join(" ").toLowerCase().includes(query);
+      const matchesSearch = !query || [template.displayTitle || template.name, template.type, template.description].join(" ").toLowerCase().includes(query);
       const matchesType = type === "all" || template.type === type;
       const matchesStatus =
         status === "all" ||
@@ -73,7 +73,7 @@ export default function AdminPublicTemplatesPage() {
   }
 
   async function handleDelete(template) {
-    const confirmed = window.confirm(`Delete "${template.name}"?`);
+    const confirmed = window.confirm(`Delete "${template.displayTitle || template.name}"?`);
     if (!confirmed) return;
 
     setBusyId(template.id);
@@ -139,7 +139,7 @@ export default function AdminPublicTemplatesPage() {
               filteredTemplates.map((template) => (
                 <div key={template.id} className="grid min-w-[860px] grid-cols-[minmax(220px,1.4fr)_180px_130px_140px_280px] items-center gap-0 border-b border-[var(--app-border)] px-4 py-4 last:border-b-0">
                   <div className="min-w-0">
-                    <h2 className="app-heading truncate text-base font-bold">{template.name}</h2>
+                    <h2 className="app-heading truncate text-base font-bold">{template.displayTitle || template.name}</h2>
                     <p className="app-muted mt-1 truncate text-sm">{template.description || "No description"}</p>
                   </div>
                   <span className="text-sm font-semibold text-[var(--app-text)]">{typeLabels[template.type] || template.type}</span>
@@ -174,4 +174,3 @@ export default function AdminPublicTemplatesPage() {
     </section>
   );
 }
-

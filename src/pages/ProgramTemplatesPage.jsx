@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Copy, Edit, FilePlus2, ImageIcon, Plus, Trash2, X } from "lucide-react";
 import NoActiveEventState from "../components/NoActiveEventState.jsx";
+import TemplateCanvasRenderer from "../components/TemplateCanvasRenderer.jsx";
 import { useActiveEvent } from "../contexts/ActiveEventContext.jsx";
 import {
   createProgramTemplate,
@@ -9,6 +10,11 @@ import {
   duplicateProgramTemplate,
   listProgramTemplatesByEvent,
 } from "../services/programTemplatesService.js";
+import {
+  buildUserTemplateFromPublicTemplate,
+  getPublishedPublicTemplates,
+  PUBLIC_TEMPLATE_TYPES,
+} from "../services/publicTemplatesService.js";
 
 const fallbackEvents = [
   {
@@ -283,103 +289,11 @@ const ProgramTemplateCardPreview = React.memo(function ProgramTemplateCardPrevie
   const width = Number(canvas.width || template.canvasWidth || 800);
   const height = Number(canvas.height || template.canvasHeight || 600);
   const scale = Math.min(420 / Math.max(width, 1), 292 / Math.max(height, 1), 1);
-  const previewData = { ...defaultTemplatePreviewData, ...(template.previewData || {}) };
-  const backgroundImage = getPreviewableImageUrl(canvas.backgroundImage || template.backgroundImage);
-  const backgroundColor = canvas.backgroundColor || template.backgroundColor || "#ffffff";
-  const winnerContainer =
-    template.elements.find((element) => element.id === "winnerContainer") ||
-    template.elements.find((element) => element.type === "winnerContainer");
-  const winnerChildren = template.elements.filter((element) => element.type === "winnerText" || element.type === "winnerPhoto");
-  const baseElements = template.elements.filter(
-    (element) => !["winnerContainer", "winnerText", "winnerPhoto"].includes(element.type)
-  );
-
-  const elementStyle = (element, offset = { x: 0, y: 0 }) => ({
-    position: "absolute",
-    left: Number(element.x || 0) + offset.x,
-    top: Number(element.y || 0) + offset.y,
-    width: element.width !== undefined ? Number(element.width) : "auto",
-    minHeight: element.height !== undefined ? Number(element.height) : "auto",
-    fontFamily: element.fontFamily,
-    fontSize: Number(element.fontSize || 16),
-    fontWeight: element.fontWeight,
-    color: element.color,
-    lineHeight: element.lineHeight,
-    textAlign: element.textAlign || element.align,
-    opacity: element.opacity,
-    borderRadius: element.borderRadius,
-    zIndex: element.zIndex,
-    whiteSpace: "pre-line",
-    overflow: "visible",
-    boxSizing: "border-box",
-  });
-
-  const renderElement = (element, winner = null, offset = { x: 0, y: 0 }) => {
-    if (element.visible === false) return null;
-    const key = `${winner?.id || "base"}-${element.id || element.type}-${offset.x}-${offset.y}`;
-    if (element.type === "image" || element.type === "winnerPhoto") {
-      const src =
-        element.type === "winnerPhoto"
-          ? getPreviewableImageUrl(winner?.image || winner?.imageUrl || winner?.photo || winner?.photoUrl || element.src || element.imageData || element.imageUrl)
-          : getPreviewableImageUrl(element.src || element.imageData || element.image || element.imageUrl || element.url);
-      return src ? (
-        <img
-          key={key}
-          src={src}
-          alt=""
-          style={{
-            ...elementStyle(element, offset),
-            height: element.height !== undefined ? Number(element.height) : Number(element.width || 80),
-            objectFit: element.objectFit || "cover",
-            display: "block",
-          }}
-          draggable={false}
-        />
-      ) : null;
-    }
-
-    if (element.type === "text" || element.type === "winnerText") {
-      return (
-        <div key={key} style={elementStyle(element, offset)}>
-          {templatePreviewValue(element, previewData, winner)}
-        </div>
-      );
-    }
-
-    return null;
-  };
 
   return (
     <div className="flex h-full w-full items-center justify-center overflow-hidden">
       <div style={{ width: width * scale, height: height * scale }}>
-        <div
-          style={{
-            position: "relative",
-            width,
-            height,
-            overflow: "hidden",
-            backgroundColor,
-            backgroundImage: backgroundImage ? `url(${backgroundImage})` : undefined,
-            backgroundSize: "cover",
-            backgroundPosition: "center",
-            transform: `scale(${scale})`,
-            transformOrigin: "top left",
-            colorScheme: "light",
-          }}
-        >
-          {baseElements.map((element) => renderElement(element))}
-          {winnerContainer &&
-            winnerChildren.length > 0 &&
-            (previewData.winners || []).flatMap((winner, index) => {
-              const spacing = Number(winnerContainer.spacing || 0);
-              const direction = winnerContainer.direction || "vertical";
-              const offset =
-                direction === "horizontal"
-                  ? { x: Number(winnerContainer.x || 0) + index * spacing, y: Number(winnerContainer.y || 0) }
-                  : { x: Number(winnerContainer.x || 0), y: Number(winnerContainer.y || 0) + index * spacing };
-              return winnerChildren.map((child) => renderElement(child, winner, offset));
-            })}
-        </div>
+        <TemplateCanvasRenderer template={template} data={defaultTemplatePreviewData} scale={scale} previewMode />
       </div>
     </div>
   );
@@ -491,8 +405,6 @@ const normalizePublicProgramTemplate = (template) => {
   };
 };
 
-const PUBLIC_TEMPLATES = [];
-
 function getCurrentDate() {
   return new Date().toLocaleDateString("en-US");
 }
@@ -502,6 +414,9 @@ export default function ProgramTemplatesPage() {
   const { activeEvent, activeEventId, loading: activeEventLoading } = useActiveEvent();
   const [templatesByEvent, setTemplatesByEvent] = useState({});
   const [publicModalOpen, setPublicModalOpen] = useState(false);
+  const [publicTemplates, setPublicTemplates] = useState([]);
+  const [publicTemplatesLoading, setPublicTemplatesLoading] = useState(false);
+  const [publicTemplatesError, setPublicTemplatesError] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -560,21 +475,42 @@ export default function ProgramTemplatesPage() {
     navigate("/dashboard/program-templates/new");
   }
 
+  async function openPublicTemplatesModal() {
+    if (!activeEventId) {
+      alert("Please select an active event first.");
+      return;
+    }
+
+    setPublicModalOpen(true);
+    setPublicTemplatesLoading(true);
+    setPublicTemplatesError("");
+    try {
+      const templates = await getPublishedPublicTemplates(PUBLIC_TEMPLATE_TYPES.PROGRAM);
+      setPublicTemplates(templates);
+    } catch (loadError) {
+      console.error("Failed to load public program templates.", loadError);
+      setPublicTemplates([]);
+      setPublicTemplatesError("Unable to load public templates. Please try again.");
+    } finally {
+      setPublicTemplatesLoading(false);
+    }
+  }
+
   async function handleUsePublicTemplate(publicTemplate) {
     if (!activeEventId) {
       alert("Please select an active event first.");
       return;
     }
 
-    const template = {
-      eventId: activeEventId,
-      name: `${publicTemplate.name} (from Public)`,
-      previewImage: publicTemplate.previewImage,
-      createdAt: getCurrentDate(),
-      updatedAt: getCurrentDate(),
-      source: "public",
-      type: "program",
-    };
+    const template = normalizePublicProgramTemplate(
+      buildUserTemplateFromPublicTemplate(publicTemplate, activeEventId, {
+        overrides: {
+          createdAt: getCurrentDate(),
+          updatedAt: getCurrentDate(),
+          type: "program",
+        },
+      })
+    );
 
     try {
       const createdTemplate = await createProgramTemplate(activeEventId, template);
@@ -642,13 +578,7 @@ export default function ProgramTemplatesPage() {
             </button>
             <button
               type="button"
-              onClick={() => {
-                if (!activeEventId) {
-                  alert("Please select an active event first.");
-                  return;
-                }
-                setPublicModalOpen(true);
-              }}
+              onClick={openPublicTemplatesModal}
               disabled={!activeEventId}
               className="app-card inline-flex min-h-10 w-full max-w-full items-center justify-center rounded-md border px-4 py-2 text-sm font-semibold shadow-sm hover:bg-[var(--app-surface-elevated)] sm:w-auto"
             >
@@ -757,7 +687,16 @@ export default function ProgramTemplatesPage() {
             </h2>
 
             <div className="mt-5 max-h-[66vh] overflow-y-auto pr-2">
-              {PUBLIC_TEMPLATES.length === 0 ? (
+              {publicTemplatesLoading ? (
+                <div className="flex min-h-[260px] items-center justify-center rounded-xl border border-dashed border-[var(--app-border)] bg-[var(--app-surface)] px-6 text-center">
+                  <p className="app-muted text-sm font-semibold">Loading public templates...</p>
+                </div>
+              ) : publicTemplatesError ? (
+                <div className="flex min-h-[260px] flex-col items-center justify-center rounded-xl border border-dashed border-[var(--app-danger)] bg-[var(--app-surface)] px-6 text-center">
+                  <h3 className="app-heading text-xl font-extrabold">Unable to Load Public Templates</h3>
+                  <p className="app-muted mt-3 max-w-[420px] text-sm">{publicTemplatesError}</p>
+                </div>
+              ) : publicTemplates.length === 0 ? (
                 <div className="flex min-h-[260px] flex-col items-center justify-center rounded-xl border border-dashed border-[var(--app-border)] bg-[var(--app-surface)] px-6 text-center">
                   <h3 className="app-heading text-xl font-extrabold">No Public Templates Available</h3>
                   <p className="app-muted mt-3 max-w-[420px] text-sm">
@@ -766,32 +705,34 @@ export default function ProgramTemplatesPage() {
                 </div>
               ) : (
                 <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-                  {PUBLIC_TEMPLATES.map((template) => (
-                    <div
-                      key={template.id}
-                      className="app-card overflow-hidden rounded-xl border shadow-sm"
-                    >
-                      <div className="flex h-[270px] items-center justify-center bg-[var(--app-surface-elevated)] p-2">
-                        <img
-                          src={template.previewImage}
-                          alt={template.name}
-                          className="h-full w-full object-contain"
-                        />
+                  {publicTemplates.map((template) => {
+                    const previewTemplate = normalizePublicProgramTemplate(
+                      buildUserTemplateFromPublicTemplate(template, activeEventId, { overrides: { type: "program" } })
+                    );
+
+                    return (
+                      <div
+                        key={template.id}
+                        className="app-card overflow-hidden rounded-xl border shadow-sm"
+                      >
+                        <div className="flex h-[270px] items-center justify-center bg-[var(--app-surface-elevated)] p-2">
+                          <ProgramTemplateCardPreview template={previewTemplate} />
+                        </div>
+                        <div className="p-4">
+                          <h3 className="app-heading truncate text-lg font-bold">
+                            {template.displayTitle || template.name}
+                          </h3>
+                          <button
+                            type="button"
+                            onClick={() => handleUsePublicTemplate(template)}
+                            className="app-success-btn mt-4 h-9 w-full rounded-md text-sm font-bold hover:opacity-90"
+                          >
+                            USE
+                          </button>
+                        </div>
                       </div>
-                      <div className="p-4">
-                        <h3 className="app-heading truncate text-lg font-bold">
-                          {template.name}
-                        </h3>
-                        <button
-                          type="button"
-                          onClick={() => handleUsePublicTemplate(template)}
-                          className="app-success-btn mt-4 h-9 w-full rounded-md text-sm font-bold hover:opacity-90"
-                        >
-                          USE
-                        </button>
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>

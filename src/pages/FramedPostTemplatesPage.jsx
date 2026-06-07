@@ -1,12 +1,18 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Edit, Grid3X3, Plus, Trash2 } from "lucide-react";
+import { Edit, Grid3X3, Plus, Trash2, X } from "lucide-react";
 import NoActiveEventState from "../components/NoActiveEventState.jsx";
 import { useActiveEvent } from "../contexts/ActiveEventContext.jsx";
 import {
+  createFramedPostTemplate,
   deleteFramedPostTemplate,
   listFramedPostTemplatesByEvent,
 } from "../services/framedPostTemplatesService.js";
+import {
+  buildUserTemplateFromPublicTemplate,
+  getPublishedPublicTemplates,
+  PUBLIC_TEMPLATE_TYPES,
+} from "../services/publicTemplatesService.js";
 
 function formatDate(value) {
   if (!value) return "Unknown";
@@ -15,10 +21,56 @@ function formatDate(value) {
   return date.toLocaleDateString("en-US");
 }
 
+function getPreviewableImageUrl(value) {
+  if (!value) return "";
+  if (typeof value === "string") return value;
+  if (typeof value === "object") {
+    return value.dataUrl || value.dataURL || value.url || value.src || value.imageData || "";
+  }
+  return "";
+}
+
+function getFramedTemplateImage(template) {
+  return getPreviewableImageUrl(
+    template?.frameImage ||
+      template?.frameImageUrl ||
+      template?.frameOverlay ||
+      template?.overlayImage ||
+      template?.overlayUrl ||
+      template?.overlaySrc ||
+      template?.backgroundImage ||
+      template?.previewImage ||
+      template?.imageUrl ||
+      template?.imageSrc ||
+      template?.image ||
+      template?.src ||
+      template?.frameSrc ||
+      ""
+  );
+}
+
+function FramedTemplatePreview({ template }) {
+  const imageUrl = getFramedTemplateImage(template);
+
+  if (!imageUrl) {
+    return (
+      <div className="flex h-full w-full items-center justify-center text-[var(--app-muted)]">
+        <Grid3X3 size={38} strokeWidth={1.8} aria-hidden="true" />
+      </div>
+    );
+  }
+
+  return <img src={imageUrl} alt="" className="h-full w-full object-contain" />;
+}
+
 export default function FramedPostTemplatesPage() {
   const navigate = useNavigate();
   const { activeEventId, loading: activeEventLoading } = useActiveEvent();
   const [templates, setTemplates] = useState([]);
+  const [publicModalOpen, setPublicModalOpen] = useState(false);
+  const [publicTemplates, setPublicTemplates] = useState([]);
+  const [publicTemplatesLoading, setPublicTemplatesLoading] = useState(false);
+  const [publicTemplatesError, setPublicTemplatesError] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -57,6 +109,53 @@ export default function FramedPostTemplatesPage() {
   const hasTemplates = templates.length > 0;
   const hasActiveEvent = Boolean(activeEventId);
 
+  async function openPublicTemplatesModal() {
+    if (!hasActiveEvent) {
+      alert("Please select an active event first.");
+      return;
+    }
+
+    setPublicModalOpen(true);
+    setPublicTemplatesLoading(true);
+    setPublicTemplatesError("");
+    try {
+      const publishedTemplates = await getPublishedPublicTemplates(PUBLIC_TEMPLATE_TYPES.FRAMED_POST);
+      setPublicTemplates(publishedTemplates);
+    } catch (loadError) {
+      console.error("Failed to load public framed post templates.", loadError);
+      setPublicTemplates([]);
+      setPublicTemplatesError("Unable to load public templates. Please try again.");
+    } finally {
+      setPublicTemplatesLoading(false);
+    }
+  }
+
+  async function handleUsePublicTemplate(publicTemplate) {
+    if (!hasActiveEvent) {
+      alert("Please select an active event first.");
+      return;
+    }
+
+    try {
+      const importedTemplate = buildUserTemplateFromPublicTemplate(publicTemplate, activeEventId);
+      const frameImage = getFramedTemplateImage(importedTemplate);
+      const templatePayload = {
+        ...importedTemplate,
+        frameImage,
+        frameImageUrl: frameImage,
+        frameOverlay: frameImage,
+        overlayImage: frameImage,
+        frameSrc: frameImage,
+      };
+      const created = await createFramedPostTemplate(activeEventId, templatePayload);
+      setTemplates((current) => [created, ...current]);
+      setPublicModalOpen(false);
+      window.dispatchEvent(new Event("rankify-data-changed"));
+    } catch (saveError) {
+      setError(saveError.message || "Unable to use public template.");
+    }
+  }
+
   async function handleDeleteTemplate(templateId) {
     const confirmed = window.confirm("Are you sure you want to delete this framed post template?");
     if (!confirmed) return;
@@ -77,21 +176,31 @@ export default function FramedPostTemplatesPage() {
           <h1 className="app-heading break-words text-3xl font-bold">Framed Post Templates</h1>
           <p className="app-muted mt-2 text-sm">Manage templates for the current active event.</p>
         </div>
-        <button
-          type="button"
-          onClick={() => {
-            if (!hasActiveEvent) {
-              alert("Please select an active event first.");
-              return;
-            }
-            navigate("/dashboard/framed-posts/new");
-          }}
-          disabled={!hasActiveEvent}
-          className="app-success-btn inline-flex w-full items-center justify-center rounded-md px-4 py-2 text-sm font-semibold shadow-sm transition hover:opacity-90 sm:w-auto"
-        >
-          <Plus className="mr-2" size={18} strokeWidth={2} aria-hidden="true" />
-          Create New
-        </button>
+        <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center sm:justify-end">
+          <button
+            type="button"
+            onClick={() => {
+              if (!hasActiveEvent) {
+                alert("Please select an active event first.");
+                return;
+              }
+              navigate("/dashboard/framed-posts/new");
+            }}
+            disabled={!hasActiveEvent}
+            className="app-success-btn inline-flex w-full items-center justify-center rounded-md px-4 py-2 text-sm font-semibold shadow-sm transition hover:opacity-90 sm:w-auto"
+          >
+            <Plus className="mr-2" size={18} strokeWidth={2} aria-hidden="true" />
+            Create New
+          </button>
+          <button
+            type="button"
+            onClick={openPublicTemplatesModal}
+            disabled={!hasActiveEvent}
+            className="app-card inline-flex w-full items-center justify-center rounded-md border px-4 py-2 text-sm font-semibold shadow-sm hover:bg-[var(--app-surface-elevated)] sm:w-auto"
+          >
+            Explore Public Templates
+          </button>
+        </div>
       </div>
 
       <div className="space-y-4">
@@ -168,6 +277,65 @@ export default function FramedPostTemplatesPage() {
           </div>
         )}
       </div>
+
+      {publicModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/50 px-4 py-8">
+          <div className="app-modal relative flex min-h-[70vh] w-full max-w-[730px] flex-col rounded-lg border p-8 shadow-2xl max-sm:min-h-[60vh] max-sm:p-5">
+            <button
+              type="button"
+              onClick={() => setPublicModalOpen(false)}
+              aria-label="Close modal"
+              className="absolute right-5 top-5 flex h-8 w-8 items-center justify-center rounded-md border-2 border-[var(--app-success)] bg-[var(--app-surface)] text-[var(--app-muted)] transition hover:bg-[var(--app-sidebar-active-bg)] hover:text-[var(--app-heading)]"
+            >
+              <X size={20} />
+            </button>
+            <h2 className="app-heading pr-10 text-2xl font-extrabold leading-tight">
+              Explore Public Framed Post Templates
+            </h2>
+
+            {publicTemplatesLoading ? (
+              <div className="mt-8 flex flex-1 flex-col items-center justify-center rounded-xl border border-dashed border-[var(--app-border)] bg-[var(--app-surface)] px-6 text-center">
+                <p className="app-muted text-sm font-semibold">Loading public templates...</p>
+              </div>
+            ) : publicTemplatesError ? (
+              <div className="mt-8 flex flex-1 flex-col items-center justify-center rounded-xl border border-dashed border-[var(--app-danger)] bg-[var(--app-surface)] px-6 text-center">
+                <h3 className="app-heading text-xl font-extrabold">Unable to Load Public Templates</h3>
+                <p className="app-muted mt-3 max-w-[420px] text-sm">{publicTemplatesError}</p>
+              </div>
+            ) : publicTemplates.length === 0 ? (
+              <div className="mt-8 flex flex-1 flex-col items-center justify-center rounded-xl border border-dashed border-[var(--app-border)] bg-[var(--app-surface)] px-6 text-center">
+                <h3 className="app-heading text-xl font-extrabold">No Public Templates Available</h3>
+                <p className="app-muted mt-3 max-w-[420px] text-sm">
+                  Public templates will appear here after admin publishes them.
+                </p>
+              </div>
+            ) : (
+              <div className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2">
+                {publicTemplates.map((template) => {
+                  const previewTemplate = buildUserTemplateFromPublicTemplate(template, activeEventId);
+                  return (
+                    <article key={template.id} className="app-card overflow-hidden rounded-lg border shadow-sm">
+                      <div className="h-[280px] border-b border-[var(--app-border)] bg-[var(--app-surface-elevated)] p-3">
+                        <FramedTemplatePreview template={previewTemplate} />
+                      </div>
+                      <div className="p-4">
+                        <h3 className="app-heading truncate text-base font-bold">{template.displayTitle || template.name || "Untitled Template"}</h3>
+                        <button
+                          type="button"
+                          onClick={() => handleUsePublicTemplate(template)}
+                          className="app-success-btn mt-4 h-9 w-full rounded-md text-sm font-bold hover:opacity-90"
+                        >
+                          USE
+                        </button>
+                      </div>
+                    </article>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, CheckCircle2, Eye, FileJson, Save, Wand2 } from "lucide-react";
+import TemplateCanvasRenderer from "../components/TemplateCanvasRenderer.jsx";
 import {
   createPublicTemplate,
   getAllPublicTemplates,
@@ -68,6 +69,124 @@ function getElementCount(templateData = {}) {
   return 0;
 }
 
+function getPreviewableImageUrl(value) {
+  if (!value) return "";
+  if (typeof value === "string") return value;
+  if (typeof value === "object") {
+    return value.dataUrl || value.dataURL || value.url || value.src || value.imageData || "";
+  }
+  return "";
+}
+
+const samplePreviewData = {
+  programName: "Elocution English Kids",
+  category: "General",
+  programCategory: "General",
+  resultNumber: "23",
+  eventName: "SSF PANANGARA UNIT SAHITYOLSAV",
+  organizerName: "Panangara Unit",
+  organizer: "Panangara Unit",
+  eventDate: "May 25",
+  eventLocation: "Panangara",
+  customField1: "[Custom Field 1]",
+  winners: [
+    { id: "winner_1", position: "1", name: "Muhammed Saeed", team: "Vadi Badr" },
+    { id: "winner_2", position: "2", name: "Jabbar Ibraheem", team: "Isfahan" },
+    { id: "winner_3", position: "3", name: "Ali bin Muhammed", team: "Vadi Quba" },
+  ],
+};
+
+function firstTextValue(...values) {
+  for (const value of values) {
+    if (value !== undefined && value !== null && String(value) !== "") return String(value);
+  }
+  return "";
+}
+
+function getObjectPathValue(source, path) {
+  if (!source || !path) return undefined;
+  return String(path)
+    .split(".")
+    .reduce((current, part) => (current && current[part] !== undefined ? current[part] : undefined), source);
+}
+
+function previewValueForElement(element, previewData, winner = null) {
+  const key = String(
+    element?.dataKey ||
+      element?.dataSource ||
+      element?.field ||
+      element?.key ||
+      element?.id ||
+      ""
+  );
+  const normalizedKey = key.toLowerCase();
+
+  if (winner) {
+    if (normalizedKey.includes("position")) return firstTextValue(winner.position, element.content, element.text, element.value);
+    if (normalizedKey.includes("team")) return firstTextValue(winner.team, winner.teamName, element.content, element.text, element.value);
+    if (normalizedKey.includes("name")) return firstTextValue(winner.name, element.content, element.text, element.value);
+    return firstTextValue(element.content, element.text, element.value);
+  }
+
+  if (element?.custom || normalizedKey === "manual" || element?.dataSource === "manual") {
+    return firstTextValue(
+      previewData?.customFields?.[element.id],
+      previewData?.[element.id],
+      element.content,
+      element.text,
+      element.value
+    );
+  }
+
+  if (normalizedKey.includes("programname") || normalizedKey.includes("program name") || normalizedKey === "program") {
+    return firstTextValue(previewData.programName, element.content, element.text, element.value);
+  }
+  if (normalizedKey.includes("category")) {
+    return firstTextValue(previewData.category, previewData.programCategory, element.content, element.text, element.value);
+  }
+  if (normalizedKey.includes("eventname") || normalizedKey.includes("event name")) {
+    return firstTextValue(previewData.eventName, element.content, element.text, element.value);
+  }
+  if (normalizedKey.includes("organizer")) {
+    return firstTextValue(previewData.organizerName, previewData.organizer, element.content, element.text, element.value);
+  }
+  if (normalizedKey.includes("eventdate") || normalizedKey.includes("event date")) {
+    return firstTextValue(previewData.eventDate, element.content, element.text, element.value);
+  }
+  if (normalizedKey.includes("eventlocation") || normalizedKey.includes("event location")) {
+    return firstTextValue(previewData.eventLocation, element.content, element.text, element.value);
+  }
+  if (normalizedKey.includes("resultnumber") || normalizedKey.includes("result number") || normalizedKey.includes("result")) {
+    return `${element.prefix || ""}${firstTextValue(previewData.resultNumber, element.content, element.text, element.value)}`;
+  }
+
+  return firstTextValue(
+    getObjectPathValue(previewData, key),
+    previewData?.[key],
+    element.content,
+    element.text,
+    element.value
+  );
+}
+
+function PublicTemplatePreview({ templateData, fallbackBackgroundImage = "", fallbackPreviewImage = "" }) {
+  const canvas = templateData?.canvas || {};
+  const width = Number(canvas.width || templateData?.canvasWidth || templateData?.width || 1080);
+  const height = Number(canvas.height || templateData?.canvasHeight || templateData?.height || 1350);
+  const scale = Math.min(520 / Math.max(width, 1), 520 / Math.max(height, 1), 1);
+  const templateForPreview = {
+    ...templateData,
+    backgroundImage: templateData?.backgroundImage || fallbackBackgroundImage || fallbackPreviewImage,
+    previewImage: templateData?.previewImage || fallbackPreviewImage,
+  };
+
+  return (
+    <div style={{ width: width * scale, height: height * scale }}>
+      <TemplateCanvasRenderer template={templateForPreview} data={samplePreviewData} scale={scale} previewMode />
+    </div>
+  );
+}
+
 export default function AdminPublicTemplateEditorPage() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -99,8 +218,8 @@ export default function AdminPublicTemplateEditorPage() {
           canvasWidth: Number(template.canvasWidth || template.canvas_width || templateData?.canvas?.width || 1080),
           canvasHeight: Number(template.canvasHeight || template.canvas_height || templateData?.canvas?.height || 1350),
           templateDataText: JSON.stringify(templateData || {}, null, 2),
-          previewImage: template.previewImage || template.preview_image || "",
-          backgroundImage: template.backgroundImage || template.background_image || templateData?.canvas?.backgroundImage || "",
+          previewImage: template.previewImage || template.previewImageUrl || template.preview_image_url || template.preview_image || "",
+          backgroundImage: template.backgroundImage || template.backgroundImageUrl || template.background_image_url || template.background_image || templateData?.canvas?.backgroundImage || "",
           isPublished: Boolean(template.isPublished ?? template.is_published),
         });
       } catch (loadError) {
@@ -209,7 +328,9 @@ export default function AdminPublicTemplateEditorPage() {
         canvasHeight: Number(form.canvasHeight) || 1350,
         templateData,
         previewImage: form.previewImage.trim(),
+        previewImageUrl: form.previewImage.trim(),
         backgroundImage: form.backgroundImage.trim(),
+        backgroundImageUrl: form.backgroundImage.trim(),
         isPublished: form.isPublished,
       };
 
@@ -398,23 +519,11 @@ export default function AdminPublicTemplateEditorPage() {
             </div>
             <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_260px]">
               <div className="flex min-h-[320px] items-center justify-center overflow-auto rounded-lg border border-[var(--app-border)] bg-[var(--app-bg)] p-4">
-                <div
-                  className="relative overflow-hidden bg-[#f4f4f4] shadow-sm"
-                  style={{
-                    width: Math.min(Number(form.canvasWidth) || 1080, 520),
-                    aspectRatio: `${Number(form.canvasWidth) || 1080} / ${Number(form.canvasHeight) || 1350}`,
-                    backgroundImage: form.previewImage ? `url(${form.previewImage})` : form.backgroundImage ? `url(${form.backgroundImage})` : undefined,
-                    backgroundSize: "cover",
-                    backgroundPosition: "center",
-                    colorScheme: "light",
-                  }}
-                >
-                  {!form.previewImage && !form.backgroundImage ? (
-                    <div className="flex h-full w-full items-center justify-center p-6 text-center text-sm font-bold text-[#4b5563]">
-                      {form.name || "Public Template"}
-                    </div>
-                  ) : null}
-                </div>
+                <PublicTemplatePreview
+                  templateData={parsedTemplateData.value}
+                  fallbackBackgroundImage={form.backgroundImage}
+                  fallbackPreviewImage={form.previewImage}
+                />
               </div>
               <div className="rounded-lg border border-[var(--app-border)] bg-[var(--app-surface-elevated)] p-4">
                 <dl className="grid gap-3 text-sm">

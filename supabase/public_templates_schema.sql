@@ -15,8 +15,8 @@ create table if not exists public.public_templates (
   canvas_width integer not null default 1080,
   canvas_height integer not null default 1350,
   template_data jsonb not null default '{}'::jsonb,
-  preview_image text,
-  background_image text,
+  preview_image_url text,
+  background_image_url text,
   is_published boolean not null default false,
   created_by uuid references auth.users(id) on delete set null default auth.uid(),
   created_at timestamptz not null default now(),
@@ -26,7 +26,8 @@ create table if not exists public.public_templates (
 alter table public.public_templates
   add column if not exists canvas_width integer not null default 1080,
   add column if not exists canvas_height integer not null default 1350,
-  add column if not exists background_image text;
+  add column if not exists preview_image_url text,
+  add column if not exists background_image_url text;
 
 create index if not exists public_templates_type_idx on public.public_templates(type);
 create index if not exists public_templates_published_idx on public.public_templates(is_published);

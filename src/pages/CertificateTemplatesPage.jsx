@@ -2,12 +2,19 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Copy, Edit, FileText, Plus, Trash2, X } from "lucide-react";
 import NoActiveEventState from "../components/NoActiveEventState.jsx";
+import TemplateCanvasRenderer from "../components/TemplateCanvasRenderer.jsx";
 import { useActiveEvent } from "../contexts/ActiveEventContext.jsx";
 import {
+  createCertificateTemplate,
   deleteCertificateTemplate,
   duplicateCertificateTemplate,
   listCertificateTemplatesByEvent,
 } from "../services/certificateTemplatesService.js";
+import {
+  buildUserTemplateFromPublicTemplate,
+  getPublishedPublicTemplates,
+  PUBLIC_TEMPLATE_TYPES,
+} from "../services/publicTemplatesService.js";
 
 function formatDate(value) {
   if (!value) return "Unknown";
@@ -63,39 +70,7 @@ function CertificatePreview({ template }) {
     return (
       <div className="flex h-full w-full items-center justify-center">
         <div style={{ width: canvasWidth * scale, height: canvasHeight * scale }}>
-          <div
-            className="relative overflow-hidden bg-[#ECECEC]"
-            style={{
-              width: canvasWidth,
-              height: canvasHeight,
-              transform: `scale(${scale})`,
-              transformOrigin: "top left",
-              backgroundImage: template.backgroundImage ? `url(${template.backgroundImage})` : undefined,
-              backgroundSize: "cover",
-              backgroundPosition: "center",
-            }}
-          >
-            {elements.map((element) => (
-              <div
-                key={element.id}
-                className="absolute whitespace-pre-wrap"
-                style={{
-                  left: element.x,
-                  top: element.y,
-                  width: element.width,
-                  fontFamily: element.fontFamily,
-                  fontSize: element.fontSize,
-                  fontWeight: element.fontWeight,
-                  color: element.color,
-                  lineHeight: element.lineHeight,
-                  textAlign: element.align,
-                  background: element.showBg ? element.backgroundColor || "#ffffff" : "transparent",
-                }}
-              >
-                {getPreviewText(element, template.previewData)}
-              </div>
-            ))}
-          </div>
+          <TemplateCanvasRenderer template={template} data={template.previewData} scale={scale} previewMode />
         </div>
       </div>
     );
@@ -120,6 +95,9 @@ export default function CertificateTemplatesPage() {
   const { activeEvent, loading: activeEventLoading } = useActiveEvent();
   const [templates, setTemplates] = useState([]);
   const [publicModalOpen, setPublicModalOpen] = useState(false);
+  const [publicTemplates, setPublicTemplates] = useState([]);
+  const [publicTemplatesLoading, setPublicTemplatesLoading] = useState(false);
+  const [publicTemplatesError, setPublicTemplatesError] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -160,14 +138,50 @@ export default function CertificateTemplatesPage() {
     [activeEvent?.id, templates]
   );
 
-  const publicTemplates = useMemo(() => [], []);
-
   function handleCreate() {
     if (!activeEvent?.id) {
       alert("Please select an active event first.");
       return;
     }
     navigate("/dashboard/certificate-templates/new");
+  }
+
+  async function openPublicTemplatesModal() {
+    if (!activeEvent?.id) {
+      alert("Please select an active event first.");
+      return;
+    }
+
+    setPublicModalOpen(true);
+    setPublicTemplatesLoading(true);
+    setPublicTemplatesError("");
+    try {
+      const templates = await getPublishedPublicTemplates(PUBLIC_TEMPLATE_TYPES.CERTIFICATE);
+      setPublicTemplates(templates);
+    } catch (loadError) {
+      console.error("Failed to load public certificate templates.", loadError);
+      setPublicTemplates([]);
+      setPublicTemplatesError("Unable to load public templates. Please try again.");
+    } finally {
+      setPublicTemplatesLoading(false);
+    }
+  }
+
+  async function handleUsePublicTemplate(publicTemplate) {
+    if (!activeEvent?.id) {
+      alert("Please select an active event first.");
+      return;
+    }
+
+    try {
+      const importedTemplate = buildUserTemplateFromPublicTemplate(publicTemplate, activeEvent.id);
+      const created = await createCertificateTemplate(activeEvent.id, importedTemplate);
+      setTemplates((current) => [created, ...current]);
+      setPublicModalOpen(false);
+      window.dispatchEvent(new Event("rankify-data-changed"));
+    } catch (saveError) {
+      setError(saveError.message || "Unable to use public template.");
+    }
   }
 
   async function handleDuplicate(template) {
@@ -223,13 +237,7 @@ export default function CertificateTemplatesPage() {
           </button>
           <button
             type="button"
-            onClick={() => {
-              if (!activeEvent?.id) {
-                alert("Please select an active event first.");
-                return;
-              }
-              setPublicModalOpen(true);
-            }}
+            onClick={openPublicTemplatesModal}
             disabled={!activeEvent?.id}
             className="app-card inline-flex min-h-[46px] w-full max-w-full items-center justify-center rounded-md border px-6 py-2 text-base font-bold shadow-sm transition hover:bg-[var(--app-surface-elevated)] sm:w-auto"
           >
@@ -345,7 +353,16 @@ export default function CertificateTemplatesPage() {
               Explore Public Certificate Templates
             </h2>
 
-            {publicTemplates.length === 0 ? (
+            {publicTemplatesLoading ? (
+              <div className="flex flex-1 flex-col items-center justify-center rounded-xl border border-dashed border-[var(--app-border)] bg-[var(--app-surface)] px-6 text-center">
+                <p className="app-muted text-sm font-semibold">Loading public templates...</p>
+              </div>
+            ) : publicTemplatesError ? (
+              <div className="flex flex-1 flex-col items-center justify-center rounded-xl border border-dashed border-[var(--app-danger)] bg-[var(--app-surface)] px-6 text-center">
+                <h3 className="app-heading text-xl font-extrabold">Unable to Load Public Templates</h3>
+                <p className="app-muted mt-3 max-w-[420px] text-sm">{publicTemplatesError}</p>
+              </div>
+            ) : publicTemplates.length === 0 ? (
               <div className="flex flex-1 flex-col items-center justify-center rounded-xl border border-dashed border-[var(--app-border)] bg-[var(--app-surface)] px-6 text-center">
                 <h3 className="app-heading text-xl font-extrabold">No Public Templates Available</h3>
                 <p className="app-muted mt-3 max-w-[420px] text-sm">
@@ -354,12 +371,26 @@ export default function CertificateTemplatesPage() {
               </div>
             ) : (
               <div className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2">
-                {publicTemplates.map((template) => (
-                  <article key={template.id} className="app-card rounded-lg border p-4 shadow-sm">
-                    <h3 className="app-heading text-base font-bold">{template.name || "Untitled Template"}</h3>
-                    <p className="app-muted mt-1 text-sm">Public certificate template</p>
-                  </article>
-                ))}
+                {publicTemplates.map((template) => {
+                  const previewTemplate = buildUserTemplateFromPublicTemplate(template, activeEvent?.id);
+                  return (
+                    <article key={template.id} className="app-card overflow-hidden rounded-lg border shadow-sm">
+                      <div className="h-[280px] border-b border-[var(--app-border)] bg-[var(--app-surface-elevated)] p-3">
+                        <CertificatePreview template={previewTemplate} />
+                      </div>
+                      <div className="p-4">
+                        <h3 className="app-heading truncate text-base font-bold">{template.displayTitle || template.name || "Untitled Template"}</h3>
+                        <button
+                          type="button"
+                          onClick={() => handleUsePublicTemplate(template)}
+                          className="app-success-btn mt-4 h-9 w-full rounded-md text-sm font-bold hover:opacity-90"
+                        >
+                          USE
+                        </button>
+                      </div>
+                    </article>
+                  );
+                })}
               </div>
             )}
           </div>
