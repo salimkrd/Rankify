@@ -23,6 +23,8 @@ export default function ParticipantsPage() {
   const [participantName, setParticipantName] = useState("");
   const [teamId, setTeamId] = useState("");
   const [categoryId, setCategoryId] = useState("");
+  const [teamFilterId, setTeamFilterId] = useState("");
+  const [categoryFilterId, setCategoryFilterId] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -68,6 +70,11 @@ export default function ParticipantsPage() {
     };
   }, [activeEventId, activeEventLoading]);
 
+  useEffect(() => {
+    setTeamFilterId("");
+    setCategoryFilterId("");
+  }, [activeEventId]);
+
   const visibleTeams = useMemo(
     () => (activeEventId ? teamsByEvent[activeEventId] || [] : []),
     [activeEventId, teamsByEvent]
@@ -81,6 +88,17 @@ export default function ParticipantsPage() {
   const visibleParticipants = useMemo(
     () => (activeEventId ? participantsByEvent[activeEventId] || [] : []),
     [activeEventId, participantsByEvent]
+  );
+
+  const filteredParticipants = useMemo(
+    () =>
+      visibleParticipants.filter((participant) => {
+        const matchesTeam = !teamFilterId || String(participant.teamId) === String(teamFilterId);
+        const matchesCategory =
+          !categoryFilterId || String(participant.categoryId) === String(categoryFilterId);
+        return matchesTeam && matchesCategory;
+      }),
+    [categoryFilterId, teamFilterId, visibleParticipants]
   );
 
   function setParticipantsForActiveEvent(nextParticipants) {
@@ -252,66 +270,114 @@ export default function ParticipantsPage() {
             </p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
-            {visibleParticipants.map((participant) => (
-              <div
-                key={participant.id}
-                className="app-card relative flex min-h-[140px] flex-col rounded-xl border p-6 shadow-sm"
-              >
-                <button
-                  type="button"
-                  onClick={() =>
-                    setOpenMenuId((current) =>
-                      current === participant.id ? "" : participant.id
-                    )
-                  }
-                  className="absolute right-6 top-6 flex h-8 w-8 items-center justify-center rounded-md text-xl leading-none text-[var(--app-heading)] hover:bg-[var(--app-surface-elevated)]"
-                  aria-label="Participant actions"
-                >
-                  <MoreVertical size={18} strokeWidth={1.9} aria-hidden="true" />
-                </button>
-
-                {openMenuId === participant.id && (
-                  <div className="app-dropdown absolute right-6 top-14 z-50 w-[150px] rounded-md border py-2 shadow-lg">
-                    <p className="app-heading px-4 pb-2 text-sm font-semibold">
-                      Actions
-                    </p>
-                    <button
-                      type="button"
-                      onClick={() => openEditModal(participant)}
-                      className="app-text block w-full px-4 py-3 text-left text-sm hover:bg-[var(--app-sidebar-active-bg)] hover:text-[var(--app-sidebar-active-text)]"
-                    >
-                      <Edit className="mr-2 inline-block align-[-2px]" size={15} strokeWidth={1.9} aria-hidden="true" />
-                      Edit
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleDeleteParticipant(participant.id)}
-                      className="block w-full border-t border-[var(--app-border)] px-4 py-3 text-left text-sm text-[var(--app-danger)] hover:bg-[var(--app-danger-bg-soft)]"
-                    >
-                      <Trash2 className="mr-2 inline-block align-[-2px]" size={15} strokeWidth={1.9} aria-hidden="true" />
-                      Delete
-                    </button>
-                  </div>
-                )}
-
-                <div className="pr-10">
-                  <h2 className="app-heading text-lg font-bold">
-                    {participant.name}
-                  </h2>
-                  <p className="app-muted mt-1 text-sm">
-                    Team: {participant.teamName || "No team"}
-                  </p>
-                  <p className="app-muted mt-1 text-sm">
-                    Category: {participant.categoryName || "No category"}
-                  </p>
-                  <p className="app-muted mt-1 text-sm">
-                    Created: {participant.createdAt}
-                  </p>
-                </div>
+          <>
+            <div className="app-card rounded-xl border p-4 shadow-sm">
+              <div className="grid gap-3 md:grid-cols-2">
+                <label className="app-text min-w-0 text-sm font-medium">
+                  <span className="mb-2 block">Team</span>
+                  <select
+                    value={teamFilterId}
+                    onChange={(event) => setTeamFilterId(event.target.value)}
+                    className="app-select h-10 w-full rounded-md border px-3 text-sm shadow-sm outline-none focus:border-[var(--app-primary)] focus:ring-2 focus:ring-[var(--app-focus-ring)]"
+                  >
+                    <option value="">All Teams</option>
+                    {visibleTeams.map((team) => (
+                      <option key={team.id} value={team.id}>
+                        {team.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="app-text min-w-0 text-sm font-medium">
+                  <span className="mb-2 block">Category</span>
+                  <select
+                    value={categoryFilterId}
+                    onChange={(event) => setCategoryFilterId(event.target.value)}
+                    className="app-select h-10 w-full rounded-md border px-3 text-sm shadow-sm outline-none focus:border-[var(--app-primary)] focus:ring-2 focus:ring-[var(--app-focus-ring)]"
+                  >
+                    <option value="">All Categories</option>
+                    {visibleCategories.map((category) => (
+                      <option key={category.id} value={category.id}>
+                        {category.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
               </div>
-            ))}
-          </div>
+            </div>
+
+            {filteredParticipants.length === 0 ? (
+              <div className="app-card rounded-xl border p-6 shadow-sm">
+                <h2 className="app-heading text-lg font-bold">
+                  No participants found
+                </h2>
+                <p className="app-muted mt-1 text-sm">
+                  Try changing the team or category filter.
+                </p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
+                {filteredParticipants.map((participant) => (
+                  <div
+                    key={participant.id}
+                    className="app-card relative flex min-h-[140px] flex-col rounded-xl border p-6 shadow-sm"
+                  >
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setOpenMenuId((current) =>
+                          current === participant.id ? "" : participant.id
+                        )
+                      }
+                      className="absolute right-6 top-6 flex h-8 w-8 items-center justify-center rounded-md text-xl leading-none text-[var(--app-heading)] hover:bg-[var(--app-surface-elevated)]"
+                      aria-label="Participant actions"
+                    >
+                      <MoreVertical size={18} strokeWidth={1.9} aria-hidden="true" />
+                    </button>
+
+                    {openMenuId === participant.id && (
+                      <div className="app-dropdown absolute right-6 top-14 z-50 w-[150px] rounded-md border py-2 shadow-lg">
+                        <p className="app-heading px-4 pb-2 text-sm font-semibold">
+                          Actions
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => openEditModal(participant)}
+                          className="app-text block w-full px-4 py-3 text-left text-sm hover:bg-[var(--app-sidebar-active-bg)] hover:text-[var(--app-sidebar-active-text)]"
+                        >
+                          <Edit className="mr-2 inline-block align-[-2px]" size={15} strokeWidth={1.9} aria-hidden="true" />
+                          Edit
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteParticipant(participant.id)}
+                          className="block w-full border-t border-[var(--app-border)] px-4 py-3 text-left text-sm text-[var(--app-danger)] hover:bg-[var(--app-danger-bg-soft)]"
+                        >
+                          <Trash2 className="mr-2 inline-block align-[-2px]" size={15} strokeWidth={1.9} aria-hidden="true" />
+                          Delete
+                        </button>
+                      </div>
+                    )}
+
+                    <div className="pr-10">
+                      <h2 className="app-heading text-lg font-bold">
+                        {participant.name}
+                      </h2>
+                      <p className="app-muted mt-1 text-sm">
+                        Team: {participant.teamName || "No team"}
+                      </p>
+                      <p className="app-muted mt-1 text-sm">
+                        Category: {participant.categoryName || "No category"}
+                      </p>
+                      <p className="app-muted mt-1 text-sm">
+                        Created: {participant.createdAt}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </>
         )}
       </div>
 
