@@ -16,7 +16,7 @@ export default function TeamsPage() {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    async function syncFromSupabase(options = {}) {
+    async function syncFromFirebase(options = {}) {
       if (activeEventLoading) return;
 
       setLoading(true);
@@ -32,20 +32,20 @@ export default function TeamsPage() {
       }
     }
 
-    syncFromSupabase();
-    const syncFromCache = () => syncFromSupabase({ background: false });
+    syncFromFirebase();
+    const syncFromCache = () => syncFromFirebase({ background: false });
 
-    window.addEventListener("focus", syncFromSupabase);
-    window.addEventListener("storage", syncFromSupabase);
-    window.addEventListener("rankify-active-event-changed", syncFromSupabase);
+    window.addEventListener("focus", syncFromFirebase);
+    window.addEventListener("storage", syncFromFirebase);
+    window.addEventListener("rankify-active-event-changed", syncFromFirebase);
     window.addEventListener(DASHBOARD_CACHE_EVENT, syncFromCache);
 
     return () => {
-      window.removeEventListener("focus", syncFromSupabase);
-      window.removeEventListener("storage", syncFromSupabase);
+      window.removeEventListener("focus", syncFromFirebase);
+      window.removeEventListener("storage", syncFromFirebase);
       window.removeEventListener(
         "rankify-active-event-changed",
-        syncFromSupabase
+        syncFromFirebase
       );
       window.removeEventListener(DASHBOARD_CACHE_EVENT, syncFromCache);
     };

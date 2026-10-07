@@ -19,7 +19,7 @@ import {
   Users,
   X,
 } from "lucide-react";
-import { getInitials, logoutWithSupabase } from "../utils/auth.js";
+import { getInitials, logoutWithFirebase } from "../utils/auth.js";
 import { getSidebarCounts } from "../services/sidebarCountsService.js";
 import { useActiveEvent } from "../contexts/ActiveEventContext.jsx";
 import { DASHBOARD_CACHE_EVENT } from "../services/dashboardCache.js";
@@ -229,9 +229,9 @@ export default function Sidebar({ mobile = false, onNavigate, onClose }) {
 
   async function handleLogout() {
     try {
-      await logoutWithSupabase();
+      await logoutWithFirebase();
     } catch (error) {
-      console.error("Unable to sign out from Supabase.", error);
+      console.error("Unable to sign out from Firebase.", error);
     }
     setUser({ name: "User", email: "" });
     navigate("/login");

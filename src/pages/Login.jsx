@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { loginWithSupabase } from "../utils/auth.js";
+import { getFriendlyAuthErrorMessage, loginWithFirebase } from "../utils/auth.js";
 import logoDark from "../assets/logo/rankify-logo-dark.svg";
 import logoLight from "../assets/logo/rankify-logo-light.svg";
 
@@ -30,13 +30,13 @@ export default function Login() {
 
     setLoading(true);
     try {
-      await loginWithSupabase({
+      await loginWithFirebase({
         email: email.trim(),
         password,
       });
       navigate("/dashboard");
     } catch (error_) {
-      setError(error_.message || "Invalid email or password");
+      setError(getFriendlyAuthErrorMessage(error_));
     } finally {
       setLoading(false);
     }

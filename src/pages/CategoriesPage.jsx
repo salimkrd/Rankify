@@ -25,7 +25,7 @@ export default function CategoriesPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  async function syncFromSupabase(options = {}) {
+  async function syncFromFirebase(options = {}) {
     if (activeEventLoading) return;
 
     setLoading(true);
@@ -42,15 +42,15 @@ export default function CategoriesPage() {
   }
 
   useEffect(() => {
-    syncFromSupabase();
-    const syncFromCache = () => syncFromSupabase({ background: false });
+    syncFromFirebase();
+    const syncFromCache = () => syncFromFirebase({ background: false });
 
-    window.addEventListener("storage", syncFromSupabase);
-    window.addEventListener("rankify-active-event-changed", syncFromSupabase);
+    window.addEventListener("storage", syncFromFirebase);
+    window.addEventListener("rankify-active-event-changed", syncFromFirebase);
     window.addEventListener(DASHBOARD_CACHE_EVENT, syncFromCache);
     return () => {
-      window.removeEventListener("storage", syncFromSupabase);
-      window.removeEventListener("rankify-active-event-changed", syncFromSupabase);
+      window.removeEventListener("storage", syncFromFirebase);
+      window.removeEventListener("rankify-active-event-changed", syncFromFirebase);
       window.removeEventListener(DASHBOARD_CACHE_EVENT, syncFromCache);
     };
   }, [activeEventId, activeEventLoading]);

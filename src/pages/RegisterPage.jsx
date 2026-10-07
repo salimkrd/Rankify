@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { registerWithSupabase } from "../utils/auth.js";
+import { getFriendlyAuthErrorMessage, registerWithFirebase } from "../utils/auth.js";
 import logoDark from "../assets/logo/rankify-logo-dark.svg";
 import logoLight from "../assets/logo/rankify-logo-light.svg";
 
@@ -47,14 +47,14 @@ export default function RegisterPage() {
     setLoading(true);
 
     try {
-      await registerWithSupabase({
+      await registerWithFirebase({
         name: name.trim(),
         email: email.trim(),
         password,
       });
       navigate("/dashboard");
     } catch (error_) {
-      setError(error_.message || "Unable to register right now. Please try again.");
+      setError(getFriendlyAuthErrorMessage(error_));
       setLoading(false);
     }
   }

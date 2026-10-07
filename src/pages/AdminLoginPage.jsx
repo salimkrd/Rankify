@@ -64,7 +64,7 @@ export default function AdminLoginPage() {
           <ShieldCheck size={26} strokeWidth={1.9} aria-hidden="true" />
         </div>
         <h1 className="app-heading text-2xl font-bold">Rankify Admin</h1>
-        <p className="app-muted mt-1 text-sm">Sign in with a Supabase admin account.</p>
+        <p className="app-muted mt-1 text-sm">Sign in with a Firebase admin account.</p>
 
         {error ? (
           <div className="mt-5 rounded-md border border-[var(--app-danger)] bg-[var(--app-danger-bg-soft)] px-3 py-2 text-sm text-[var(--app-danger)]">

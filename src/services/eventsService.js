@@ -1,4 +1,4 @@
-import { supabase } from "../lib/supabaseClient.js";
+import { firebaseClient as supabase } from "../lib/firebaseClient.js";
 import { formatSupabaseDate, getCurrentUserId, runSupabaseQuery } from "./dashboardSupabase.js";
 import { getDashboardCache, notifyDashboardCacheUpdated, setDashboardCache } from "./dashboardCache.js";
 

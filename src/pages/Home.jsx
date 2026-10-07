@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { getInitials, logoutWithSupabase } from "../utils/auth.js";
+import { getInitials, logoutWithFirebase } from "../utils/auth.js";
 import ThemeToggle from "../components/ThemeToggle.jsx";
 import logoDark from "../assets/logo/rankify-logo-dark.svg";
 import logoLight from "../assets/logo/rankify-logo-light.svg";
@@ -68,9 +68,9 @@ export default function Home() {
 
   const handleLogout = async () => {
     try {
-      await logoutWithSupabase();
+      await logoutWithFirebase();
     } catch (error) {
-      console.error("Unable to sign out from Supabase.", error);
+      console.error("Unable to sign out from Firebase.", error);
     }
     setIsLoggedIn(false);
     setUser(null);

@@ -1,0 +1,112 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Helper function: Check if user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Helper function: Check if user is an admin
+    function isAdmin() {
+      return isAuthenticated() && exists(/databases/$(database)/documents/admin_users/$(request.auth.uid));
+    }
+
+    // Helper functions for user ownership
+    function isDocOwner() {
+      return isAuthenticated() && resource.data.user_id == request.auth.uid;
+    }
+
+    function isCreatingForSelf() {
+      return isAuthenticated() && request.resource.data.user_id == request.auth.uid;
+    }
+
+    // Core User Collections: events, teams, categories, participants
+    match /events/{docId} {
+      allow read, delete: if isDocOwner();
+      allow create: if isCreatingForSelf();
+      allow update: if isDocOwner() && request.resource.data.user_id == resource.data.user_id;
+    }
+
+    match /teams/{docId} {
+      allow read, delete: if isDocOwner();
+      allow create: if isCreatingForSelf();
+      allow update: if isDocOwner() && request.resource.data.user_id == resource.data.user_id;
+    }
+
+    match /categories/{docId} {
+      allow read, delete: if isDocOwner();
+      allow create: if isCreatingForSelf();
+      allow update: if isDocOwner() && request.resource.data.user_id == resource.data.user_id;
+    }
+
+    match /participants/{docId} {
+      allow read, delete: if isDocOwner();
+      allow create: if isCreatingForSelf();
+      allow update: if isDocOwner() && request.resource.data.user_id == resource.data.user_id;
+    }
+
+    // Templates
+    match /program_templates/{docId} {
+      allow read, delete: if isDocOwner();
+      allow create: if isCreatingForSelf();
+      allow update: if isDocOwner() && request.resource.data.user_id == resource.data.user_id;
+    }
+
+    match /team_status_templates/{docId} {
+      allow read, delete: if isDocOwner();
+      allow create: if isCreatingForSelf();
+      allow update: if isDocOwner() && request.resource.data.user_id == resource.data.user_id;
+    }
+
+    match /framed_post_templates/{docId} {
+      allow read, delete: if isDocOwner();
+      allow create: if isCreatingForSelf();
+      allow update: if isDocOwner() && request.resource.data.user_id == resource.data.user_id;
+    }
+
+    match /certificate_templates/{docId} {
+      allow read, delete: if isDocOwner();
+      allow create: if isCreatingForSelf();
+      allow update: if isDocOwner() && request.resource.data.user_id == resource.data.user_id;
+    }
+
+    // Results & Posts
+    match /program_results/{docId} {
+      allow read, delete: if isDocOwner();
+      allow create: if isCreatingForSelf();
+      allow update: if isDocOwner() && request.resource.data.user_id == resource.data.user_id;
+    }
+
+    match /team_status_results/{docId} {
+      allow read, delete: if isDocOwner();
+      allow create: if isCreatingForSelf();
+      allow update: if isDocOwner() && request.resource.data.user_id == resource.data.user_id;
+    }
+
+    match /framed_posts/{docId} {
+      allow read, delete: if isDocOwner();
+      allow create: if isCreatingForSelf();
+      allow update: if isDocOwner() && request.resource.data.user_id == resource.data.user_id;
+    }
+
+    match /certificate_results/{docId} {
+      allow read, delete: if isDocOwner();
+      allow create: if isCreatingForSelf();
+      allow update: if isDocOwner() && request.resource.data.user_id == resource.data.user_id;
+    }
+
+    // Public Templates: readable by anyone if published, manageable by admin
+    match /public_templates/{docId} {
+      allow read: if resource.data.is_published == true || isAdmin();
+      allow write: if isAdmin();
+    }
+
+    // Admin Users collection: authenticated users can read their own admin doc; admins can write
+    match /admin_users/{docId} {
+      allow read: if isAuthenticated() && (resource.data.user_id == request.auth.uid || docId == request.auth.uid || isAdmin());
+      allow write: if isAdmin();
+    }
+  }
+}

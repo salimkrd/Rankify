@@ -3,6 +3,7 @@ import ReactDOM from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 import App from "./App.jsx";
 import "./index.css";
+import "./lib/firebase.js";
 
 if (typeof document !== "undefined") {
   const isLoggedIn = window.localStorage.getItem("rankify_is_logged_in") === "true";

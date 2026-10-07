@@ -1,4 +1,10 @@
-import { supabase } from "../lib/supabaseClient.js";
+import {
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+  signOut,
+  updateProfile,
+} from "firebase/auth";
+import { auth } from "../lib/firebase.js";
 import { clearStoredActiveEventId } from "../services/activeEventService.js";
 
 export function saveUserSession({ id, name, email }) {
@@ -12,11 +18,17 @@ export function clearUserSession() {
   localStorage.removeItem("rankify_is_logged_in");
 }
 
-export async function logoutWithSupabase() {
-  const { error } = await supabase.auth.signOut();
-  clearUserSession();
-  if (error) throw error;
+export async function logoutWithFirebase() {
+  try {
+    await signOut(auth);
+  } catch (error) {
+    console.warn("Firebase sign out error:", error);
+  } finally {
+    clearUserSession();
+  }
 }
+
+export const logoutWithSupabase = logoutWithFirebase;
 
 export function getInitials(user) {
   const name = String(
@@ -57,49 +69,76 @@ export async function hashPassword(password) {
   return hashArray.map((byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
-export function userFromSupabaseUser(user, fallback = {}) {
-  const metadata = user?.user_metadata || {};
+export function userFromFirebaseUser(user, fallback = {}) {
   const name =
-    metadata.full_name ||
-    metadata.name ||
+    user?.displayName ||
     fallback.name ||
     user?.email?.split("@")[0] ||
     "User";
 
   return {
-    id: user?.id || fallback.id || "",
+    id: user?.uid || user?.id || fallback.id || "",
     name,
     email: user?.email || fallback.email || "",
   };
 }
 
-export async function registerWithSupabase({ name, email, password }) {
-  const { data, error } = await supabase.auth.signUp({
-    email,
-    password,
-    options: {
-      data: {
-        full_name: name,
-      },
-    },
-  });
+export const userFromSupabaseUser = userFromFirebaseUser;
 
-  if (error) throw error;
+export async function registerWithFirebase({ name, email, password }) {
+  const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+  const user = userCredential.user;
 
-  const user = userFromSupabaseUser(data.user, { name, email });
-  saveUserSession(user);
-  return user;
+  if (name) {
+    try {
+      await updateProfile(user, { displayName: name });
+    } catch (e) {
+      console.warn("Could not set display name on Firebase user:", e);
+    }
+  }
+
+  const sessionUser = userFromFirebaseUser(user, { name, email });
+  saveUserSession(sessionUser);
+  return sessionUser;
 }
 
-export async function loginWithSupabase({ email, password }) {
-  const { data, error } = await supabase.auth.signInWithPassword({
-    email,
-    password,
-  });
+export const registerWithSupabase = registerWithFirebase;
 
-  if (error) throw error;
+export async function loginWithFirebase({ email, password }) {
+  const userCredential = await signInWithEmailAndPassword(auth, email, password);
+  const user = userCredential.user;
 
-  const user = userFromSupabaseUser(data.user, { email });
-  saveUserSession(user);
-  return user;
+  const sessionUser = userFromFirebaseUser(user, { email });
+  saveUserSession(sessionUser);
+  return sessionUser;
+}
+
+export const loginWithSupabase = loginWithFirebase;
+
+export function getFriendlyAuthErrorMessage(error) {
+  if (!error) return "An unexpected error occurred.";
+  const code = error.code || "";
+
+  switch (code) {
+    case "auth/configuration-not-found":
+      return "Firebase Authentication is not enabled yet. Please enable Email/Password under Authentication > Sign-in method in your Firebase Console.";
+    case "auth/email-already-in-use":
+      return "An account with this email already exists. Please sign in instead.";
+    case "auth/weak-password":
+      return "Password should be at least 6 characters.";
+    case "auth/invalid-credential":
+    case "auth/wrong-password":
+    case "auth/user-not-found":
+      return "Invalid email or password.";
+    case "auth/invalid-email":
+      return "Please enter a valid email address.";
+    case "auth/operation-not-allowed":
+      return "Email/Password sign-in provider is disabled in Firebase Console.";
+    case "auth/too-many-requests":
+      return "Access temporarily disabled due to many failed attempts. Try again later or reset password.";
+    case "auth/network-request-failed":
+      return "Network error. Please check your internet connection.";
+    default:
+      return error.message || "An authentication error occurred. Please try again.";
+  }
 }

@@ -1,11 +1,5 @@
-import { createClient } from "@supabase/supabase-js";
+// Firebase Client Bridge (Replacing Supabase)
+import { firebaseClient } from "./firebaseClient.js";
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-
-if (!supabaseUrl || !supabaseAnonKey) {
-  console.warn("Supabase environment variables are missing. Public template features will be unavailable.");
-}
-
-export const supabase = createClient(supabaseUrl || "", supabaseAnonKey || "");
-
+export const supabase = firebaseClient;
+export default firebaseClient;

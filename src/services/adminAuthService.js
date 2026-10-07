@@ -1,15 +1,15 @@
-import { supabase } from "../lib/supabaseClient.js";
+import { firebaseClient } from "../lib/firebaseClient.js";
 
 export async function getCurrentAdminUser() {
   const {
     data: { user },
     error: userError,
-  } = await supabase.auth.getUser();
+  } = await firebaseClient.auth.getUser();
 
   if (userError) throw userError;
   if (!user) return null;
 
-  const { data, error } = await supabase
+  const { data, error } = await firebaseClient
     .from("admin_users")
     .select("id,user_id,email")
     .eq("user_id", user.id)
@@ -20,12 +20,12 @@ export async function getCurrentAdminUser() {
 }
 
 export async function signInAdmin(email, password) {
-  const { error } = await supabase.auth.signInWithPassword({ email, password });
+  const { error } = await firebaseClient.auth.signInWithPassword({ email, password });
   if (error) throw error;
 
   const adminUser = await getCurrentAdminUser();
   if (!adminUser) {
-    await supabase.auth.signOut();
+    await firebaseClient.auth.signOut();
     throw new Error("This account is not authorized for Rankify admin.");
   }
 
@@ -33,7 +33,6 @@ export async function signInAdmin(email, password) {
 }
 
 export async function signOutAdmin() {
-  const { error } = await supabase.auth.signOut();
+  const { error } = await firebaseClient.auth.signOut();
   if (error) throw error;
 }
-
