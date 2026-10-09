@@ -1,81 +1,82 @@
 import { supabase } from "../lib/supabaseClient.js";
 import { getCurrentUserId } from "./dashboardSupabase.js";
 
-async function countRows(userId, tableName, filters = {}) {
+const EVENT_COUNT_TABLES = {
+  teams: "teams",
+  participants: "participants",
+  categories: "categories",
+  programTemplates: "program_templates",
+  programResults: "program_results",
+  teamStatusTemplates: "team_status_templates",
+  teamStatusResults: "team_status_results",
+  framedPostTemplates: "framed_post_templates",
+  framedPosts: "framed_posts",
+  certificateTemplates: "certificate_templates",
+  certificateResults: "certificate_results",
+};
+
+const pendingCounts = new Map();
+
+async function countRows(userId, tableName, eventId) {
   let query = supabase
     .from(tableName)
-    .select("*", { count: "exact", head: true })
+    .select("id", { count: "exact", head: true })
     .eq("user_id", userId);
 
-  Object.entries(filters).forEach(([column, value]) => {
-    query = query.eq(column, value);
-  });
+  if (eventId) query = query.eq("event_id", eventId);
 
   const { count, error } = await query;
   if (error) throw error;
-  return count || 0;
+  if (typeof count !== "number") {
+    throw new Error(`The count for ${tableName} was not returned.`);
+  }
+  return count;
+}
+
+async function readCount(counts, errors, key, userId, tableName, eventId) {
+  try {
+    counts[key] = await countRows(userId, tableName, eventId);
+  } catch (error) {
+    errors[key] = error;
+    console.error(`Unable to load ${key} count from ${tableName}.`, error);
+  }
+}
+
+async function fetchCounts(userId, activeEventId) {
+  const counts = {};
+  const errors = {};
+  const tasks = [readCount(counts, errors, "events", userId, "events")];
+
+  if (activeEventId) {
+    for (const [key, tableName] of Object.entries(EVENT_COUNT_TABLES)) {
+      tasks.push(readCount(counts, errors, key, userId, tableName, activeEventId));
+    }
+  } else {
+    for (const key of Object.keys(EVENT_COUNT_TABLES)) counts[key] = 0;
+  }
+
+  await Promise.all(tasks);
+  return { ...counts, errors };
 }
 
 export async function getSidebarCounts(activeEventId) {
   const userId = await getCurrentUserId();
-  const events = await countRows(userId, "events");
+  const eventId = activeEventId ? String(activeEventId) : "";
+  const key = JSON.stringify([userId, eventId]);
+  let request = pendingCounts.get(key);
 
-  if (!activeEventId) {
-    return {
-      events,
-      teams: 0,
-      participants: 0,
-      categories: 0,
-      programTemplates: 0,
-      programResults: 0,
-      teamStatusTemplates: 0,
-      teamStatusResults: 0,
-      framedPostTemplates: 0,
-      framedPosts: 0,
-      certificateTemplates: 0,
-      certificateResults: 0,
-    };
+  if (!request) {
+    request = fetchCounts(userId, eventId);
+    pendingCounts.set(key, request);
+    request.then(
+      () => {
+        if (pendingCounts.get(key) === request) pendingCounts.delete(key);
+      },
+      () => {
+        if (pendingCounts.get(key) === request) pendingCounts.delete(key);
+      }
+    );
   }
 
-  const eventFilter = { event_id: activeEventId };
-  const [
-    teams,
-    participants,
-    categories,
-    programTemplates,
-    programResults,
-    teamStatusTemplates,
-    teamStatusResults,
-    framedPostTemplates,
-    framedPosts,
-    certificateTemplates,
-    certificateResults,
-  ] = await Promise.all([
-    countRows(userId, "teams", eventFilter),
-    countRows(userId, "participants", eventFilter),
-    countRows(userId, "categories", eventFilter),
-    countRows(userId, "program_templates", eventFilter),
-    countRows(userId, "program_results", eventFilter),
-    countRows(userId, "team_status_templates", eventFilter),
-    countRows(userId, "team_status_results", eventFilter),
-    countRows(userId, "framed_post_templates", eventFilter),
-    countRows(userId, "framed_posts", eventFilter),
-    countRows(userId, "certificate_templates", eventFilter),
-    countRows(userId, "certificate_results", eventFilter),
-  ]);
-
-  return {
-    events,
-    teams,
-    participants,
-    categories,
-    programTemplates,
-    programResults,
-    teamStatusTemplates,
-    teamStatusResults,
-    framedPostTemplates,
-    framedPosts,
-    certificateTemplates,
-    certificateResults,
-  };
+  return request;
 }

@@ -1,13 +1,9 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { BarChart3, FileText, Image, Key, Tags, Trophy, Users } from "lucide-react";
-import { getUserStorageKey } from "../utils/storage.js";
 import { useActiveEvent } from "../contexts/ActiveEventContext.jsx";
-
-const TEAMS_KEY = "rankify_teams";
-const CATEGORIES_KEY = "rankify_categories";
-const PROGRAM_TEMPLATES_KEY = "rankify_program_templates";
-const PROGRAM_RESULTS_KEY = "rankify_program_results";
+import { getSidebarCounts } from "../services/sidebarCountsService.js";
+import { DASHBOARD_CACHE_EVENT } from "../services/dashboardCache.js";
 
 const baseCards = [
   {
@@ -86,55 +82,6 @@ function safeJsonParse(value, fallback) {
   }
 }
 
-function countItemsForEvent(key, activeEventId) {
-  if (!activeEventId) return 0;
-
-  const storedValue = safeJsonParse(localStorage.getItem(getUserStorageKey(key)), []);
-
-  if (Array.isArray(storedValue)) {
-    return storedValue.filter((item) => item?.eventId === activeEventId).length;
-  }
-
-  if (storedValue && typeof storedValue === "object") {
-    const eventItems = storedValue[activeEventId];
-    return Array.isArray(eventItems) ? eventItems.length : 0;
-  }
-
-  return 0;
-}
-
-function emptyDashboardData() {
-  return {
-    activeEventName: "No active event",
-    counts: {
-      programTemplates: 0,
-      programResults: 0,
-      teamStatusTemplates: 0,
-      teamStatusResults: 0,
-      framedPostTemplates: 0,
-      teams: 0,
-      categories: 0,
-    },
-  };
-}
-
-function loadDashboardData(activeEvent) {
-  const activeEventId = activeEvent?.id || "";
-
-  return {
-    activeEventName: activeEvent?.name || "No active event",
-    counts: {
-      programTemplates: countItemsForEvent(PROGRAM_TEMPLATES_KEY, activeEventId),
-      programResults: countItemsForEvent(PROGRAM_RESULTS_KEY, activeEventId),
-      teamStatusTemplates: countItemsForEvent("rankify_team_status_templates", activeEventId),
-      teamStatusResults: countItemsForEvent("rankify_team_status_results", activeEventId),
-      framedPostTemplates: countItemsForEvent("rankify_framed_post_templates", activeEventId),
-      teams: countItemsForEvent(TEAMS_KEY, activeEventId),
-      categories: countItemsForEvent(CATEGORIES_KEY, activeEventId),
-    },
-  };
-}
-
 function getStoredUserName() {
   const stored = safeJsonParse(localStorage.getItem("rankify_user"), null);
   if (stored && typeof stored === "object") {
@@ -146,7 +93,7 @@ function getStoredUserName() {
   return "User";
 }
 
-function StatCard({ card }) {
+function StatCard({ card, error }) {
   const Icon = card.icon;
 
   return (
@@ -159,6 +106,11 @@ function StatCard({ card }) {
       <div className={card.textCount ? "app-heading text-2xl font-bold" : "app-heading text-3xl font-bold"}>
         {card.count}
       </div>
+      {error && (
+        <p className="mt-1 text-sm text-[var(--app-danger)]" role="alert">
+          Unable to load this count: {error.message || "Please try again."}
+        </p>
+      )}
       <p className="app-muted mt-1 break-words text-sm max-sm:text-base">{card.description}</p>
       <Link to={card.linkTo} className="mt-4 inline-block text-sm font-semibold text-[var(--app-primary)] hover:text-[var(--app-heading)] max-sm:text-lg">
         {card.linkText}
@@ -169,18 +121,78 @@ function StatCard({ card }) {
 
 export default function DashboardHome() {
   const { activeEvent, loading: activeEventLoading } = useActiveEvent();
-  const [dashboardData, setDashboardData] = useState(() => emptyDashboardData());
+  const activeEventId = activeEvent?.id ? String(activeEvent.id) : "";
+  const [dashboardState, setDashboardState] = useState({
+    eventId: "",
+    loading: true,
+    counts: {},
+    errors: {},
+    loadError: null,
+  });
   const [userName, setUserName] = useState(() => getStoredUserName());
 
   useEffect(() => {
+    let cancelled = false;
+    let requestNumber = 0;
+
+    if (activeEventLoading) {
+      setDashboardState({
+        eventId: activeEventId,
+        loading: true,
+        counts: {},
+        errors: {},
+        loadError: null,
+      });
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    if (!activeEventId) {
+      setDashboardState({
+        eventId: "",
+        loading: false,
+        counts: {},
+        errors: {},
+        loadError: null,
+      });
+      return () => {
+        cancelled = true;
+      };
+    }
+
     async function syncDashboardData() {
+      const currentRequest = ++requestNumber;
+      setDashboardState((current) => ({
+        eventId: activeEventId,
+        loading: true,
+        counts: current.eventId === activeEventId ? current.counts : {},
+        errors: current.eventId === activeEventId ? current.errors : {},
+        loadError: null,
+      }));
+
       try {
-        if (activeEventLoading) return;
-        setDashboardData(loadDashboardData(activeEvent));
+        const result = await getSidebarCounts(activeEventId);
+        if (cancelled || currentRequest !== requestNumber) return;
+        const { errors = {}, ...counts } = result;
+        setDashboardState({ eventId: activeEventId, loading: false, counts, errors, loadError: null });
       } catch (error) {
-        console.error("Unable to load dashboard overview.", error);
-        setDashboardData(emptyDashboardData());
+        console.error("Unable to load dashboard counts.", error);
+        if (cancelled || currentRequest !== requestNumber) return;
+        setDashboardState({
+          eventId: activeEventId,
+          loading: false,
+          counts: {},
+          errors: {},
+          loadError: error,
+        });
       }
+    }
+
+    function handleCountRefresh(event) {
+      const changedEventId = event?.detail?.eventId;
+      if (changedEventId && String(changedEventId) !== activeEventId) return;
+      syncDashboardData();
     }
 
     function syncUserName() {
@@ -188,35 +200,47 @@ export default function DashboardHome() {
     }
 
     syncDashboardData();
-
-    window.addEventListener("storage", syncDashboardData);
+    window.addEventListener("storage", handleCountRefresh);
     window.addEventListener("storage", syncUserName);
-    window.addEventListener("rankify-active-event-changed", syncDashboardData);
-    window.addEventListener("rankify-data-changed", syncDashboardData);
-    window.addEventListener("rankify-events-changed", syncDashboardData);
-
-    const refreshInterval = window.setInterval(() => {
-      syncDashboardData();
-      syncUserName();
-    }, 1000);
+    window.addEventListener("rankify-active-event-changed", handleCountRefresh);
+    window.addEventListener("rankify-data-changed", handleCountRefresh);
+    window.addEventListener("rankify-events-changed", handleCountRefresh);
+    window.addEventListener(DASHBOARD_CACHE_EVENT, handleCountRefresh);
 
     return () => {
-      window.removeEventListener("storage", syncDashboardData);
+      cancelled = true;
+      window.removeEventListener("storage", handleCountRefresh);
       window.removeEventListener("storage", syncUserName);
-      window.removeEventListener("rankify-active-event-changed", syncDashboardData);
-      window.removeEventListener("rankify-data-changed", syncDashboardData);
-      window.removeEventListener("rankify-events-changed", syncDashboardData);
-      window.clearInterval(refreshInterval);
+      window.removeEventListener("rankify-active-event-changed", handleCountRefresh);
+      window.removeEventListener("rankify-data-changed", handleCountRefresh);
+      window.removeEventListener("rankify-events-changed", handleCountRefresh);
+      window.removeEventListener(DASHBOARD_CACHE_EVENT, handleCountRefresh);
     };
-  }, [activeEvent, activeEventLoading]);
+  }, [activeEventId, activeEventLoading]);
 
+  const isCurrentEventData = dashboardState.eventId === activeEventId;
+  const countsLoading =
+    activeEventLoading ||
+    (Boolean(activeEventId) && (!isCurrentEventData || dashboardState.loading));
+  const visibleErrors = isCurrentEventData ? dashboardState.errors : {};
+  const loadError = isCurrentEventData ? dashboardState.loadError : null;
   const cards = useMemo(
     () =>
       baseCards.map((card) => ({
         ...card,
-        count: card.countKey ? String(dashboardData.counts[card.countKey] || 0) : card.count,
+        count: !card.countKey
+          ? card.count
+          : !activeEventId
+            ? "—"
+            : countsLoading
+              ? "..."
+              : visibleErrors[card.countKey]
+                ? "Unavailable"
+                : typeof dashboardState.counts[card.countKey] === "number"
+                  ? String(dashboardState.counts[card.countKey])
+                  : "Unavailable",
       })),
-    [dashboardData.counts]
+    [activeEventId, countsLoading, dashboardState.counts, visibleErrors]
   );
 
   return (
@@ -225,14 +249,26 @@ export default function DashboardHome() {
         <h1 className="app-heading break-words text-2xl font-bold max-sm:text-[30px] max-sm:leading-tight">Welcome, {userName}!</h1>
         <h2 className="app-heading mt-4 break-words text-2xl font-bold max-sm:text-[28px] max-sm:leading-tight">
           Current Event:{" "}
-          <span className="text-[var(--app-primary)]">{dashboardData.activeEventName}</span>
+          <span className="text-[var(--app-primary)]">
+            {activeEventLoading ? "Loading event..." : activeEvent?.name || "No active event"}
+          </span>
         </h2>
         <p className="app-muted mt-4 text-base max-sm:text-xl">Overview for the selected event.</p>
+        {loadError && (
+          <p className="mt-3 text-sm text-[var(--app-danger)]" role="alert">
+            Dashboard counts could not be loaded: {loadError.message || "Please try again."}
+          </p>
+        )}
+        {Object.keys(visibleErrors).length > 0 && (
+          <p className="mt-3 text-sm text-[var(--app-danger)]" role="alert">
+            Some counts could not be loaded. Failed counts are marked unavailable below.
+          </p>
+        )}
       </div>
 
       <div className="grid min-w-0 gap-5 md:grid-cols-2 xl:grid-cols-3">
         {cards.map((card) => (
-          <StatCard key={card.title} card={card} />
+          <StatCard key={card.title} card={card} error={visibleErrors[card.countKey]} />
         ))}
       </div>
     </section>

@@ -120,13 +120,14 @@ function getStoredUser() {
   return { name: "User", email: "" };
 }
 
-function SidebarLink({ link, counts, onNavigate }) {
+function SidebarLink({ link, counts, countErrors, countStatus, onNavigate }) {
   const location = useLocation();
   const Icon = link.icon;
   const count =
     link.countKey && Object.prototype.hasOwnProperty.call(counts, link.countKey)
       ? counts[link.countKey]
       : link.count;
+  const countError = link.countKey ? countErrors[link.countKey] : null;
 
   const active = link.activePrefix
     ? location.pathname === link.to ||
@@ -154,7 +155,21 @@ function SidebarLink({ link, counts, onNavigate }) {
         <Icon size={18} strokeWidth={1.9} aria-hidden="true" />
       </span>
       <span className="min-w-0 flex-1 truncate">{link.label}</span>
-      {typeof count === "number" && (
+      {link.countKey && countStatus === "loading" && (
+        <span className="app-badge rounded-md px-2 py-0.5 text-xs font-bold" aria-label="Loading count">
+          ...
+        </span>
+      )}
+      {link.countKey && (countStatus === "error" || countError) && (
+        <span
+          className="app-badge rounded-md px-2 py-0.5 text-xs font-bold text-[var(--app-danger)]"
+          title={countError?.message || countErrors.__all?.message || "Unable to load this count."}
+          aria-label="Count unavailable"
+        >
+          !
+        </span>
+      )}
+      {countStatus === "ready" && !countError && typeof count === "number" && (
         <span className="app-badge rounded-md px-2 py-0.5 text-xs font-bold">
           {count}
         </span>
@@ -165,7 +180,7 @@ function SidebarLink({ link, counts, onNavigate }) {
 
 export default function Sidebar({ mobile = false, onNavigate, onClose }) {
   const navigate = useNavigate();
-  const { activeEvent, activeEventId, events, selectActiveEvent } = useActiveEvent();
+  const { activeEvent, activeEventId, events, loading: activeEventLoading, selectActiveEvent } = useActiveEvent();
   const [user, setUser] = useState(getStoredUser());
   const [counts, setCounts] = useState({
     events: 0,
@@ -181,18 +196,47 @@ export default function Sidebar({ mobile = false, onNavigate, onClose }) {
     certificateTemplates: 0,
     certificateResults: 0,
   });
+  const [countErrors, setCountErrors] = useState({});
+  const [countStatus, setCountStatus] = useState("loading");
 
   useEffect(() => {
     let cancelled = false;
 
+    setCounts({
+      events: 0,
+      teams: 0,
+      participants: 0,
+      categories: 0,
+      programTemplates: 0,
+      programResults: 0,
+      teamStatusTemplates: 0,
+      teamStatusResults: 0,
+      framedPostTemplates: 0,
+      framedPosts: 0,
+      certificateTemplates: 0,
+      certificateResults: 0,
+    });
+    setCountErrors({});
+    setCountStatus("loading");
+
     async function syncCounts() {
+      if (activeEventLoading) return;
       const validActiveEventId = activeEvent?.id || "";
 
       try {
         const nextCounts = await getSidebarCounts(validActiveEventId);
-        if (!cancelled) setCounts(nextCounts);
+        if (!cancelled) {
+          const { errors = {}, ...values } = nextCounts;
+          setCounts(values);
+          setCountErrors(errors);
+          setCountStatus("ready");
+        }
       } catch (error) {
         console.error("Unable to load sidebar data counts.", error);
+        if (!cancelled) {
+          setCountErrors({ __all: error });
+          setCountStatus("error");
+        }
       }
     }
 
@@ -200,22 +244,27 @@ export default function Sidebar({ mobile = false, onNavigate, onClose }) {
     setUser(getStoredUser());
 
     const syncUser = () => setUser(getStoredUser());
+    const syncEventCounts = (event) => {
+      const changedEventId = event?.detail?.eventId;
+      if (changedEventId && String(changedEventId) !== String(activeEvent?.id || "")) return;
+      syncCounts();
+    };
 
     window.addEventListener("storage", syncUser);
-    window.addEventListener("rankify-data-changed", syncCounts);
-    window.addEventListener("rankify-events-changed", syncCounts);
-    window.addEventListener("rankify-active-event-changed", syncCounts);
-    window.addEventListener(DASHBOARD_CACHE_EVENT, syncCounts);
+    window.addEventListener("rankify-data-changed", syncEventCounts);
+    window.addEventListener("rankify-events-changed", syncEventCounts);
+    window.addEventListener("rankify-active-event-changed", syncEventCounts);
+    window.addEventListener(DASHBOARD_CACHE_EVENT, syncEventCounts);
 
     return () => {
       cancelled = true;
       window.removeEventListener("storage", syncUser);
-      window.removeEventListener("rankify-data-changed", syncCounts);
-      window.removeEventListener("rankify-events-changed", syncCounts);
-      window.removeEventListener("rankify-active-event-changed", syncCounts);
-      window.removeEventListener(DASHBOARD_CACHE_EVENT, syncCounts);
+      window.removeEventListener("rankify-data-changed", syncEventCounts);
+      window.removeEventListener("rankify-events-changed", syncEventCounts);
+      window.removeEventListener("rankify-active-event-changed", syncEventCounts);
+      window.removeEventListener(DASHBOARD_CACHE_EVENT, syncEventCounts);
     };
-  }, [activeEvent?.id]);
+  }, [activeEvent?.id, activeEventLoading]);
 
   async function handleActiveEventChange(event) {
     const nextEventId = event.target.value;
@@ -304,6 +353,16 @@ export default function Sidebar({ mobile = false, onNavigate, onClose }) {
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto px-3 py-4">
+        {countStatus === "ready" && Object.keys(countErrors).length > 0 && (
+          <p className="mb-4 rounded-md px-2 text-xs text-[var(--app-danger)]" role="alert">
+            Some counts could not be loaded. Unavailable badges are marked with !.
+          </p>
+        )}
+        {countStatus === "error" && (
+          <p className="mb-4 rounded-md px-2 text-xs text-[var(--app-danger)]" role="alert">
+            Counts could not be loaded: {countErrors.__all?.message || "Please try again."}
+          </p>
+        )}
         {sections.map((section) => (
           <div key={section.label} className="mb-6">
             <p className="app-muted mb-2 px-1 text-[11px] font-bold uppercase tracking-wide">
@@ -311,7 +370,14 @@ export default function Sidebar({ mobile = false, onNavigate, onClose }) {
             </p>
             <nav className="space-y-1">
               {section.links.map((link) => (
-                <SidebarLink key={link.to} link={link} counts={counts} onNavigate={onNavigate} />
+                <SidebarLink
+                  key={link.to}
+                  link={link}
+                  counts={counts}
+                  countErrors={countErrors}
+                  countStatus={countStatus}
+                  onNavigate={onNavigate}
+                />
               ))}
             </nav>
           </div>
