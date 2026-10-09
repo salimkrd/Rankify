@@ -17,15 +17,20 @@ import {
   X,
 } from "lucide-react";
 import FontFamilySelect from "../components/FontFamilySelect";
-import { getStoredActiveEventIdForCurrentUser } from "../services/activeEventService.js";
+import {
+  getStoredActiveEventIdForCurrentUser,
+  setStoredActiveEventIdForCurrentUser,
+} from "../services/activeEventService.js";
 import {
   createProgramTemplate,
   getProgramTemplateById,
   updateProgramTemplate,
 } from "../services/programTemplatesService.js";
+import { processTemplateForSave } from "../services/templateAssetsService.js";
+import { categorizeEditorError } from "../utils/editorErrors.js";
 
 const GREEN = "#26752C";
-const MAX_IMAGE_SIZE = 1024 * 1024; // 1MB
+const MAX_IMAGE_SIZE = 25 * 1024 * 1024; // 25MB for Firebase Storage
 
 function makeId(prefix) {
   if (window.crypto?.randomUUID) return `${prefix}_${window.crypto.randomUUID()}`;
@@ -330,6 +335,10 @@ export default function TemplateEditorPage() {
     : [scalePercent, ...scaleOptions].sort((a, b) => a - b);
   const [previewData, setPreviewData] = useState(defaultPreviewData);
   const [removeTarget, setRemoveTarget] = useState(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState("");
+  const pendingBackgroundFileRef = useRef(null);
+  const pendingElementFilesRef = useRef({});
 
   const scale = scalePercent / 100;
   const selectedElement = useMemo(
@@ -351,21 +360,28 @@ export default function TemplateEditorPage() {
       setPreviewData(defaultPreviewData);
       setEditorLoading(false);
       setEditorError("");
+      setSaveError("");
+      pendingBackgroundFileRef.current = null;
+      pendingElementFilesRef.current = {};
       return;
     }
 
     let mounted = true;
     async function loadTemplate() {
       setEditorLoading(true);
-      setEditorError("");
+      setEditorError(null);
       try {
-        const activeEventId = await getStoredActiveEventIdForCurrentUser();
         const template = await getProgramTemplateById(templateId);
         if (!mounted) return;
         const normalized = normalizeTemplateForEditor(template);
 
-        if (normalized.eventId && (!activeEventId || String(normalized.eventId) !== String(activeEventId))) {
-          throw new Error("This template does not belong to the current active event.");
+        // Ensure active event is synced with template's event for direct link navigation & refresh
+        const activeEventId = await getStoredActiveEventIdForCurrentUser();
+        if (normalized.eventId) {
+          if (!activeEventId || String(normalized.eventId) !== String(activeEventId)) {
+            await setStoredActiveEventIdForCurrentUser(normalized.eventId);
+            window.dispatchEvent(new Event("rankify-active-event-changed"));
+          }
         }
 
         setTemplateName(normalized.name);
@@ -381,7 +397,7 @@ export default function TemplateEditorPage() {
         setPreviewData(normalized.previewData);
       } catch (error) {
         if (!mounted) return;
-        setEditorError(error.message || "Unable to load this template.");
+        setEditorError(error);
       } finally {
         if (mounted) setEditorLoading(false);
       }
@@ -551,10 +567,11 @@ export default function TemplateEditorPage() {
     const file = event.target.files?.[0];
     if (!file) return;
     if (file.size > MAX_IMAGE_SIZE) {
-      alert("Image is too large. Please compress the image below 1MB and upload again.");
+      alert("Image is too large (max 25MB). Please compress the image or select a smaller file.");
       event.target.value = "";
       return;
     }
+    pendingBackgroundFileRef.current = file;
     let dataUrl = "";
     try {
       dataUrl = await dataUrlFromFile(file);
@@ -591,9 +608,10 @@ export default function TemplateEditorPage() {
     const file = event.target.files?.[0];
     if (!file) return;
     if (file.size > MAX_IMAGE_SIZE) {
-      alert("Image is too large. Please compress the image below 1MB and upload again.");
+      alert("Image is too large (max 25MB). Please compress the image or select a smaller file.");
       return;
     }
+    pendingElementFilesRef.current[elementId] = file;
     try {
       const dataUrl = await dataUrlFromFile(file);
       updateElement(elementId, { imageData: dataUrl, src: dataUrl, imageName: file.name });
@@ -605,6 +623,7 @@ export default function TemplateEditorPage() {
   }
 
   async function saveTemplate() {
+    setSaveError("");
     const activeEventId = await getStoredActiveEventIdForCurrentUser();
     if (!activeEventId) {
       alert("Please select an active event first.");
@@ -619,38 +638,68 @@ export default function TemplateEditorPage() {
       return;
     }
 
-    const normalizedCanvas = {
-      ...canvas,
-      width: Number(canvas.width) || 1,
-      height: Number(canvas.height) || 1,
-      backgroundImage: getPreviewableImageUrl(canvas.backgroundImage),
-    };
-
-    const now = new Date().toISOString();
-    const eventId = isEditMode ? templateEventId || activeEventId : activeEventId;
-    const template = {
-      ...(isEditMode ? { id: templateId } : {}),
-      eventId,
-      name: templateName.trim(),
-      type: "program",
-      canvas: normalizedCanvas,
-      elements,
-      previewData,
-      previewImage: normalizedCanvas.backgroundImage || makePreviewImage(templateName.trim(), normalizedCanvas),
-      createdAt: today(),
-      updatedAt: now,
-    };
+    setIsSaving(true);
 
     try {
-      if (isEditMode) {
-        await updateProgramTemplate(templateId, template);
-      } else {
-        await createProgramTemplate(eventId, template);
+      const normalizedCanvas = {
+        ...canvas,
+        width: Number(canvas.width) || 1,
+        height: Number(canvas.height) || 1,
+        backgroundImage: getPreviewableImageUrl(canvas.backgroundImage),
+      };
+
+      const now = new Date().toISOString();
+      const eventId = isEditMode ? templateEventId || activeEventId : activeEventId;
+      const rawTemplate = {
+        ...(isEditMode ? { id: templateId } : {}),
+        eventId,
+        name: templateName.trim(),
+        type: "program",
+        canvas: normalizedCanvas,
+        elements,
+        previewData,
+        previewImage: normalizedCanvas.backgroundImage || makePreviewImage(templateName.trim(), normalizedCanvas),
+        backgroundName,
+        createdAt: today(),
+        updatedAt: now,
+      };
+
+      // Upload image assets to Firebase Storage & replace data URLs with storage URLs
+      const processedTemplate = await processTemplateForSave({
+        template: rawTemplate,
+        userId: undefined,
+        pendingBackgroundFile: pendingBackgroundFileRef.current,
+        pendingElementFiles: pendingElementFilesRef.current,
+      });
+
+      // Update local canvas state if background was uploaded to remote URL
+      if (
+        processedTemplate.canvas?.backgroundImage &&
+        processedTemplate.canvas.backgroundImage !== canvas.backgroundImage
+      ) {
+        setCanvas((current) => ({
+          ...current,
+          backgroundImage: processedTemplate.canvas.backgroundImage,
+        }));
+        pendingBackgroundFileRef.current = null;
       }
+
+      if (isEditMode) {
+        await updateProgramTemplate(templateId, processedTemplate);
+      } else {
+        await createProgramTemplate(eventId, processedTemplate);
+      }
+
       window.dispatchEvent(new Event("rankify-data-changed"));
       navigate("/dashboard/program-templates");
     } catch (error) {
-      alert(error.message || "Unable to save template.");
+      console.error("Save template error:", error);
+      setIsSaving(false);
+      const errorMessage = error?.message || "Unable to save template.";
+      setSaveError(errorMessage);
+      alert(errorMessage);
+      // NOTE: Current unsaved design in state (canvas, elements, previewData)
+      // is preserved without reset so user does NOT lose their edits.
     }
   }
 
@@ -840,6 +889,7 @@ export default function TemplateEditorPage() {
   }
 
   if (editorError) {
+    const errorInfo = categorizeEditorError(editorError, "Template not found");
     return (
       <div className="template-editor-page app-page min-h-screen overflow-x-hidden pb-28">
         <style>{templateEditorThemeStyles}</style>
@@ -854,13 +904,14 @@ export default function TemplateEditorPage() {
             </button>
             <div className="min-w-0">
               <p className="app-muted text-sm">Poster Templates</p>
-              <h1 className="app-heading truncate text-2xl font-bold">Template not found</h1>
+              <h1 className="app-heading truncate text-2xl font-bold">{errorInfo.title}</h1>
             </div>
           </div>
         </header>
         <main className="p-4">
           <div className="app-card rounded-xl border border-[var(--app-danger)] p-6 text-sm text-[var(--app-danger)]">
-            {editorError}
+            <p className="font-semibold">{errorInfo.description}</p>
+            {errorInfo.details && <p className="mt-2 text-xs opacity-80">{errorInfo.details}</p>}
           </div>
         </main>
       </div>
@@ -897,14 +948,34 @@ export default function TemplateEditorPage() {
             <button
               type="button"
               onClick={saveTemplate}
-              className="app-success-btn inline-flex h-10 items-center justify-center gap-2 rounded-md px-4 text-sm font-semibold shadow-sm hover:opacity-90"
+              disabled={isSaving}
+              className={`app-success-btn inline-flex h-10 items-center justify-center gap-2 rounded-md px-4 text-sm font-semibold shadow-sm hover:opacity-90 ${
+                isSaving ? "cursor-not-allowed opacity-60" : ""
+              }`}
             >
               <Save size={16} strokeWidth={1.9} aria-hidden="true" />
-              {isEditMode ? "Save changes" : "Create template"}
+              {isSaving ? "Saving..." : isEditMode ? "Save changes" : "Create template"}
             </button>
           </div>
         </div>
       </header>
+
+      {saveError && (
+        <div className="mx-4 mt-3 flex items-start justify-between gap-3 rounded-md border border-red-500/40 bg-red-500/10 p-4 text-sm text-red-700 dark:text-red-300">
+          <div>
+            <p className="font-semibold">Unable to save template</p>
+            <p className="mt-1 text-xs">{saveError}</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setSaveError("")}
+            className="text-red-600 hover:text-red-800"
+            aria-label="Dismiss error"
+          >
+            <X size={16} />
+          </button>
+        </div>
+      )}
 
       <main className="grid w-full max-w-full grid-cols-[260px_minmax(0,1fr)_360px] gap-4 overflow-x-hidden p-4 max-[1180px]:grid-cols-1">
         <aside className="app-card min-w-0 rounded-lg border p-4 shadow-sm">
@@ -1062,7 +1133,7 @@ export default function TemplateEditorPage() {
           {backgroundName && (
             <div className="app-muted mb-5 flex items-start justify-between gap-3 text-sm">
               <span className="min-w-0 truncate">Image loaded. Canvas dimensions set to image size. {backgroundName}</span>
-              <button type="button" onClick={() => { setCanvas((current) => ({ ...current, backgroundImage: "" })); setBackgroundName(""); }} className="shrink-0 text-red-600">
+              <button type="button" onClick={() => { setCanvas((current) => ({ ...current, backgroundImage: "" })); setBackgroundName(""); pendingBackgroundFileRef.current = null; }} className="shrink-0 text-red-600">
                 Clear Image
               </button>
             </div>
@@ -1087,8 +1158,15 @@ export default function TemplateEditorPage() {
             </ToolbarField>
           </div>
           <div className="mt-48 border-t border-[var(--app-border)] pt-6">
-            <button type="button" onClick={saveTemplate} className="app-success-btn h-14 w-full rounded-md text-lg font-bold hover:opacity-90">
-              {isEditMode ? "Save Template Changes" : "Create New Template"}
+            <button
+              type="button"
+              onClick={saveTemplate}
+              disabled={isSaving}
+              className={`app-success-btn h-14 w-full rounded-md text-lg font-bold hover:opacity-90 ${
+                isSaving ? "cursor-not-allowed opacity-60" : ""
+              }`}
+            >
+              {isSaving ? "Saving template..." : isEditMode ? "Save Template Changes" : "Create New Template"}
             </button>
             <p className="app-muted mt-3 text-center text-xs">Tip: you can also save from the sticky bar at the top.</p>
           </div>

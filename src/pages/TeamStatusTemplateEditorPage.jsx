@@ -13,14 +13,20 @@ import {
 } from "lucide-react";
 import FontFamilySelect from "../components/FontFamilySelect";
 import TeamStatusTemplatePreview from "../components/TeamStatusTemplatePreview";
-import { getStoredActiveEventId, getStoredActiveEventIdForCurrentUser } from "../services/activeEventService.js";
+import {
+  getStoredActiveEventId,
+  getStoredActiveEventIdForCurrentUser,
+  setStoredActiveEventIdForCurrentUser,
+} from "../services/activeEventService.js";
 import {
   createTeamStatusTemplate,
   getTeamStatusTemplateById,
   updateTeamStatusTemplate,
 } from "../services/teamStatusTemplatesService.js";
+import { processTemplateForSave } from "../services/templateAssetsService.js";
+import { categorizeEditorError } from "../utils/editorErrors.js";
 
-const MAX_IMAGE_SIZE = 1024 * 1024;
+const MAX_IMAGE_SIZE = 25 * 1024 * 1024;
 
 const defaultTeams = [
   { name: "Team A", score: "120" },
@@ -355,6 +361,11 @@ export default function TeamStatusTemplateEditorPage() {
   const { templateId } = useParams();
   const canvasScrollRef = useRef(null);
   const dragRef = useRef(null);
+  const pendingBackgroundFileRef = useRef(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState("");
+  const [editorLoading, setEditorLoading] = useState(Boolean(templateId));
+  const [editorError, setEditorError] = useState(null);
   const [activeEvent, setActiveEvent] = useState(() => getActiveEvent());
   const [template, setTemplate] = useState(() => normalizeTemplate(null, getActiveEvent()));
   const [selectedId, setSelectedId] = useState("title_final");
@@ -382,18 +393,34 @@ export default function TeamStatusTemplateEditorPage() {
 
     if (!templateId) {
       setTemplate(normalizeTemplate(null, event));
+      setEditorLoading(false);
+      setEditorError(null);
       return;
     }
 
     let mounted = true;
     async function loadTemplate() {
+      setEditorLoading(true);
+      setEditorError(null);
       try {
         const found = await getTeamStatusTemplateById(templateId);
         if (!mounted) return;
+
+        // Sync event context if found has an eventId
+        if (found.eventId) {
+          const currentActiveEventId = await getStoredActiveEventIdForCurrentUser();
+          if (!currentActiveEventId || String(found.eventId) !== String(currentActiveEventId)) {
+            await setStoredActiveEventIdForCurrentUser(found.eventId);
+            window.dispatchEvent(new Event("rankify-active-event-changed"));
+          }
+        }
+
         setTemplate(normalizeTemplate(found, event));
       } catch (error) {
-        alert(error.message || "Unable to load template.");
-        navigate("/dashboard/team-status-templates");
+        if (!mounted) return;
+        setEditorError(error);
+      } finally {
+        if (mounted) setEditorLoading(false);
       }
     }
 
@@ -587,6 +614,7 @@ export default function TeamStatusTemplateEditorPage() {
       event.target.value = "";
       return;
     }
+    pendingBackgroundFileRef.current = file;
     const dataUrl = await dataUrlFromFile(file);
     const image = new Image();
     image.onload = () => {
@@ -643,17 +671,19 @@ export default function TeamStatusTemplateEditorPage() {
   }
 
   async function saveTemplate() {
-    try {
-      const activeEventId = await getStoredActiveEventIdForCurrentUser();
-      if (!activeEventId) {
-        alert("Please create or select an event first before creating a template.");
-        return;
-      }
-      if (!template.name.trim()) {
-        alert("Template name is required.");
-        return;
-      }
+    setSaveError("");
+    const activeEventId = await getStoredActiveEventIdForCurrentUser();
+    if (!activeEventId) {
+      alert("Please create or select an event first before creating a template.");
+      return;
+    }
+    if (!template.name.trim()) {
+      alert("Template name is required.");
+      return;
+    }
 
+    setIsSaving(true);
+    try {
       const nextTemplate = {
         ...template,
         ...(isEdit ? { id: template.id } : {}),
@@ -668,21 +698,34 @@ export default function TeamStatusTemplateEditorPage() {
         createdAt: template.createdAt || today(),
         updatedAt: today(),
       };
+
+      const processed = await processTemplateForSave({
+        template: nextTemplate,
+        pendingBackgroundFile: pendingBackgroundFileRef.current,
+      });
+
+      if (
+        processed.canvas?.backgroundImage &&
+        processed.canvas.backgroundImage !== template.canvas.backgroundImage
+      ) {
+        updateCanvas({ backgroundImage: processed.canvas.backgroundImage });
+        pendingBackgroundFileRef.current = null;
+      }
+
       if (isEdit) {
-        await updateTeamStatusTemplate(templateId, nextTemplate);
+        await updateTeamStatusTemplate(templateId, processed);
       } else {
-        await createTeamStatusTemplate(activeEventId, nextTemplate);
+        await createTeamStatusTemplate(activeEventId, processed);
       }
       window.dispatchEvent(new Event("rankify-data-changed"));
       window.dispatchEvent(new Event("rankify-team-status-templates-changed"));
       navigate("/dashboard/team-status-templates");
     } catch (error) {
-      if (error?.name === "QuotaExceededError") {
-        alert("Storage limit exceeded. Please use a smaller/compressed image.");
-      } else {
-        alert("Failed to save template. Please try again.");
-      }
       console.error("Error saving team status template:", error);
+      setIsSaving(false);
+      const msg = error?.message || "Failed to save template. Please try again.";
+      setSaveError(msg);
+      alert(msg);
     }
   }
 
@@ -815,6 +858,64 @@ export default function TeamStatusTemplateEditorPage() {
     );
   }
 
+  if (editorLoading) {
+    return (
+      <div className="template-editor-page app-page min-h-screen overflow-x-hidden pb-28">
+        <style>{teamStatusEditorThemeStyles}</style>
+        <header className="app-header sticky top-0 z-30 border-b px-5 py-4">
+          <div className="flex min-w-0 items-center gap-4">
+            <button
+              type="button"
+              onClick={() => navigate("/dashboard/team-status-templates")}
+              className="rounded-md px-2 py-1 text-2xl text-[var(--app-muted)] hover:bg-[var(--app-surface-elevated)]"
+            >
+              <ArrowLeft size={22} strokeWidth={1.9} aria-hidden="true" />
+            </button>
+            <div className="min-w-0">
+              <p className="app-muted text-sm">Team Status Templates</p>
+              <h1 className="app-heading truncate text-2xl font-bold">Loading template...</h1>
+            </div>
+          </div>
+        </header>
+        <main className="p-4">
+          <div className="app-card rounded-xl border p-8 text-center">
+            <p className="app-muted text-sm font-semibold">Loading template...</p>
+          </div>
+        </main>
+      </div>
+    );
+  }
+
+  if (editorError) {
+    const errorInfo = categorizeEditorError(errorError, "Team status template not found");
+    return (
+      <div className="template-editor-page app-page min-h-screen overflow-x-hidden pb-28">
+        <style>{teamStatusEditorThemeStyles}</style>
+        <header className="app-header sticky top-0 z-30 border-b px-5 py-4">
+          <div className="flex min-w-0 items-center gap-4">
+            <button
+              type="button"
+              onClick={() => navigate("/dashboard/team-status-templates")}
+              className="rounded-md px-2 py-1 text-2xl text-[var(--app-muted)] hover:bg-[var(--app-surface-elevated)]"
+            >
+              <ArrowLeft size={22} strokeWidth={1.9} aria-hidden="true" />
+            </button>
+            <div className="min-w-0">
+              <p className="app-muted text-sm">Team Status Templates</p>
+              <h1 className="app-heading truncate text-2xl font-bold">{errorInfo.title}</h1>
+            </div>
+          </div>
+        </header>
+        <main className="p-4">
+          <div className="app-card rounded-xl border border-[var(--app-danger)] p-6 text-sm text-[var(--app-danger)]">
+            <p className="font-semibold">{errorInfo.description}</p>
+            {errorInfo.details && <p className="mt-2 text-xs opacity-80">{errorInfo.details}</p>}
+          </div>
+        </main>
+      </div>
+    );
+  }
+
   return (
     <div className="template-editor-page app-page min-h-screen overflow-x-hidden pb-28">
       <style>{teamStatusEditorThemeStyles}</style>
@@ -845,10 +946,13 @@ export default function TeamStatusTemplateEditorPage() {
             <button
               type="button"
               onClick={saveTemplate}
-              className="app-success-btn inline-flex h-10 items-center justify-center gap-2 rounded-md px-4 text-sm font-semibold shadow-sm hover:opacity-90"
+              disabled={isSaving || editorLoading || Boolean(editorError)}
+              className={`app-success-btn inline-flex h-10 items-center justify-center gap-2 rounded-md px-4 text-sm font-semibold shadow-sm hover:opacity-90 ${
+                isSaving || editorLoading || Boolean(editorError) ? "cursor-not-allowed opacity-60" : ""
+              }`}
             >
               <Save size={16} strokeWidth={1.9} aria-hidden="true" />
-              {isEdit ? "Save changes" : "Create template"}
+              {isSaving ? "Saving..." : isEdit ? "Save changes" : "Create template"}
             </button>
           </div>
         </div>
@@ -1022,8 +1126,15 @@ export default function TeamStatusTemplateEditorPage() {
             <ToolbarField label="Canvas Height (px)"><NumberInput value={template.canvas.height} onChange={(height) => updateCanvas({ height })} className="box-border w-full max-w-full min-w-0" /></ToolbarField>
           </div>
           <div className="mt-48 border-t border-[var(--app-border)] pt-6">
-            <button type="button" className="app-success-btn h-14 w-full rounded-md text-lg font-bold hover:opacity-90" onClick={saveTemplate}>
-              {isEdit ? "Save Template Changes" : "Create New Template"}
+            <button
+              type="button"
+              className={`app-success-btn h-14 w-full rounded-md text-lg font-bold hover:opacity-90 ${
+                isSaving || editorLoading || Boolean(editorError) ? "cursor-not-allowed opacity-60" : ""
+              }`}
+              onClick={saveTemplate}
+              disabled={isSaving || editorLoading || Boolean(editorError)}
+            >
+              {isSaving ? "Saving template..." : isEdit ? "Save Template Changes" : "Create New Template"}
             </button>
             <p className="app-muted mt-3 text-center text-xs">Tip: you can also save from the sticky bar at the top.</p>
           </div>

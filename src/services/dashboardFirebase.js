@@ -10,15 +10,31 @@ export async function getCurrentUserId() {
     throw new Error("Firebase Authentication is not configured or you are not signed in.");
   }
 
+  if (typeof auth.authStateReady === "function") {
+    try {
+      await auth.authStateReady();
+    } catch {}
+  }
+
   let user = auth.currentUser;
 
   if (!user) {
     user = await new Promise((resolve) => {
+      let resolved = false;
       const unsubscribe = onAuthStateChanged(auth, (u) => {
-        unsubscribe();
-        resolve(u);
+        if (!resolved) {
+          resolved = true;
+          unsubscribe();
+          resolve(u);
+        }
       });
-      setTimeout(() => resolve(null), 1200);
+      setTimeout(() => {
+        if (!resolved) {
+          resolved = true;
+          unsubscribe();
+          resolve(auth.currentUser || null);
+        }
+      }, 3000);
     });
   }
 

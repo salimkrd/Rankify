@@ -2,14 +2,20 @@ import React, { useEffect, useMemo, useState, useRef } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, ChevronDown, ChevronUp, Copy, Image, PlusCircle, Save, Trash2, X } from "lucide-react";
 import FontFamilySelect from "../components/FontFamilySelect.jsx";
-import { getStoredActiveEventId, getStoredActiveEventIdForCurrentUser } from "../services/activeEventService.js";
+import {
+  getStoredActiveEventId,
+  getStoredActiveEventIdForCurrentUser,
+  setStoredActiveEventIdForCurrentUser,
+} from "../services/activeEventService.js";
 import {
   createFramedPostTemplate,
   getFramedPostTemplateById,
   updateFramedPostTemplate,
 } from "../services/framedPostTemplatesService.js";
+import { uploadTemplateAsset, isDataUrl, validateTemplatePayloadSize } from "../services/templateAssetsService.js";
+import { categorizeEditorError } from "../utils/editorErrors.js";
 
-const MAX_IMAGE_SIZE = 1024 * 1024; // 1MB
+const MAX_IMAGE_SIZE = 25 * 1024 * 1024; // 25MB for Firebase Storage
 
 function makeId(prefix = "field") {
   return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
@@ -74,6 +80,10 @@ export default function FramedPostTemplateEditorPage() {
     eventLocation: "",
   });
   const [isLoaded, setIsLoaded] = useState(false);
+  const [editorError, setEditorError] = useState(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState("");
+  const pendingFrameFileRef = useRef(null);
   const previewWrapperRef = useRef(null);
   const [previewScale, setPreviewScale] = useState(() => {
     const maxWidth = 520;
@@ -150,6 +160,7 @@ export default function FramedPostTemplateEditorPage() {
 
     async function loadTemplate() {
       setIsLoaded(false);
+      setEditorError(null);
       const storedActiveEventId = await getStoredActiveEventIdForCurrentUser();
       setActiveEventId(storedActiveEventId);
 
@@ -168,6 +179,15 @@ export default function FramedPostTemplateEditorPage() {
         const found = await getFramedPostTemplateById(templateId);
         if (cancelled) return;
         setExistingTemplate(found);
+
+        if (found.eventId) {
+          const currentActiveEventId = await getStoredActiveEventIdForCurrentUser();
+          if (!currentActiveEventId || String(found.eventId) !== String(currentActiveEventId)) {
+            await setStoredActiveEventIdForCurrentUser(found.eventId);
+            window.dispatchEvent(new Event("rankify-active-event-changed"));
+          }
+        }
+
         setTemplateName(found.name || "");
         setFrameImageUrl(getSavedFrameImage(found));
         setCanvasWidth(found.canvasWidth || 800);
@@ -184,9 +204,9 @@ export default function FramedPostTemplateEditorPage() {
         setIsLoaded(true);
       } catch (error) {
         if (cancelled) return;
-        alert("Unable to load this framed post template.");
-        console.error("Failed to load framed post template:", error);
-        navigate("/dashboard/framed-posts");
+        setEditorError(error);
+      } finally {
+        if (!cancelled) setIsLoaded(true);
       }
     }
 
@@ -368,11 +388,12 @@ export default function FramedPostTemplateEditorPage() {
     const file = event.target.files?.[0];
     if (!file) return;
     if (file.size > MAX_IMAGE_SIZE) {
-      alert("Image is too large. Please compress the image below 1MB and upload again.");
+      alert("Image is too large (max 25MB). Please compress the image or select a smaller file.");
       event.target.value = "";
       return;
     }
 
+    pendingFrameFileRef.current = file;
     const reader = new FileReader();
     reader.onload = () => {
       const dataUrl = reader.result;
@@ -401,6 +422,7 @@ export default function FramedPostTemplateEditorPage() {
   }
 
   async function handleSave() {
+    setSaveError("");
     if (!templateName.trim()) {
       alert("Template name is required.");
       return;
@@ -412,24 +434,63 @@ export default function FramedPostTemplateEditorPage() {
       return;
     }
 
-    const nextTemplate = {
-      ...(isEdit && existingTemplate ? { id: existingTemplate.id } : {}),
-      name: templateName.trim(),
-      eventId: currentActiveEventId,
-      frameImage: frameImageUrl,
-      frameImageUrl,
-      frameOverlay: frameImageUrl,
-      overlayImage: frameImageUrl,
-      frameSrc: frameImageUrl,
-      canvasWidth,
-      canvasHeight,
-      customFields,
-      previewData: normalizedPreview,
-      createdAt: isEdit && existingTemplate ? existingTemplate.createdAt || today() : today(),
-      updatedAt: today(),
-    };
-
+    setIsSaving(true);
     try {
+      let finalFrameUrl = frameImageUrl;
+      if (pendingFrameFileRef.current) {
+        const upload = await uploadTemplateAsset({
+          file: pendingFrameFileRef.current,
+          templateId: templateId || "new",
+          assetType: "frame",
+          originalName: pendingFrameFileRef.current.name || "frame",
+        });
+        finalFrameUrl = upload.url;
+        setFrameImageUrl(upload.url);
+        pendingFrameFileRef.current = null;
+      } else if (isDataUrl(frameImageUrl)) {
+        const upload = await uploadTemplateAsset({
+          dataUrl: frameImageUrl,
+          templateId: templateId || "new",
+          assetType: "frame",
+          originalName: "frame",
+        });
+        finalFrameUrl = upload.url;
+        setFrameImageUrl(upload.url);
+      }
+
+      // Process any custom fields with dataUrl images
+      const processedCustomFields = await Promise.all(
+        customFields.map(async (field) => {
+          if (isDataUrl(field.src) || isDataUrl(field.imageData)) {
+            const upload = await uploadTemplateAsset({
+              dataUrl: field.src || field.imageData,
+              templateId: templateId || "new",
+              assetType: "field_image",
+              originalName: field.label || "field",
+            });
+            return { ...field, src: upload.url, imageData: upload.url };
+          }
+          return field;
+        })
+      );
+
+      const nextTemplate = {
+        ...(isEdit && existingTemplate ? { id: existingTemplate.id } : {}),
+        name: templateName.trim(),
+        eventId: currentActiveEventId,
+        frameImage: finalFrameUrl,
+        frameImageUrl: finalFrameUrl,
+        canvasWidth,
+        canvasHeight,
+        customFields: processedCustomFields,
+        previewData: normalizedPreview,
+        previewImage: finalFrameUrl,
+        createdAt: isEdit && existingTemplate ? existingTemplate.createdAt || today() : today(),
+        updatedAt: today(),
+      };
+
+      validateTemplatePayloadSize(nextTemplate);
+
       if (isEdit) {
         await updateFramedPostTemplate(templateId, nextTemplate);
       } else {
@@ -438,8 +499,11 @@ export default function FramedPostTemplateEditorPage() {
       window.dispatchEvent(new Event("rankify-data-changed"));
       navigate("/dashboard/framed-posts");
     } catch (error) {
-      alert("Unable to save framed post template. Please try again.");
       console.error("Failed to save framed post template:", error);
+      setIsSaving(false);
+      const msg = error?.message || "Unable to save framed post template. Please try again.";
+      setSaveError(msg);
+      alert(msg);
     }
   }
 
@@ -461,6 +525,64 @@ export default function FramedPostTemplateEditorPage() {
 
     await navigator.clipboard.writeText(JSON.stringify(exportTemplate, null, 2));
     alert("Template JSON copied to clipboard.");
+  }
+
+  if (!isLoaded && templateId) {
+    return (
+      <div className="framed-editor-page app-page min-h-screen overflow-x-hidden pb-28 font-[Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,Segoe_UI,sans-serif]">
+        <style>{framedEditorThemeStyles}</style>
+        <header className="app-header sticky top-0 z-30 border-b px-5 py-4">
+          <div className="flex min-w-0 items-center gap-4">
+            <button
+              type="button"
+              onClick={() => navigate("/dashboard/framed-posts")}
+              className="rounded-md px-2 py-1 text-2xl text-[var(--app-muted)] hover:bg-[var(--app-surface-elevated)]"
+            >
+              <ArrowLeft size={22} strokeWidth={1.9} aria-hidden="true" />
+            </button>
+            <div className="min-w-0">
+              <p className="app-muted text-sm">Framed Post Templates</p>
+              <h1 className="app-heading truncate text-2xl font-bold">Loading template...</h1>
+            </div>
+          </div>
+        </header>
+        <main className="p-6">
+          <div className="app-card rounded-xl border p-8 text-center">
+            <p className="app-muted text-sm font-semibold">Loading framed post template...</p>
+          </div>
+        </main>
+      </div>
+    );
+  }
+
+  if (editorError) {
+    const errorInfo = categorizeEditorError(editorError, "Framed post template not found");
+    return (
+      <div className="framed-editor-page app-page min-h-screen overflow-x-hidden pb-28 font-[Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,Segoe_UI,sans-serif]">
+        <style>{framedEditorThemeStyles}</style>
+        <header className="app-header sticky top-0 z-30 border-b px-5 py-4">
+          <div className="flex min-w-0 items-center gap-4">
+            <button
+              type="button"
+              onClick={() => navigate("/dashboard/framed-posts")}
+              className="rounded-md px-2 py-1 text-2xl text-[var(--app-muted)] hover:bg-[var(--app-surface-elevated)]"
+            >
+              <ArrowLeft size={22} strokeWidth={1.9} aria-hidden="true" />
+            </button>
+            <div className="min-w-0">
+              <p className="app-muted text-sm">Framed Post Templates</p>
+              <h1 className="app-heading truncate text-2xl font-bold">{errorInfo.title}</h1>
+            </div>
+          </div>
+        </header>
+        <main className="p-6">
+          <div className="app-card rounded-xl border border-[var(--app-danger)] p-6 text-sm text-[var(--app-danger)]">
+            <p className="font-semibold">{errorInfo.description}</p>
+            {errorInfo.details && <p className="mt-2 text-xs opacity-80">{errorInfo.details}</p>}
+          </div>
+        </main>
+      </div>
+    );
   }
 
   if (!isLoaded) {
@@ -499,10 +621,13 @@ export default function FramedPostTemplateEditorPage() {
             <button
               type="button"
               onClick={handleSave}
-              className="app-success-btn inline-flex h-10 items-center justify-center gap-2 rounded-md px-4 text-sm font-semibold shadow-sm hover:opacity-90"
+              disabled={isSaving || !isLoaded || Boolean(editorError)}
+              className={`app-success-btn inline-flex h-10 items-center justify-center gap-2 rounded-md px-4 text-sm font-semibold shadow-sm hover:opacity-90 ${
+                isSaving || !isLoaded || Boolean(editorError) ? "cursor-not-allowed opacity-60" : ""
+              }`}
             >
               <Save size={16} />
-              {isEdit ? "Save changes" : "Create template"}
+              {isSaving ? "Saving..." : isEdit ? "Save changes" : "Create template"}
             </button>
           </div>
         </div>
@@ -1172,9 +1297,12 @@ export default function FramedPostTemplateEditorPage() {
             <button
               type="button"
               onClick={handleSave}
-              className="h-12 w-full rounded-md bg-[#26752C] text-lg font-bold text-white hover:bg-[#1f6425]"
+              disabled={isSaving || !isLoaded || Boolean(editorError)}
+              className={`h-12 w-full rounded-md bg-[#26752C] text-lg font-bold text-white hover:bg-[#1f6425] ${
+                isSaving || !isLoaded || Boolean(editorError) ? "cursor-not-allowed opacity-60" : ""
+              }`}
             >
-              {isEdit ? "Save Template Changes" : "Create New Template"}
+              {isSaving ? "Saving..." : isEdit ? "Save Template Changes" : "Create New Template"}
             </button>
           </div>
         </aside>

@@ -139,6 +139,12 @@ class FirestoreQueryBuilder {
     }
 
     try {
+      if (auth && typeof auth.authStateReady === "function") {
+        try {
+          await auth.authStateReady();
+        } catch {}
+      }
+
       if (this.operation === "insert") {
         const rows = this.pendingInsertRows || [];
         for (const row of rows) {
@@ -155,23 +161,102 @@ class FirestoreQueryBuilder {
         return { data: result, error: null };
       }
 
-      // Query documents matching filters
+      // Check if this query is targeting a specific document by its ID
+      const idFilter = this.filters.find((f) => f.field === "id" && f.op === "==");
       const colRef = collection(db, this.collectionName);
-      let queryRef = colRef;
 
-      // Apply first equality filter in Firestore query for indexed server fetching
-      const firstFilter = this.filters[0];
-      if (firstFilter) {
+      if (idFilter && idFilter.value) {
+        const docId = String(idFilter.value);
+        const docRef = doc(db, this.collectionName, docId);
+
+        if (this.operation === "delete") {
+          await deleteDoc(docRef);
+          return { data: null, error: null };
+        }
+
+        if (this.operation === "update") {
+          const patch = this.pendingUpdatePatch || {};
+          await updateDoc(docRef, patch);
+          let updatedRow = { id: docId, ...patch };
+          try {
+            const snap = await getDoc(docRef);
+            if (snap.exists()) {
+              updatedRow = docToRow(snap);
+            }
+          } catch {}
+          const data = this.isSingle || this.isMaybeSingle ? updatedRow : [updatedRow];
+          return { data, error: null };
+        }
+
+        // Direct SELECT of document by ID (avoids collection queries rejected by security rules)
+        const snap = await getDoc(docRef);
+        let rows = [];
+
+        if (snap.exists()) {
+          const r = docToRow(snap);
+          // Apply any remaining in-memory filters (e.g. user_id or event_id)
+          let matches = true;
+          for (const f of this.filters) {
+            if (String(r[f.field]) !== String(f.value)) {
+              matches = false;
+              break;
+            }
+          }
+          if (matches) {
+            rows = [r];
+          }
+        } else {
+          // Document was not found by docId. If a user_id filter is present, try fallback collection query
+          const userFilter = this.filters.find((f) => f.field === "user_id" && f.op === "==");
+          if (userFilter) {
+            try {
+              const fallbackQuery = query(colRef, where("user_id", "==", userFilter.value), where("id", "==", docId));
+              const snapList = await getDocs(fallbackQuery);
+              if (!snapList.empty) {
+                rows = snapList.docs.map(docToRow);
+              }
+            } catch {}
+          }
+        }
+
+        if (this.countMode) {
+          return { count: rows.length, data: null, error: null };
+        }
+
+        if (this.isSingle) {
+          if (!rows.length) {
+            const notFoundErr = new Error(`Row not found in ${this.collectionName}`);
+            notFoundErr.code = "not-found";
+            return { data: null, error: notFoundErr };
+          }
+          return { data: rows[0], error: null };
+        }
+
+        if (this.isMaybeSingle) {
+          return { data: rows[0] || null, error: null };
+        }
+
+        return { data: rows, error: null, count: rows.length };
+      }
+
+      // Collection query without direct document ID filter
+      let queryRef = colRef;
+      const userFilter = this.filters.find((f) => f.field === "user_id" && f.op === "==");
+
+      if (userFilter) {
+        // Enforce user_id equality filter on Firestore server query to satisfy security rules
+        queryRef = query(colRef, where("user_id", "==", userFilter.value));
+      } else if (this.filters.length > 0) {
+        const firstFilter = this.filters[0];
         queryRef = query(colRef, where(firstFilter.field, "==", firstFilter.value));
       }
 
       const snap = await getDocs(queryRef);
       let rows = snap.docs.map(docToRow);
 
-      // Apply any additional filters in memory (prevents composite index errors)
-      if (this.filters.length > 1) {
-        for (let i = 1; i < this.filters.length; i++) {
-          const f = this.filters[i];
+      // Apply all filters in memory for guaranteed correctness
+      if (this.filters.length > 0) {
+        for (const f of this.filters) {
           rows = rows.filter((r) => String(r[f.field]) === String(f.value));
         }
       }
@@ -219,7 +304,9 @@ class FirestoreQueryBuilder {
 
       if (this.isSingle) {
         if (!rows.length) {
-          return { data: null, error: new Error(`Row not found in ${this.collectionName}`) };
+          const notFoundErr = new Error(`Row not found in ${this.collectionName}`);
+          notFoundErr.code = "not-found";
+          return { data: null, error: notFoundErr };
         }
         return { data: rows[0], error: null };
       }

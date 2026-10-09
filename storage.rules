@@ -1,0 +1,19 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    // User-scoped template image assets: users/{userId}/templates/{templateId}/{fileName}
+    // Public read so rendered posters, viewer pages, and public certificates can display images.
+    // Restrict write strictly to the authenticated document owner.
+    match /users/{userId}/{allPaths=**} {
+      allow read: if true;
+      allow write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // Direct templates path scoped to owner
+    match /templates/{userId}/{allPaths=**} {
+      allow read: if true;
+      allow write: if request.auth != null && request.auth.uid == userId;
+    }
+  }
+}

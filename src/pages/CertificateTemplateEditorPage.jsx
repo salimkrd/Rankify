@@ -2,14 +2,20 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeft, ChevronDown, ChevronUp, Copy, Plus, Save, Trash2 } from "lucide-react";
 import { useNavigate, useParams } from "react-router-dom";
 import FontFamilySelect from "../components/FontFamilySelect.jsx";
-import { getStoredActiveEventId, getStoredActiveEventIdForCurrentUser } from "../services/activeEventService.js";
+import {
+  getStoredActiveEventId,
+  getStoredActiveEventIdForCurrentUser,
+  setStoredActiveEventIdForCurrentUser,
+} from "../services/activeEventService.js";
 import {
   createCertificateTemplate,
   getCertificateTemplateById,
   updateCertificateTemplate,
 } from "../services/certificateTemplatesService.js";
+import { uploadTemplateAsset, isDataUrl, validateTemplatePayloadSize } from "../services/templateAssetsService.js";
+import { categorizeEditorError } from "../utils/editorErrors.js";
 
-const MAX_IMAGE_SIZE = 1024 * 1024; // 1MB
+const MAX_IMAGE_SIZE = 25 * 1024 * 1024; // 25MB for Firebase Storage
 
 const scaleOptions = [40, 50, 60, 75, 100];
 const dataSourceOptions = [
@@ -169,24 +175,46 @@ export default function CertificateTemplateEditorPage() {
   const [scalePercent, setScalePercent] = useState(60);
   const [exampleOpen, setExampleOpen] = useState(true);
   const dragRef = useRef(null);
+  const pendingBackgroundFileRef = useRef(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState("");
+  const [editorLoading, setEditorLoading] = useState(Boolean(templateId));
+  const [editorError, setEditorError] = useState(null);
 
   useEffect(() => {
     let cancelled = false;
 
+    if (!templateId) {
+      setEditorLoading(false);
+      setEditorError(null);
+      return;
+    }
+
     async function loadTemplate() {
-      const currentEvent = { id: getStoredActiveEventId(), name: "Active Event" };
+      setEditorLoading(true);
+      setEditorError(null);
 
       try {
-        const existing = isEditMode ? await getCertificateTemplateById(templateId) : null;
+        const existing = await getCertificateTemplateById(templateId);
         if (cancelled) return;
+
+        if (existing.eventId) {
+          const currentActiveEventId = await getStoredActiveEventIdForCurrentUser();
+          if (!currentActiveEventId || String(existing.eventId) !== String(currentActiveEventId)) {
+            await setStoredActiveEventIdForCurrentUser(existing.eventId);
+            window.dispatchEvent(new Event("rankify-active-event-changed"));
+          }
+        }
+
+        const currentEvent = { id: existing.eventId || getStoredActiveEventId(), name: "Active Event" };
         const nextTemplate = normalizeTemplate(existing, currentEvent);
         setTemplate(nextTemplate);
         setSelectedId(nextTemplate.elements[0]?.id || "");
       } catch (error) {
         if (cancelled) return;
-        alert("Unable to load this certificate template.");
-        console.error("Failed to load certificate template:", error);
-        navigate("/dashboard/certificate-templates");
+        setEditorError(error);
+      } finally {
+        if (!cancelled) setEditorLoading(false);
       }
     }
 
@@ -194,7 +222,7 @@ export default function CertificateTemplateEditorPage() {
     return () => {
       cancelled = true;
     };
-  }, [isEditMode, navigate, templateId]);
+  }, [templateId]);
 
   const selectedElement = useMemo(
     () => template.elements.find((element) => element.id === selectedId) || null,
@@ -330,10 +358,11 @@ export default function CertificateTemplateEditorPage() {
     const file = event.target.files?.[0];
     if (!file) return;
     if (file.size > MAX_IMAGE_SIZE) {
-      alert("Image is too large. Please compress the image below 1MB and upload again.");
+      alert("Image is too large (max 25MB). Please compress the image or select a smaller file.");
       event.target.value = "";
       return;
     }
+    pendingBackgroundFileRef.current = file;
     const reader = new FileReader();
     reader.onload = () => {
       const image = new Image();
@@ -352,6 +381,7 @@ export default function CertificateTemplateEditorPage() {
   }
 
   async function handleSave() {
+    setSaveError("");
     const activeEventId = await getStoredActiveEventIdForCurrentUser();
     if (!activeEventId) {
       alert("Please create or select an event first before creating a template.");
@@ -363,15 +393,42 @@ export default function CertificateTemplateEditorPage() {
       return;
     }
 
-    const now = new Date().toISOString();
-    const cleanTemplate = {
-      ...template,
-      eventId: activeEventId,
-      updatedAt: now,
-      createdAt: template.createdAt || now,
-    };
-
+    setIsSaving(true);
     try {
+      let finalBackgroundUrl = template.backgroundImage || "";
+      if (pendingBackgroundFileRef.current) {
+        const upload = await uploadTemplateAsset({
+          file: pendingBackgroundFileRef.current,
+          templateId: templateId || "new",
+          assetType: "background",
+          originalName: pendingBackgroundFileRef.current.name || "certificate_bg",
+        });
+        finalBackgroundUrl = upload.url;
+        setTemplate((current) => ({ ...current, backgroundImage: upload.url }));
+        pendingBackgroundFileRef.current = null;
+      } else if (isDataUrl(template.backgroundImage)) {
+        const upload = await uploadTemplateAsset({
+          dataUrl: template.backgroundImage,
+          templateId: templateId || "new",
+          assetType: "background",
+          originalName: "certificate_bg",
+        });
+        finalBackgroundUrl = upload.url;
+        setTemplate((current) => ({ ...current, backgroundImage: upload.url }));
+      }
+
+      const now = new Date().toISOString();
+      const cleanTemplate = {
+        ...template,
+        backgroundImage: finalBackgroundUrl,
+        previewImage: finalBackgroundUrl,
+        eventId: activeEventId,
+        updatedAt: now,
+        createdAt: template.createdAt || now,
+      };
+
+      validateTemplatePayloadSize(cleanTemplate);
+
       if (isEditMode) {
         await updateCertificateTemplate(templateId, cleanTemplate);
       } else {
@@ -380,8 +437,11 @@ export default function CertificateTemplateEditorPage() {
       window.dispatchEvent(new Event("rankify-data-changed"));
       navigate("/dashboard/certificate-templates");
     } catch (error) {
-      alert("Unable to save certificate template. Please try again.");
       console.error("Failed to save certificate template:", error);
+      setIsSaving(false);
+      const msg = error?.message || "Unable to save certificate template. Please try again.";
+      setSaveError(msg);
+      alert(msg);
     }
   }
 
@@ -402,6 +462,70 @@ export default function CertificateTemplateEditorPage() {
   }
 
   const inputClass = "app-input h-9 rounded-md border px-3 text-sm outline-none focus:border-[var(--app-primary)] focus:ring-2 focus:ring-[var(--app-focus-ring)]";
+
+  if (editorLoading) {
+    return (
+      <section className="certificate-editor-page app-page min-h-screen overflow-x-hidden pb-[82px]">
+        <style>{certificateEditorThemeStyles}</style>
+        <header className="app-header flex min-h-[74px] items-center justify-between gap-4 border-b px-7">
+          <div className="flex min-w-0 items-center gap-4">
+            <button
+              type="button"
+              onClick={() => navigate("/dashboard/certificate-templates")}
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-[var(--app-muted)] hover:bg-[var(--app-surface-elevated)] hover:text-[var(--app-heading)]"
+              aria-label="Back to certificate templates"
+            >
+              <ArrowLeft size={18} />
+            </button>
+            <div className="min-w-0">
+              <p className="app-muted text-sm font-medium">Certificate Templates</p>
+              <h1 className="app-heading truncate text-[21px] font-extrabold leading-tight">
+                Loading template...
+              </h1>
+            </div>
+          </div>
+        </header>
+        <main className="p-6">
+          <div className="app-card rounded-xl border p-8 text-center">
+            <p className="app-muted text-sm font-semibold">Loading certificate template...</p>
+          </div>
+        </main>
+      </section>
+    );
+  }
+
+  if (editorError) {
+    const errorInfo = categorizeEditorError(editorError, "Certificate template not found");
+    return (
+      <section className="certificate-editor-page app-page min-h-screen overflow-x-hidden pb-[82px]">
+        <style>{certificateEditorThemeStyles}</style>
+        <header className="app-header flex min-h-[74px] items-center justify-between gap-4 border-b px-7">
+          <div className="flex min-w-0 items-center gap-4">
+            <button
+              type="button"
+              onClick={() => navigate("/dashboard/certificate-templates")}
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-[var(--app-muted)] hover:bg-[var(--app-surface-elevated)] hover:text-[var(--app-heading)]"
+              aria-label="Back to certificate templates"
+            >
+              <ArrowLeft size={18} />
+            </button>
+            <div className="min-w-0">
+              <p className="app-muted text-sm font-medium">Certificate Templates</p>
+              <h1 className="app-heading truncate text-[21px] font-extrabold leading-tight">
+                {errorInfo.title}
+              </h1>
+            </div>
+          </div>
+        </header>
+        <main className="p-6">
+          <div className="app-card rounded-xl border border-[var(--app-danger)] p-6 text-sm text-[var(--app-danger)]">
+            <p className="font-semibold">{errorInfo.description}</p>
+            {errorInfo.details && <p className="mt-2 text-xs opacity-80">{errorInfo.details}</p>}
+          </div>
+        </main>
+      </section>
+    );
+  }
 
   return (
     <section className="certificate-editor-page app-page min-h-screen overflow-x-hidden pb-[82px]">
@@ -435,10 +559,13 @@ export default function CertificateTemplateEditorPage() {
           <button
             type="button"
             onClick={handleSave}
-            className="app-success-btn inline-flex h-10 items-center gap-2 rounded-md px-4 text-sm font-bold shadow-sm hover:opacity-90"
+            disabled={isSaving || editorLoading || Boolean(editorError)}
+            className={`app-success-btn inline-flex h-10 items-center gap-2 rounded-md px-4 text-sm font-bold shadow-sm hover:opacity-90 ${
+              isSaving || editorLoading || Boolean(editorError) ? "cursor-not-allowed opacity-60" : ""
+            }`}
           >
             <Save size={16} />
-            {isEditMode ? "Save changes" : "Create template"}
+            {isSaving ? "Saving..." : isEditMode ? "Save changes" : "Create template"}
           </button>
         </div>
       </header>
@@ -665,9 +792,12 @@ export default function CertificateTemplateEditorPage() {
             <button
               type="button"
               onClick={handleSave}
-              className="app-success-btn h-11 w-full rounded-md text-sm font-bold shadow-sm hover:opacity-90"
+              disabled={isSaving || editorLoading || Boolean(editorError)}
+              className={`app-success-btn h-11 w-full rounded-md text-sm font-bold shadow-sm hover:opacity-90 ${
+                isSaving || editorLoading || Boolean(editorError) ? "cursor-not-allowed opacity-60" : ""
+              }`}
             >
-              {isEditMode ? "Update Template" : "Create Template"}
+              {isSaving ? "Saving..." : isEditMode ? "Update Template" : "Create Template"}
             </button>
           </div>
         </aside>

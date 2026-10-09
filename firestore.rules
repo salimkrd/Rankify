@@ -19,11 +19,53 @@ service cloud.firestore {
 
     // Helper functions for user ownership
     function isDocOwner() {
-      return isAuthenticated() && resource.data.user_id == request.auth.uid;
+      return isAuthenticated() && (
+        resource.data.user_id == request.auth.uid ||
+        resource.data.userId == request.auth.uid
+      );
     }
 
     function isCreatingForSelf() {
-      return isAuthenticated() && request.resource.data.user_id == request.auth.uid;
+      return isAuthenticated() && (
+        request.resource.data.user_id == request.auth.uid ||
+        request.resource.data.userId == request.auth.uid
+      );
+    }
+
+    // Helper function: Check if user owns the parent event
+    function isEventOwner(eventId) {
+      return isAuthenticated() &&
+        eventId != null &&
+        exists(/databases/$(database)/documents/events/$(eventId)) &&
+        get(/databases/$(database)/documents/events/$(eventId)).data.user_id == request.auth.uid;
+    }
+
+    // Template ownership: direct ownership or verified parent event ownership for legacy records
+    function canReadTemplate() {
+      return isAuthenticated() && (
+        isDocOwner() ||
+        (
+          (!('user_id' in resource.data) || resource.data.user_id == null) &&
+          (
+            ('event_id' in resource.data && isEventOwner(resource.data.event_id)) ||
+            ('eventId' in resource.data && isEventOwner(resource.data.eventId))
+          )
+        )
+      );
+    }
+
+    function canUpdateTemplate() {
+      return isAuthenticated() && (
+        (isDocOwner() && request.resource.data.user_id == resource.data.user_id) ||
+        (
+          (!('user_id' in resource.data) || resource.data.user_id == null) &&
+          (
+            ('event_id' in resource.data && isEventOwner(resource.data.event_id)) ||
+            ('eventId' in resource.data && isEventOwner(resource.data.eventId))
+          ) &&
+          request.resource.data.user_id == request.auth.uid
+        )
+      );
     }
 
     // Core User Collections: events, teams, categories, participants
@@ -53,27 +95,27 @@ service cloud.firestore {
 
     // Templates
     match /program_templates/{docId} {
-      allow read, delete: if isDocOwner();
+      allow read, delete: if canReadTemplate();
       allow create: if isCreatingForSelf();
-      allow update: if isDocOwner() && request.resource.data.user_id == resource.data.user_id;
+      allow update: if canUpdateTemplate();
     }
 
     match /team_status_templates/{docId} {
-      allow read, delete: if isDocOwner();
+      allow read, delete: if canReadTemplate();
       allow create: if isCreatingForSelf();
-      allow update: if isDocOwner() && request.resource.data.user_id == resource.data.user_id;
+      allow update: if canUpdateTemplate();
     }
 
     match /framed_post_templates/{docId} {
-      allow read, delete: if isDocOwner();
+      allow read, delete: if canReadTemplate();
       allow create: if isCreatingForSelf();
-      allow update: if isDocOwner() && request.resource.data.user_id == resource.data.user_id;
+      allow update: if canUpdateTemplate();
     }
 
     match /certificate_templates/{docId} {
-      allow read, delete: if isDocOwner();
+      allow read, delete: if canReadTemplate();
       allow create: if isCreatingForSelf();
-      allow update: if isDocOwner() && request.resource.data.user_id == resource.data.user_id;
+      allow update: if canUpdateTemplate();
     }
 
     // Results & Posts

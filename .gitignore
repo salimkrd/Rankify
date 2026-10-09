@@ -7,3 +7,4 @@ dist
 .vercel
 *serviceAccount*.json
 serviceAccountKey.json
+firebase-debug.log
