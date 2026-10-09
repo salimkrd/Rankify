@@ -20,7 +20,9 @@ export function clearUserSession() {
 
 export async function logoutWithFirebase() {
   try {
-    await signOut(auth);
+    if (auth) {
+      await signOut(auth);
+    }
   } catch (error) {
     console.warn("Firebase sign out error:", error);
   } finally {
@@ -86,6 +88,12 @@ export function userFromFirebaseUser(user, fallback = {}) {
 export const userFromSupabaseUser = userFromFirebaseUser;
 
 export async function registerWithFirebase({ name, email, password }) {
+  if (!auth) {
+    throw new Error(
+      "Firebase is not configured. Please set the VITE_FIREBASE_* environment variables in your deployment dashboard."
+    );
+  }
+
   const userCredential = await createUserWithEmailAndPassword(auth, email, password);
   const user = userCredential.user;
 
@@ -105,6 +113,12 @@ export async function registerWithFirebase({ name, email, password }) {
 export const registerWithSupabase = registerWithFirebase;
 
 export async function loginWithFirebase({ email, password }) {
+  if (!auth) {
+    throw new Error(
+      "Firebase is not configured. Please set the VITE_FIREBASE_* environment variables in your deployment dashboard."
+    );
+  }
+
   const userCredential = await signInWithEmailAndPassword(auth, email, password);
   const user = userCredential.user;
 
@@ -118,6 +132,19 @@ export const loginWithSupabase = loginWithFirebase;
 export function getFriendlyAuthErrorMessage(error) {
   if (!error) return "An unexpected error occurred.";
   const code = error.code || "";
+  const msg = error.message || "";
+
+  if (code === "auth/invalid-api-key" || msg.includes("invalid-api-key")) {
+    return "Firebase API Key is missing or invalid. Please check the VITE_FIREBASE_API_KEY environment variable in your hosting dashboard.";
+  }
+
+  if (code === "auth/unauthorized-domain") {
+    return "This domain is not authorized in Firebase Authentication. Add it to Authorized Domains in Firebase Console > Authentication > Settings.";
+  }
+
+  if (msg.includes("Firebase is not configured") || msg.includes("Firebase configuration")) {
+    return "Firebase configuration environment variables are missing. Please add the required VITE_FIREBASE_* variables in your hosting settings (Vercel / GitHub Secrets).";
+  }
 
   switch (code) {
     case "auth/configuration-not-found":

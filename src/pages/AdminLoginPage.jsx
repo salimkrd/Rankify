@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import { ShieldCheck } from "lucide-react";
 import { getCurrentAdminUser, signInAdmin } from "../services/adminAuthService.js";
+import { getFriendlyAuthErrorMessage } from "../utils/auth.js";
 
 export default function AdminLoginPage() {
   const navigate = useNavigate();
@@ -41,7 +42,11 @@ export default function AdminLoginPage() {
       const destination = location.state?.from?.pathname || "/admin/dashboard";
       navigate(destination, { replace: true });
     } catch (loginError) {
-      setError(loginError.message || "Unable to sign in.");
+      const friendlyMessage =
+        loginError.message === "This account is not authorized for Rankify admin."
+          ? loginError.message
+          : getFriendlyAuthErrorMessage(loginError);
+      setError(friendlyMessage);
     } finally {
       setLoading(false);
     }

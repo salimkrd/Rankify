@@ -2,6 +2,14 @@ import { auth } from "../lib/firebase.js";
 import { onAuthStateChanged } from "firebase/auth";
 
 export async function getCurrentUserId() {
+  if (!auth) {
+    try {
+      const storedUser = JSON.parse(localStorage.getItem("rankify_user") || "null");
+      if (storedUser?.id) return storedUser.id;
+    } catch {}
+    throw new Error("Firebase Authentication is not configured or you are not signed in.");
+  }
+
   let user = auth.currentUser;
 
   if (!user) {

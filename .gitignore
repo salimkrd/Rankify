@@ -3,4 +3,7 @@ dist
 .env
 .env.local
 .env.*.local
-node_modules
+.firebase
+.vercel
+*serviceAccount*.json
+serviceAccountKey.json

@@ -129,6 +129,15 @@ class FirestoreQueryBuilder {
   }
 
   async execute() {
+    if (!db) {
+      console.warn(`[Firestore:${this.collectionName}] operation skipped: Firestore is not configured.`);
+      return {
+        data: this.isSingle || this.isMaybeSingle ? null : [],
+        error: new Error("Firestore database is not configured. Please set VITE_FIREBASE_* environment variables."),
+        count: 0,
+      };
+    }
+
     try {
       if (this.operation === "insert") {
         const rows = this.pendingInsertRows || [];
@@ -237,6 +246,25 @@ export const firebaseClient = {
   },
   auth: {
     async getUser() {
+      if (!auth) {
+        try {
+          const stored = JSON.parse(localStorage.getItem("rankify_user") || "null");
+          if (stored?.id) {
+            return {
+              data: {
+                user: {
+                  id: stored.id,
+                  email: stored.email || "",
+                  user_metadata: { full_name: stored.name || "User" },
+                },
+              },
+              error: null,
+            };
+          }
+        } catch {}
+        return { data: { user: null }, error: null };
+      }
+
       let user = auth.currentUser;
       if (!user) {
         user = await new Promise((resolve) => {
@@ -279,6 +307,12 @@ export const firebaseClient = {
       };
     },
     async signUp({ email, password, options = {} }) {
+      if (!auth) {
+        return {
+          data: { user: null },
+          error: new Error("Firebase Authentication is not configured. Please set the VITE_FIREBASE_* environment variables in your deployment dashboard."),
+        };
+      }
       try {
         const cred = await createUserWithEmailAndPassword(auth, email, password);
         const fullName = options?.data?.full_name || options?.data?.name || "";
@@ -302,6 +336,12 @@ export const firebaseClient = {
       }
     },
     async signInWithPassword({ email, password }) {
+      if (!auth) {
+        return {
+          data: { user: null },
+          error: new Error("Firebase Authentication is not configured. Please set the VITE_FIREBASE_* environment variables in your deployment dashboard."),
+        };
+      }
       try {
         const cred = await signInWithEmailAndPassword(auth, email, password);
         return {
@@ -319,6 +359,7 @@ export const firebaseClient = {
       }
     },
     async signOut() {
+      if (!auth) return { error: null };
       try {
         await firebaseSignOut(auth);
         return { error: null };

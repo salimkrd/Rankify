@@ -10,7 +10,11 @@ service cloud.firestore {
 
     // Helper function: Check if user is an admin
     function isAdmin() {
-      return isAuthenticated() && exists(/databases/$(database)/documents/admin_users/$(request.auth.uid));
+      return isAuthenticated() && (
+        request.auth.token.admin == true ||
+        request.auth.token.role == 'admin' ||
+        exists(/databases/$(database)/documents/admin_users/$(request.auth.uid))
+      );
     }
 
     // Helper functions for user ownership
@@ -103,9 +107,17 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
-    // Admin Users collection: authenticated users can read their own admin doc; admins can write
+    // Admin Users directory collection
+    // - Authenticated users can read their own record to verify their access.
+    // - Existing admins can view all admin records.
+    // - STRICT: Client-side creation/modification is prohibited unless already an admin.
+    // - Initial admin assignment is managed via trusted Firebase Admin SDK or Firebase Console.
     match /admin_users/{docId} {
-      allow read: if isAuthenticated() && (resource.data.user_id == request.auth.uid || docId == request.auth.uid || isAdmin());
+      allow read: if isAuthenticated() && (
+        docId == request.auth.uid || 
+        resource.data.user_id == request.auth.uid || 
+        isAdmin()
+      );
       allow write: if isAdmin();
     }
   }

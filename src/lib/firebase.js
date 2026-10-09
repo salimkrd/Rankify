@@ -14,32 +14,65 @@ export const firebaseConfig = {
   measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID,
 };
 
-if (!firebaseConfig.apiKey || !firebaseConfig.projectId) {
-  console.warn("Firebase configuration environment variables are missing.");
+// Check for missing or placeholder environment variables
+export const missingFirebaseEnvVars = [
+  !firebaseConfig.apiKey && "VITE_FIREBASE_API_KEY",
+  !firebaseConfig.authDomain && "VITE_FIREBASE_AUTH_DOMAIN",
+  !firebaseConfig.projectId && "VITE_FIREBASE_PROJECT_ID",
+  !firebaseConfig.storageBucket && "VITE_FIREBASE_STORAGE_BUCKET",
+  !firebaseConfig.messagingSenderId && "VITE_FIREBASE_MESSAGING_SENDER_ID",
+  !firebaseConfig.appId && "VITE_FIREBASE_APP_ID",
+].filter(Boolean);
+
+function isValidConfigValue(val) {
+  return typeof val === "string" && val.trim().length > 0 && !val.includes("your_") && !val.includes("your-");
 }
 
-// Initialize Firebase App singleton
-export const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
+export const isFirebaseConfigured = Boolean(
+  isValidConfigValue(firebaseConfig.apiKey) &&
+  isValidConfigValue(firebaseConfig.projectId) &&
+  isValidConfigValue(firebaseConfig.authDomain) &&
+  isValidConfigValue(firebaseConfig.appId)
+);
 
-// Firebase Authentication
-export const auth = getAuth(app);
+let appInstance = null;
+let authInstance = null;
+let dbInstance = null;
+let storageInstance = null;
 
-// Cloud Firestore Database
-export const db = getFirestore(app);
+if (isFirebaseConfigured) {
+  try {
+    appInstance = !getApps().length ? initializeApp(firebaseConfig) : getApp();
+    authInstance = getAuth(appInstance);
+    dbInstance = getFirestore(appInstance);
+    storageInstance = getStorage(appInstance);
+  } catch (error) {
+    console.error("[Rankify] Firebase initialization failed:", error);
+  }
+} else {
+  console.warn(
+    `[Rankify] Firebase configuration environment variables are missing or incomplete (${missingFirebaseEnvVars.join(
+      ", "
+    )}). Authentication and Firestore features are disabled until environment variables are set in your deployment settings.`
+  );
+}
 
-// Firebase Cloud Storage
-export const storage = getStorage(app);
+// Singletons for Firebase services
+export const app = appInstance;
+export const auth = authInstance;
+export const db = dbInstance;
+export const storage = storageInstance;
 
 // Analytics singleton & safe promise resolver
 export let analytics = null;
 
 export const analyticsPromise = (async () => {
-  if (typeof window === "undefined") return null;
+  if (typeof window === "undefined" || !appInstance || !isFirebaseConfigured) return null;
 
   try {
     const supported = await isSupported();
     if (supported && firebaseConfig.measurementId) {
-      analytics = getAnalytics(app);
+      analytics = getAnalytics(appInstance);
       return analytics;
     }
   } catch (error) {
