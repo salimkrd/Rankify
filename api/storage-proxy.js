@@ -109,11 +109,16 @@ export default async function handler(req, res) {
       return res.status(403).json({ error: "Forbidden: Destination host not allowed." });
     }
 
+    res.setHeader("X-Rankify-Proxy-Version", "2.0.1");
+
     // 4. Fetch upstream from Firebase Storage
     const upstreamRes = await fetch(targetUrl);
     if (!upstreamRes.ok) {
+      const errText = await upstreamRes.text().catch(() => "");
       return res.status(upstreamRes.status).json({
         error: `Upstream Firebase Storage returned status ${upstreamRes.status}`,
+        upstreamError: errText,
+        targetUrl,
       });
     }
 
