@@ -265,14 +265,30 @@ export const firebaseClient = {
         return { data: { user: null }, error: null };
       }
 
+      if (typeof auth.authStateReady === "function") {
+        try {
+          await auth.authStateReady();
+        } catch {}
+      }
+
       let user = auth.currentUser;
       if (!user) {
         user = await new Promise((resolve) => {
+          let resolved = false;
           const unsubscribe = onAuthStateChanged(auth, (u) => {
-            unsubscribe();
-            resolve(u);
+            if (!resolved) {
+              resolved = true;
+              unsubscribe();
+              resolve(u);
+            }
           });
-          setTimeout(() => resolve(null), 1000);
+          setTimeout(() => {
+            if (!resolved) {
+              resolved = true;
+              unsubscribe();
+              resolve(auth.currentUser || null);
+            }
+          }, 2500);
         });
       }
 
@@ -286,6 +302,8 @@ export const firebaseClient = {
                   id: stored.id,
                   email: stored.email || "",
                   user_metadata: { full_name: stored.name || "User" },
+                  admin: stored.role === "admin" || stored.admin === true,
+                  role: stored.role,
                 },
               },
               error: null,
@@ -295,12 +313,20 @@ export const firebaseClient = {
         return { data: { user: null }, error: null };
       }
 
+      let claims = {};
+      try {
+        const tokenResult = await user.getIdTokenResult();
+        claims = tokenResult?.claims || {};
+      } catch {}
+
       return {
         data: {
           user: {
             id: user.uid,
             email: user.email,
             user_metadata: { full_name: user.displayName || user.email?.split("@")[0] || "User" },
+            admin: claims.admin === true || claims.role === "admin",
+            role: claims.role || (claims.admin ? "admin" : undefined),
           },
         },
         error: null,

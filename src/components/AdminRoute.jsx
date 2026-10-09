@@ -2,6 +2,9 @@ import React, { useEffect, useState } from "react";
 import { Navigate, useLocation } from "react-router-dom";
 import { getCurrentAdminUser } from "../services/adminAuthService.js";
 
+import { auth } from "../lib/firebase.js";
+import { onAuthStateChanged } from "firebase/auth";
+
 export default function AdminRoute({ children }) {
   const location = useLocation();
   const [state, setState] = useState({ loading: true, admin: null });
@@ -20,8 +23,19 @@ export default function AdminRoute({ children }) {
     }
 
     loadAdmin();
+
+    let unsubscribe = null;
+    if (auth) {
+      unsubscribe = onAuthStateChanged(auth, () => {
+        if (active) {
+          loadAdmin();
+        }
+      });
+    }
+
     return () => {
       active = false;
+      if (unsubscribe) unsubscribe();
     };
   }, []);
 

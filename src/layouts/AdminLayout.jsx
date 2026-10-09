@@ -4,7 +4,7 @@ import { LayoutDashboard, LogOut, ScrollText } from "lucide-react";
 import { signOutAdmin } from "../services/adminAuthService.js";
 
 const navItems = [
-  { label: "Dashboard", to: "/admin/dashboard", icon: LayoutDashboard },
+  { label: "Dashboard", to: "/admin", end: true, icon: LayoutDashboard },
   { label: "Public Templates", to: "/admin/public-templates", icon: ScrollText },
 ];
 
@@ -19,7 +19,7 @@ export default function AdminLayout() {
   return (
     <div className="app-page min-h-screen overflow-x-hidden">
       <aside className="app-sidebar fixed inset-y-0 left-0 z-30 hidden w-[260px] border-r lg:flex lg:flex-col">
-        <Link to="/admin/dashboard" className="app-border flex h-[76px] items-center border-b px-5">
+        <Link to="/admin" className="app-border flex h-[76px] items-center border-b px-5">
           <div>
             <p className="app-muted text-xs font-bold uppercase tracking-wide">Rankify</p>
             <h1 className="app-heading text-xl font-extrabold">Admin</h1>
@@ -32,6 +32,7 @@ export default function AdminLayout() {
               <NavLink
                 key={item.to}
                 to={item.to}
+                end={item.end}
                 className={({ isActive }) =>
                   `mb-1 flex h-11 items-center gap-3 rounded-md px-3 text-sm font-semibold transition ${
                     isActive

@@ -39,7 +39,11 @@ export default function AdminLoginPage() {
 
     try {
       await signInAdmin(email.trim(), password);
-      const destination = location.state?.from?.pathname || "/admin/dashboard";
+      const rawDestination = location.state?.from?.pathname;
+      const destination =
+        rawDestination && rawDestination !== "/admin/login" && rawDestination !== "/admin/dashboard"
+          ? rawDestination
+          : "/admin";
       navigate(destination, { replace: true });
     } catch (loginError) {
       const friendlyMessage =
@@ -60,7 +64,7 @@ export default function AdminLoginPage() {
     );
   }
 
-  if (isAdmin) return <Navigate to="/admin/dashboard" replace />;
+  if (isAdmin) return <Navigate to="/admin" replace />;
 
   return (
     <div className="app-page flex min-h-screen items-center justify-center overflow-x-hidden px-4 py-8 text-[var(--app-text)]">

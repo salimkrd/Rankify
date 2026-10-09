@@ -69,8 +69,8 @@ export default function App() {
             </AdminRoute>
           }
         >
-          <Route index element={<Navigate to="/admin/dashboard" replace />} />
-          <Route path="dashboard" element={<AdminDashboardPage />} />
+          <Route index element={<AdminDashboardPage />} />
+          <Route path="dashboard" element={<Navigate to="/admin" replace />} />
           <Route path="public-templates" element={<AdminPublicTemplatesPage />} />
           <Route path="public-templates/new" element={<AdminPublicTemplateEditorPage />} />
           <Route path="public-templates/:id/edit" element={<AdminPublicTemplateEditorPage />} />

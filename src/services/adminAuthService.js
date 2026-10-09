@@ -1,5 +1,5 @@
 import { firebaseClient } from "../lib/firebaseClient.js";
-import { db } from "../lib/firebase.js";
+import { auth, db } from "../lib/firebase.js";
 import { doc, getDoc } from "firebase/firestore";
 
 /**
@@ -18,18 +18,38 @@ export async function getCurrentAdminUser() {
 
   // 1. Check custom claim if set by Firebase Admin SDK
   if (user.admin === true || user.role === "admin") {
-    return user;
+    return { ...user, admin: true, role: "admin" };
+  }
+
+  if (auth?.currentUser) {
+    try {
+      const tokenResult = await auth.currentUser.getIdTokenResult();
+      if (tokenResult?.claims?.admin === true || tokenResult?.claims?.role === "admin") {
+        return {
+          ...user,
+          admin: true,
+          role: "admin",
+        };
+      }
+    } catch (claimErr) {
+      console.warn("Unable to check ID token claims:", claimErr);
+    }
   }
 
   // 2. Check direct document lookup in admin_users/{user.id}
-  if (db) {
+  if (db && user.id) {
     try {
       const docRef = doc(db, "admin_users", user.id);
       const snap = await getDoc(docRef);
       if (snap.exists()) {
         const data = snap.data();
         if (data.role === "admin" || data.user_id === user.id) {
-          return user;
+          return {
+            ...user,
+            ...data,
+            admin: true,
+            role: "admin",
+          };
         }
       }
     } catch {
@@ -38,21 +58,28 @@ export async function getCurrentAdminUser() {
   }
 
   // 3. Check query in admin_users collection where user_id == user.id
-  try {
-    const { data, error } = await firebaseClient
-      .from("admin_users")
-      .select("id,user_id,email,role")
-      .eq("user_id", user.id)
-      .maybeSingle();
+  if (user.id) {
+    try {
+      const { data, error } = await firebaseClient
+        .from("admin_users")
+        .select("id,user_id,email,role")
+        .eq("user_id", user.id)
+        .maybeSingle();
 
-    if (error) {
-      return null;
+      if (!error && data && (data.role === "admin" || data.user_id === user.id)) {
+        return {
+          ...user,
+          ...data,
+          admin: true,
+          role: "admin",
+        };
+      }
+    } catch {
+      // Not an admin
     }
-
-    return data ? user : null;
-  } catch {
-    return null;
   }
+
+  return null;
 }
 
 /**
