@@ -5,11 +5,36 @@
   "outputDirectory": "dist",
   "rewrites": [
     {
+      "source": "/api/storage-proxy/(.*)",
+      "destination": "/api/storage-proxy?path=$1"
+    },
+    {
+      "source": "/api/storage-proxy",
+      "destination": "/api/storage-proxy"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }
   ],
   "headers": [
+    {
+      "source": "/api/(.*)",
+      "headers": [
+        {
+          "key": "Access-Control-Allow-Origin",
+          "value": "*"
+        },
+        {
+          "key": "Access-Control-Allow-Methods",
+          "value": "GET, HEAD, OPTIONS"
+        },
+        {
+          "key": "Access-Control-Allow-Headers",
+          "value": "*"
+        }
+      ]
+    },
     {
       "source": "/assets/(.*)",
       "headers": [

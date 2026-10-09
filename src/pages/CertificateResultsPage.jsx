@@ -13,6 +13,7 @@ import {
   listCertificateResultsByEvent,
   updateCertificateResult,
 } from "../services/certificateResultsService.js";
+import { prepareTemplateForExport, waitForAllAssets, createOffscreenContainer, triggerCanvasDownload } from "../utils/exportAssetHelper.js";
 
 const formatDate = (value) => {
   if (!value) return "Unknown";
@@ -109,14 +110,28 @@ function CertificateCanvas({ template, result, scale = 1, captureId }) {
           position: "relative",
           overflow: "hidden",
           backgroundColor,
-          backgroundImage: backgroundImage ? `url(${backgroundImage})` : undefined,
-          backgroundSize: "100% 100%",
-          backgroundPosition: "center",
-          backgroundRepeat: "no-repeat",
           transform: scale === 1 ? "none" : `scale(${scale})`,
           transformOrigin: "top left",
         }}
       >
+        {backgroundImage ? (
+          <img
+            src={backgroundImage}
+            alt=""
+            crossOrigin="anonymous"
+            draggable={false}
+            style={{
+              position: "absolute",
+              inset: 0,
+              width: "100%",
+              height: "100%",
+              objectFit: "cover",
+              display: "block",
+              pointerEvents: "none",
+              zIndex: 0,
+            }}
+          />
+        ) : null}
         {elements.length ? (
           elements.map((element) => (
             <div
@@ -438,61 +453,42 @@ export default function CertificateResultsPage() {
     let root = null;
 
     try {
-      const width = Number(template.canvasWidth || template.canvas?.width || 842);
-      const height = Number(template.canvasHeight || template.canvas?.height || 596);
-      offscreen = document.createElement("div");
-      offscreen.style.position = "fixed";
-      offscreen.style.left = "-100000px";
-      offscreen.style.top = "0";
-      offscreen.style.width = `${width}px`;
-      offscreen.style.height = `${height}px`;
-      offscreen.style.pointerEvents = "none";
-      document.body.appendChild(offscreen);
+      const { safeTemplate, safeData: safeResult } = await prepareTemplateForExport(template, result);
+      const width = Number(safeTemplate.canvasWidth || safeTemplate.canvas?.width || 842);
+      const height = Number(safeTemplate.canvasHeight || safeTemplate.canvas?.height || 596);
+      const backgroundColor = safeTemplate.backgroundColor || safeTemplate.canvas?.backgroundColor || "#ffffff";
+
+      offscreen = createOffscreenContainer(width, height, backgroundColor);
 
       root = createRoot(offscreen);
-      root.render(<CertificateCanvas template={template} result={result} scale={1} captureId="certificate-export" />);
+      root.render(<CertificateCanvas template={safeTemplate} result={safeResult || result} scale={1} captureId="certificate-export" />);
 
-      await new Promise((resolve) => requestAnimationFrame(resolve));
-      await new Promise((resolve) => requestAnimationFrame(resolve));
-      if (document.fonts?.ready) await document.fonts.ready;
+      await new Promise((resolve) => setTimeout(resolve, 80));
 
       const certificate = offscreen.querySelector('[data-certificate-id="certificate-export"]');
       if (!certificate) throw new Error("Certificate preview was not rendered.");
 
-      await waitForImages(certificate);
+      await waitForAllAssets(certificate);
       const { default: html2canvas } = await import("html2canvas");
       const canvas = await html2canvas(certificate, {
-        backgroundColor: "#ffffff",
+        backgroundColor,
         width,
         height,
         windowWidth: width,
         windowHeight: height,
         scale: 2,
         useCORS: true,
-        allowTaint: true,
+        allowTaint: false,
         scrollX: 0,
         scrollY: 0,
+        logging: false,
       });
 
-      canvas.toBlob(
-        (blob) => {
-          if (!blob) {
-            alert("Unable to prepare certificate download.");
-            return;
-          }
-          const url = URL.createObjectURL(blob);
-          const link = document.createElement("a");
-          link.href = url;
-          link.download = fileNameSafe(`${result.candidateName || "certificate"}-${template.name || "template"}.jpg`);
-          link.click();
-          URL.revokeObjectURL(url);
-        },
-        "image/jpeg",
-        0.95
-      );
+      const fileName = fileNameSafe(`${result.candidateName || "certificate"}-${template.name || "template"}`);
+      await triggerCanvasDownload(canvas, fileName, "jpg", 0.95);
     } catch (error) {
       console.error("Unable to export certificate.", error);
-      alert("Unable to download certificate. Please try again.");
+      alert(`Unable to download certificate: ${error.message || "Please try again."}`);
     } finally {
       if (root) root.unmount();
       if (offscreen) offscreen.remove();

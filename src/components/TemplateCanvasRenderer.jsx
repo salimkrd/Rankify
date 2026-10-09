@@ -84,7 +84,15 @@ function resolveText(element, data, winner = null) {
   if (normalizedKey.includes("organizer")) return firstTextValue(data.organizerName, data.organizer, element.content, element.text, element.value, element.label);
   if (normalizedKey.includes("eventdate") || normalizedKey.includes("event date")) return firstTextValue(data.eventDate, element.content, element.text, element.value, element.label);
   if (normalizedKey.includes("eventlocation") || normalizedKey.includes("event location")) return firstTextValue(data.eventLocation, element.content, element.text, element.value, element.label);
-  if (normalizedKey.includes("resultnumber") || normalizedKey.includes("result number") || normalizedKey.includes("result")) {
+  if (
+    !normalizedKey.includes("label") &&
+    (normalizedKey === "resultnumber" ||
+      normalizedKey === "result_number" ||
+      normalizedKey === "result-number" ||
+      normalizedKey === "resultno" ||
+      normalizedKey === "result_no" ||
+      (normalizedKey === "result" && !element.content && !element.text))
+  ) {
     return `${element.prefix || ""}${firstTextValue(data.resultNumber, element.content, element.text, element.value, element.label)}`;
   }
 
@@ -320,17 +328,31 @@ export default function TemplateCanvasRenderer({
         width,
         height,
         backgroundColor,
-        backgroundImage: backgroundImage ? `url(${backgroundImage})` : "none",
-        backgroundSize: "cover",
-        backgroundPosition: "center",
         transform: `scale(${scale})`,
         transformOrigin: "top left",
-        border: "1px solid #D9DEE6",
-        borderRadius: 6,
+        border: previewMode ? "1px solid #D9DEE6" : "none",
+        borderRadius: previewMode ? 6 : 0,
         boxSizing: "border-box",
         colorScheme: "light",
       }}
     >
+      {backgroundImage ? (
+        <img
+          src={backgroundImage}
+          alt=""
+          draggable={false}
+          style={{
+            position: "absolute",
+            inset: 0,
+            width: "100%",
+            height: "100%",
+            objectFit: "cover",
+            display: "block",
+            pointerEvents: "none",
+            zIndex: 0,
+          }}
+        />
+      ) : null}
       {renderedElements}
       {renderedWinners}
       {renderedCustomFields}

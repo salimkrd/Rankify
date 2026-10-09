@@ -13,6 +13,7 @@ import {
   listTeamStatusResultsByEvent,
   updateTeamStatusResult,
 } from "../services/teamStatusResultsService.js";
+import { prepareTemplateForExport, waitForAllAssets, createOffscreenContainer, triggerCanvasDownload } from "../utils/exportAssetHelper.js";
 
 const uid = () => `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 9)}`;
 
@@ -198,43 +199,28 @@ export default function TeamStatusResultsPage() {
     let offscreen = null;
     let root = null;
     try {
-      const tpl = injectResultIntoTemplate(template, result);
+      const injectedTpl = injectResultIntoTemplate(template, result);
+      const { safeTemplate: tpl } = await prepareTemplateForExport(injectedTpl);
       const canvasWidth = Number(tpl.canvas?.width || 1080);
       const canvasHeight = Number(tpl.canvas?.height || 1350);
+      const backgroundColor = tpl.canvas?.backgroundColor ?? "#ffffff";
 
-      // create hidden offscreen container at the target size
-      offscreen = document.createElement("div");
-      offscreen.setAttribute('data-offscreen-poster', 'true');
-      offscreen.style.position = "fixed";
-      offscreen.style.left = "-100000px";
-      offscreen.style.top = "0";
-      offscreen.style.width = `${canvasWidth}px`;
-      offscreen.style.height = `${canvasHeight}px`;
-      offscreen.style.overflow = 'hidden';
-      document.body.appendChild(offscreen);
+      offscreen = createOffscreenContainer(canvasWidth, canvasHeight, backgroundColor);
 
       root = createRoot(offscreen);
-      // render full-size poster at scale 1
-      root.render(<TeamStatusTemplatePreview template={tpl} scale={1} selectedId={""} editable={false} />);
+      root.render(
+        <div style={{ width: canvasWidth, height: canvasHeight, position: "relative", overflow: "hidden", colorScheme: "light" }}>
+          <TeamStatusTemplatePreview template={tpl} scale={1} selectedId={""} editable={false} />
+        </div>
+      );
 
-      // wait for layout, fonts and images
-      await new Promise((resolve) => requestAnimationFrame(resolve));
-      await new Promise((resolve) => requestAnimationFrame(resolve));
-      if (document.fonts?.ready) await document.fonts.ready;
+      await new Promise((resolve) => setTimeout(resolve, 80));
 
       const poster = offscreen.querySelector(".team-status-template-canvas");
       if (!poster) throw new Error("Poster not rendered");
 
-      // wait for any images inside poster to load
-      const imgs = Array.from(poster.querySelectorAll('img'));
-      await Promise.all(imgs.map((img) => new Promise((res) => {
-        if (img.complete) return res();
-        img.onload = img.onerror = res;
-      })));
-      // small delay to ensure fonts/images applied
-      await new Promise((r) => setTimeout(r, 200));
+      await waitForAllAssets(poster);
 
-      // remove border/shadow from poster wrapper for clean capture (offscreen only)
       const prevBorder = poster.style.border;
       const prevBoxShadow = poster.style.boxShadow;
       poster.style.border = 'none';
@@ -242,9 +228,9 @@ export default function TeamStatusResultsPage() {
 
       const { default: html2canvas } = await import("html2canvas");
       const options = {
-        backgroundColor: tpl.canvas?.backgroundColor ?? null,
+        backgroundColor,
         useCORS: true,
-        allowTaint: true,
+        allowTaint: false,
         scale: 2,
         width: canvasWidth,
         height: canvasHeight,
@@ -252,22 +238,19 @@ export default function TeamStatusResultsPage() {
         windowHeight: canvasHeight,
         scrollX: 0,
         scrollY: 0,
+        logging: false,
       };
 
       const canvas = await html2canvas(poster, options);
-      const image = canvas.toDataURL("image/jpeg", 0.95);
-      const link = document.createElement("a");
       const name = `${result.statusName || "status"}-${template.name || template.id || "template"}`.replace(/[\\/:*?"<>|]+/g, "-");
-      link.href = image;
-      link.download = `${name}.jpg`;
-      link.click();
 
-      // restore styles
+      await triggerCanvasDownload(canvas, name, "jpg", 0.95);
+
       poster.style.border = prevBorder;
       poster.style.boxShadow = prevBoxShadow;
     } catch (err) {
       console.error(err);
-      alert("Unable to export JPG. See console.");
+      alert(`Unable to export JPG: ${err.message || "See console."}`);
     } finally {
       if (root) root.unmount();
       if (offscreen) offscreen.remove();

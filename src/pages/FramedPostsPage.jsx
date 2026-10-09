@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { createRoot } from "react-dom/client";
 import { Download, Edit, Eye, FilePlus2, Plus, RefreshCw, Trash2, X } from "lucide-react";
 import NoActiveEventState from "../components/NoActiveEventState.jsx";
 import { useActiveEvent } from "../contexts/ActiveEventContext.jsx";
@@ -10,6 +11,7 @@ import {
   listFramedPostsByEvent,
   updateFramedPost,
 } from "../services/framedPostsService.js";
+import { prepareTemplateForExport, waitForAllAssets, createOffscreenContainer, triggerCanvasDownload } from "../utils/exportAssetHelper.js";
 
 const STATUS_OPTIONS = ["All Status", "Published", "Draft", "Archived"];
 const SORT_OPTIONS = [
@@ -626,66 +628,71 @@ export default function FramedPostsPage() {
   }
 
   async function handleDownload() {
-    if (!exportRef.current || !viewingPost) return;
+    if (!currentViewTemplate || !viewingPost) return;
     setIsExporting(true);
+    let offscreen = null;
+    let root = null;
     try {
-      const exportNode =
-        exportRef.current.querySelector('[data-framed-post-export="true"]') ||
-        exportRef.current;
+      const { safeTemplate, safeData: safePost } = await prepareTemplateForExport(currentViewTemplate, viewingPost);
+      const templateSize = getTemplatePreviewSize(safeTemplate || {});
+      const width = templateSize.width;
+      const height = templateSize.height;
 
-      await waitForImages(exportNode);
-      await new Promise((resolve) => requestAnimationFrame(resolve));
-      const templateSize = getTemplatePreviewSize(currentViewTemplate || {});
+      offscreen = createOffscreenContainer(width, height, "#ffffff");
+
+      root = createRoot(offscreen);
+      root.render(
+        <div style={{ width, height, position: "relative", overflow: "hidden", colorScheme: "light" }}>
+          {renderFramedPostCanvas({
+            template: safeTemplate,
+            contentImageSrc: safePost.contentImageSrc,
+            contentImageWidth: safePost.contentImageWidth || safePost.imageWidth || 0,
+            contentImageHeight: safePost.contentImageHeight || safePost.imageHeight || 0,
+            fieldValues: safePost.fieldValues || {},
+            zoom: safePost.imageZoom ?? safePost.zoom ?? 1,
+            rotation: safePost.imageRotation ?? safePost.rotation ?? 0,
+            aspectRatio: safePost.aspectRatio ?? 1.33,
+            cropX: safePost.imageOffsetX ?? safePost.cropX ?? 0,
+            cropY: safePost.imageOffsetY ?? safePost.cropY ?? 0,
+            imageFit: safePost.imageFit || "cover",
+            scale: 1,
+            isExport: true,
+          })}
+        </div>
+      );
+
+      await new Promise((resolve) => setTimeout(resolve, 80));
+
+      const exportNode =
+        offscreen.querySelector('[data-framed-post-export="true"]') ||
+        offscreen;
+
+      await waitForAllAssets(exportNode);
+
       const { default: html2canvas } = await import("html2canvas");
       const canvas = await html2canvas(exportNode, {
-        backgroundColor: "#f8f2ff",
-        scale: 1,
-        width: templateSize.width,
-        height: templateSize.height,
-        windowWidth: templateSize.width,
-        windowHeight: templateSize.height,
+        backgroundColor: "#ffffff",
+        scale: 2,
+        width,
+        height,
+        windowWidth: width,
+        windowHeight: height,
         useCORS: true,
         allowTaint: false,
         imageTimeout: 15000,
-        onclone: (clonedDocument) => {
-          const clonedExportNode = clonedDocument.querySelector(
-            '[data-framed-post-export="true"]'
-          );
-          if (!clonedExportNode) return;
-
-          clonedExportNode.style.border = "0";
-          clonedExportNode.style.outline = "0";
-          clonedExportNode.style.boxShadow = "none";
-          clonedExportNode
-            .querySelectorAll("[data-export-guide]")
-            .forEach((node) => {
-              node.style.display = "none";
-          });
-        },
+        scrollX: 0,
+        scrollY: 0,
+        logging: false,
       });
 
-      const blob = await new Promise((resolve, reject) => {
-        canvas.toBlob(
-          (nextBlob) => {
-            if (nextBlob) resolve(nextBlob);
-            else reject(new Error("Unable to create JPEG download."));
-          },
-          "image/jpeg",
-          DOWNLOAD_IMAGE_QUALITY
-        );
-      });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = `${viewingPost.name || "framed-post"}.jpg`;
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      URL.revokeObjectURL(url);
+      const fileName = `${viewingPost.name || "framed-post"}`.replace(/[\\/:*?"<>|]+/g, "-");
+      await triggerCanvasDownload(canvas, fileName, "jpg", DOWNLOAD_IMAGE_QUALITY);
     } catch (error) {
       console.error(error);
-      alert("Unable to download the framed post. Please try again.");
+      alert(`Unable to download the framed post: ${error.message || "Please try again."}`);
     } finally {
+      if (root) root.unmount();
+      if (offscreen) offscreen.remove();
       setIsExporting(false);
     }
   }
@@ -772,6 +779,7 @@ export default function FramedPostsPage() {
             <img
               src={contentImageSrc}
               alt="Content"
+              crossOrigin="anonymous"
               style={getContentImageStyle({
                 zoom,
                 rotation,
@@ -796,6 +804,7 @@ export default function FramedPostsPage() {
           <img
             src={frameSrc}
             alt={template.name}
+            crossOrigin="anonymous"
             className="absolute inset-0 h-full w-full object-cover"
             style={{ zIndex: 2, opacity: 1, mixBlendMode: "normal", filter: "none" }}
           />
@@ -833,6 +842,7 @@ export default function FramedPostsPage() {
                 key={field.id || `${field.label}-${index}`}
                 src={imageSrc}
                 alt=""
+                crossOrigin="anonymous"
                 className="absolute"
                 style={{
                   left,

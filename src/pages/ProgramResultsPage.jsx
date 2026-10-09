@@ -14,6 +14,8 @@ import {
   listProgramResultsByEvent,
   updateProgramResult,
 } from "../services/programResultsService.js";
+import TemplateCanvasRenderer from "../components/TemplateCanvasRenderer.jsx";
+import { prepareTemplateForExport, waitForAllAssets, createOffscreenContainer, triggerCanvasDownload } from "../utils/exportAssetHelper.js";
 
 const FALLBACK_TEAMS = ["Alpha"];
 const CUSTOM_WINNER_VALUE = "__custom__";
@@ -197,6 +199,29 @@ const getRenderedTemplateMarkup = (template) =>
   );
 const normalizeText = (value) => String(value || "").toLowerCase();
 const pick = (...values) => values.find((value) => value !== undefined && value !== null && value !== "");
+const mergeActiveEventData = (result, activeEvent) => {
+  const resultEvent = result?.event || {};
+  const eventName = pick(result?.eventName, resultEvent.name, activeEvent?.name);
+  const organizer = pick(result?.organizer, result?.organizerName, resultEvent.organizer, activeEvent?.organizer);
+  const eventDate = pick(result?.eventDate, result?.date, resultEvent.date, activeEvent?.date);
+  const eventLocation = pick(result?.eventLocation, result?.location, resultEvent.location, activeEvent?.location);
+
+  return {
+    ...result,
+    event: {
+      ...resultEvent,
+      name: eventName,
+      organizer,
+      date: eventDate,
+      location: eventLocation,
+    },
+    eventName,
+    organizer,
+    organizerName: pick(result?.organizerName, organizer),
+    eventDate,
+    eventLocation,
+  };
+};
 const pxToPreview = (value, base, previewBase = 256) => {
   if (value === undefined || value === null || value === "") return undefined;
   if (typeof value === "string" && value.includes("%")) return value;
@@ -314,11 +339,11 @@ const renderWinnerContainer = (element, result, canvas) => {
     </div>
   );
 };
-const hasEditorSchema = (template) =>
-  template?.canvas &&
-  Array.isArray(template?.elements) &&
-  (template.elements.some((element) => element?.type === "winnerContainer") ||
-    template.elements.some((element) => ["text", "image", "winnerText", "winnerPhoto"].includes(element?.type)));
+const hasEditorSchema = (template) => {
+  if (!template) return false;
+  const source = template?.templateData || template?.template_data || template;
+  return Array.isArray(source?.elements) && source.elements.length > 0;
+};
 const schemaTextValue = (element, result, winner = null) => {
   const firstTextValue = (...values) => {
     for (const value of values) {
@@ -596,8 +621,20 @@ const renderTemplateWithResult = (template, result) => {
   const background = getTemplateBackground(template);
   const savedMarkup = getRenderedTemplateMarkup(template);
 
+  console.log('[PROGRAM_TEMPLATE_RENDER]', template?.name, { hasEditor: hasEditorSchema(template), elementsLength: template?.elements?.length, bg: template?.canvas?.backgroundImage || template?.backgroundImage });
   if (hasEditorSchema(template)) {
-    return renderEditorSchemaTemplate(template, result);
+    const source = template?.templateData || template?.template_data || template || {};
+    const canvasSource = source.canvas || template?.canvas || {};
+    const width = Number(canvasSource.width || source.canvasWidth || template?.canvasWidth || template?.width || 1080);
+    const height = Number(canvasSource.height || source.canvasHeight || template?.canvasHeight || template?.height || 1350);
+    const scale = Math.min(320 / Math.max(width, 1), 340 / Math.max(height, 1), 1);
+    return (
+      <div style={{ width: width * scale, height: height * scale, position: "relative", flex: "0 0 auto", overflow: "hidden" }}>
+        <div style={{ position: "absolute", top: 0, left: 0, width, height, transform: `scale(${scale})`, transformOrigin: "top left" }}>
+          <TemplateCanvasRenderer template={template} data={result} scale={1} previewMode />
+        </div>
+      </div>
+    );
   }
 
   if (savedMarkup && !elements.length) {
@@ -976,179 +1013,83 @@ function ProgramResultsPage() {
     let root = null;
 
     try {
-      const canvasWidth = Number(template.canvas?.width || 1080);
-      const canvasHeight = Number(template.canvas?.height || 1350);
+      const resultWithEvent = mergeActiveEventData(result, activeEvent);
+      const { safeTemplate, safeData } = await prepareTemplateForExport(template, resultWithEvent);
+      const source = safeTemplate.templateData || safeTemplate.template_data || safeTemplate || {};
+      const canvasSource = source.canvas || safeTemplate.canvas || {};
+      const canvasWidth = Number(canvasSource.width || source.canvasWidth || safeTemplate.canvasWidth || safeTemplate.width || 1080);
+      const canvasHeight = Number(canvasSource.height || source.canvasHeight || safeTemplate.canvasHeight || safeTemplate.height || 1350);
+      const backgroundColor = canvasSource.backgroundColor || safeTemplate.backgroundColor || "#ffffff";
 
-      offscreen = document.createElement("div");
-      offscreen.style.position = "fixed";
-      offscreen.style.left = "-100000px";
-      offscreen.style.top = "0";
-      offscreen.style.width = `${canvasWidth}px`;
-      offscreen.style.height = `${canvasHeight}px`;
-      offscreen.style.opacity = "1";
-      offscreen.style.pointerEvents = "none";
-      offscreen.style.zIndex = "-1";
-      document.body.appendChild(offscreen);
+      offscreen = createOffscreenContainer(canvasWidth, canvasHeight, backgroundColor);
 
       root = createRoot(offscreen);
       root.render(
-        <PosterCanvas
-          template={template}
-          result={result}
-          scale={1}
-          posterId="export-poster"
-        />
+        <div
+          data-poster-export-container="true"
+          style={{
+            width: canvasWidth,
+            height: canvasHeight,
+            position: "relative",
+            overflow: "hidden",
+            colorScheme: "light",
+            backgroundColor,
+          }}
+        >
+          {hasEditorSchema(safeTemplate) ? (
+            <TemplateCanvasRenderer
+              template={safeTemplate}
+              data={safeData}
+              scale={1}
+              previewMode={false}
+            />
+          ) : (
+            renderTemplateWithResult(safeTemplate, safeData)
+          )}
+        </div>
       );
 
-      await new Promise((resolve) => requestAnimationFrame(resolve));
-      await new Promise((resolve) => requestAnimationFrame(resolve));
+      await new Promise((resolve) => setTimeout(resolve, 80));
 
-      const poster = offscreen.querySelector('[data-poster-id="export-poster"]');
+      const poster = offscreen.querySelector('[data-poster-export-container="true"]');
       if (!poster) throw new Error("Export poster was not rendered.");
 
-      poster.style.border = "0";
-      poster.style.borderRadius = "0";
-      poster.style.width = `${canvasWidth}px`;
-      poster.style.height = `${canvasHeight}px`;
+      await waitForAllAssets(poster);
 
       const { default: html2canvas } = await import("html2canvas");
+      const captureTarget = hasEditorSchema(safeTemplate)
+        ? poster
+        : poster.querySelector(".poster-preview") || poster;
+      const captureWidth = captureTarget.scrollWidth || canvasWidth;
+      const captureHeight = captureTarget.scrollHeight || canvasHeight;
 
-      if (document.fonts?.ready) {
-        await document.fonts.ready;
-      }
-
-      await waitForImages(poster);
-      await new Promise((resolve) => setTimeout(resolve, 300));
-
-      const capturedCanvas = await html2canvas(poster, {
-        backgroundColor: "#ffffff",
+      const capturedCanvas = await html2canvas(captureTarget, {
+        backgroundColor,
         scale: 2,
-        width: canvasWidth,
-        height: canvasHeight,
-        windowWidth: canvasWidth,
-        windowHeight: canvasHeight,
+        width: captureWidth,
+        height: captureHeight,
+        windowWidth: captureWidth,
+        windowHeight: captureHeight,
         scrollX: 0,
         scrollY: 0,
         useCORS: true,
-        allowTaint: true,
+        allowTaint: false,
+        logging: false,
       });
 
-      const image = capturedCanvas.toDataURL("image/jpeg", 0.95);
-
-      const link = document.createElement("a");
-      link.href = image;
-      link.download = `${result.programName || "poster"}-${template.name || "template"}.jpg`
+      const fileName = `${result.programName || "poster"}-${template.name || "template"}`
         .replace(/[\\/:*?"<>|]+/g, "-")
         .replace(/\s+/g, " ")
         .trim();
 
-      link.click();
+      await triggerCanvasDownload(capturedCanvas, fileName, "jpg", 0.95);
     } catch (error) {
       console.error("Unable to export poster as JPG.", error);
-      alert("Unable to export JPG. Please check console.");
+      alert(`Unable to export JPG: ${error.message || "Please check console."}`);
     } finally {
       if (root) root.unmount();
       if (offscreen) offscreen.remove();
     }
-    return;
-    const templateJson = JSON.stringify(template, null, 2).replace(/</g, "\\u003c");
-    if (hasEditorSchema(template)) {
-      const escape = (value) =>
-        String(value ?? "")
-          .replace(/&/g, "&amp;")
-          .replace(/</g, "&lt;")
-          .replace(/>/g, "&gt;")
-          .replace(/"/g, "&quot;");
-      const canvas = template.canvas || {};
-      const width = Number(canvas.width || 1080);
-      const height = Number(canvas.height || 1350);
-      const winnerContainer =
-        template.elements.find((element) => element.id === "winnerContainer") ||
-        template.elements.find((element) => element.type === "winnerContainer");
-      const winnerChildren = template.elements.filter((element) => element.type === "winnerText" || element.type === "winnerPhoto");
-      const baseElements = template.elements.filter(
-        (element) => !["winnerContainer", "winnerText", "winnerPhoto"].includes(element.type)
-      );
-      const cssFromStyle = (style) =>
-        Object.entries(style)
-          .filter(([, value]) => value !== undefined && value !== null && value !== "")
-          .map(([key, value]) => `${key.replace(/[A-Z]/g, (letter) => `-${letter.toLowerCase()}`)}:${value}`)
-          .join(";");
-      const elementHtml = (element, winner = null, offset = { x: 0, y: 0 }) => {
-        const style = cssFromStyle(schemaElementStyle(element, offset));
-        if (element.type === "image") {
-          const src = element.src || element.url || element.image || element.imageUrl;
-          return src ? `<img src="${escape(src)}" alt="" style="${style}">` : "";
-        }
-        if (element.type === "winnerPhoto") {
-          const src = winner?.image || winner?.imageUrl || winner?.photo || winner?.photoUrl || element.src || element.url || element.imageUrl;
-          return src ? `<img src="${escape(src)}" alt="" style="${style}">` : "";
-        }
-        return `<div style="${style}">${escape(schemaTextValue(element, result, winner))}</div>`;
-      };
-      const winnerHtml =
-        winnerContainer && winnerChildren.length
-          ? (result.winners || [])
-              .flatMap((winner, index) => {
-                const spacing = Number(winnerContainer.spacing || 0);
-                const direction = winnerContainer.direction || "vertical";
-                const offset =
-                  direction === "horizontal"
-                    ? { x: Number(winnerContainer.x || 0) + index * spacing, y: Number(winnerContainer.y || 0) }
-                    : { x: Number(winnerContainer.x || 0), y: Number(winnerContainer.y || 0) + index * spacing };
-                return winnerChildren.map((child) => elementHtml(child, winner, offset));
-              })
-              .join("")
-          : "";
-      const html = `<!doctype html><html><head><meta charset="utf-8"><title>${escape(result.programName)}</title><style>body{margin:0;background:#eef2f6;display:grid;place-items:center;min-height:100vh;padding:32px}.poster{position:relative;width:${width}px;height:${height}px;background-color:${canvas.backgroundColor || template.backgroundColor || "#fff"};background-image:${canvas.backgroundImage ? `url(${canvas.backgroundImage})` : "none"};background-size:cover;background-position:center;overflow:hidden}</style></head><body><section class="poster">${baseElements.map((element) => elementHtml(element)).join("")}${winnerHtml}</section><details style="margin-top:24px;font:12px Arial;color:#555"><summary>Template data used</summary><pre>${templateJson}</pre></details></body></html>`;
-      const url = URL.createObjectURL(new Blob([html], { type: "text/html" }));
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = `${result.programName || "poster"}-${template.name || "template"}.html`;
-      link.click();
-      URL.revokeObjectURL(url);
-      return;
-    }
-    const savedMarkup = getRenderedTemplateMarkup(template);
-    if (savedMarkup) {
-      const html = `<!doctype html><html><head><meta charset="utf-8"><title>${result.programName}</title><style>body{margin:0;background:#eef2f6;display:grid;place-items:center;min-height:100vh;padding:32px}</style></head><body>${replaceResultTokens(savedMarkup, result)}<details style="margin-top:24px;font:12px Arial;color:#555"><summary>Template data used</summary><pre>${templateJson}</pre></details></body></html>`;
-      const url = URL.createObjectURL(new Blob([html], { type: "text/html" }));
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = `${result.programName || "poster"}-${template.name || "template"}.html`;
-      link.click();
-      URL.revokeObjectURL(url);
-      return;
-    }
-    const canvas = getCanvasSize(template);
-    const background = getTemplateBackground(template);
-    const elements = getTemplateElements(template);
-    const elementHtml = elements.length
-      ? elements.map((element, index) => {
-          const type = normalizeText(element.type || element.kind);
-          const source = normalizeText(element?.key || element?.field || element?.dataKey || element?.name || element?.id || element?.label || element?.text);
-          const winnerIndex = Number((source.match(/(?:winner|photo|image)[^0-9]*(\d+)/) || [])[1] || 1);
-          const winner = result.winners?.[Math.max(0, winnerIndex - 1)] || result.winners?.[0];
-          const winnerImage = winner?.image || winner?.imageUrl || winner?.photo || winner?.photoUrl;
-          const src = source.includes("winner") && source.includes("image") && winnerImage ? winnerImage : element.src || element.url || element.image || element.imageUrl || element.attrs?.src;
-          const style = elementStyle(element, canvas);
-          const css = Object.entries(style).filter(([, value]) => value !== undefined && value !== null && value !== "").map(([key, value]) => `${key.replace(/[A-Z]/g, (letter) => `-${letter.toLowerCase()}`)}:${value}`).join(";");
-          if (type.includes("image") && src) return `<img src="${src}" style="${css}" alt="">`;
-          if (source.includes("winner") && (source.includes("container") || source.includes("list") || type.includes("list"))) {
-            return `<div style="${css}">${(result.winners || []).map((winner) => `<div style="display:grid;grid-template-columns:auto 1fr auto;gap:6px;align-items:center;margin-bottom:4px"><span>${winner.position || ""}</span><span>${winner.name || ""}</span><span>${winner.team || ""}</span></div>`).join("")}</div>`;
-          }
-          if (type.includes("shape") || type.includes("rect") || type.includes("circle")) return `<div style="${css};background:${element.fill || element.backgroundColor || element.color || "transparent"}"></div>`;
-          return `<div style="${css}">${resultValueForElement(element, result)}</div>`;
-        }).join("")
-      : `<div class="fallback"><p>Result No: ${result.resultNumber}</p><h2>${result.category}</h2><h1>${result.programName}</h1><ol>${(result.winners || []).map((winner) => `<li>${winner.position ? `${winner.position}. ` : ""}${winner.name || "Winner"}${winner.team ? ` <small>(${winner.team})</small>` : ""}</li>`).join("")}</ol></div>`;
-    const bgImage = background.image ? `<img class="bg" src="${background.image}" alt="">` : "";
-    const html = `<!doctype html><html><head><meta charset="utf-8"><title>${result.programName}</title><style>body{margin:0;background:#eef2f6;font-family:Arial,sans-serif;display:grid;place-items:center;min-height:100vh;padding:32px}.poster{position:relative;width:${canvas.width}px;height:${canvas.height}px;max-width:95vw;max-height:95vh;background:${background.color};border:1px solid #d7dce5;box-shadow:0 18px 45px rgba(15,23,42,.18);overflow:hidden}.bg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}.fallback{padding:72px;color:#111}.fallback h1{font-size:42px}.fallback h2{font-size:26px}.fallback li{font-size:22px;margin:8px 0}details{margin-top:24px;font-size:12px;color:#555}</style></head><body><main><section class="poster">${bgImage}${elementHtml}</section><details><summary>Template data used</summary><pre>${templateJson}</pre></details></main></body></html>`;
-    const url = URL.createObjectURL(new Blob([html], { type: "text/html" }));
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `${result.programName || "poster"}-${template.name || "template"}.html`;
-    link.click();
-    URL.revokeObjectURL(url);
   };
 
   return (
@@ -1320,7 +1261,7 @@ function ProgramResultsPage() {
                 {templates.map((template) => (
                   <article className="template-card" key={template.id}>
                     <h3>{template.name}</h3>
-                    <div className="template-preview" id={`poster-preview-${template.id}`}>{renderTemplateWithResult(template, viewing)}</div>
+                    <div className="template-preview" id={`poster-preview-${template.id}`}>{renderTemplateWithResult(template, mergeActiveEventData(viewing, activeEvent))}</div>
                     <button className="primary-btn" onClick={() => downloadPoster(template, viewing)}><Download size={18} strokeWidth={1.9} aria-hidden="true" />Download Poster</button>
                   </article>
                 ))}

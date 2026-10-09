@@ -66,6 +66,44 @@ const server = http.createServer(async (request, response) => {
   const url = new URL(request.url, `http://${request.headers.host}`);
 
   if (url.pathname === '/api/health') return sendJson(response, 200, { ok: true, app: 'Rankify' });
+  if (url.pathname.startsWith('/api/storage-proxy/')) {
+    if (request.method !== 'GET') {
+      response.writeHead(405, { Allow: 'GET' });
+      response.end();
+      return;
+    }
+
+    const targetPath = url.pathname.slice('/api/storage-proxy'.length);
+    if (!targetPath.startsWith('/v0/b/rankify-4b819')) {
+      response.writeHead(403);
+      response.end('Forbidden: Access is strictly restricted to Rankify storage assets.');
+      return;
+    }
+
+    try {
+      const targetUrl = new URL(
+        `${targetPath}${url.search}`,
+        'https://firebasestorage.googleapis.com',
+      );
+      if (targetUrl.hostname !== 'firebasestorage.googleapis.com') {
+        response.writeHead(400);
+        response.end();
+        return;
+      }
+
+      const proxyRes = await fetch(targetUrl);
+      const buffer = Buffer.from(await proxyRes.arrayBuffer());
+      const headers = Object.fromEntries(proxyRes.headers.entries());
+      delete headers['content-encoding'];
+      headers['content-length'] = String(buffer.byteLength);
+      headers['access-control-allow-origin'] = '*';
+      response.writeHead(proxyRes.status, headers);
+      response.end(buffer);
+      return;
+    } catch (proxyErr) {
+      return sendJson(response, 502, { error: 'Storage proxy failed', details: proxyErr.message });
+    }
+  }
   if (url.pathname === '/api/events' && request.method === 'GET') return sendJson(response, 200, state.events);
   if (url.pathname === '/api/winners' && request.method === 'GET') return sendJson(response, 200, state.winners);
   if (url.pathname === '/api/profile' && request.method === 'GET') return sendJson(response, 200, state.profile);

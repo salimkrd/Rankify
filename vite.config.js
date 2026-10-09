@@ -24,10 +24,24 @@ export default defineConfig(() => {
     server: {
       host: "0.0.0.0",
       port: 5173,
+      proxy: {
+        "/api/storage-proxy": {
+          target: "https://firebasestorage.googleapis.com",
+          changeOrigin: true,
+          rewrite: (path) => path.replace(/^\/api\/storage-proxy/, ""),
+        },
+      },
     },
     preview: {
       host: "0.0.0.0",
       port: 4173,
+      proxy: {
+        "/api/storage-proxy": {
+          target: "https://firebasestorage.googleapis.com",
+          changeOrigin: true,
+          rewrite: (path) => path.replace(/^\/api\/storage-proxy/, ""),
+        },
+      },
     },
   };
 });

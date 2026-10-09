@@ -115,6 +115,11 @@ export default function App() {
           <Route path="categories" element={<CategoriesPage />} />
         </Route>
 
+        <Route path="/framed-posts/my-posts" element={<Navigate to="/dashboard/framed-posts/my-posts" replace />} />
+        <Route path="/framed-posts" element={<Navigate to="/dashboard/framed-posts" replace />} />
+        <Route path="/program-results" element={<Navigate to="/dashboard/program-results" replace />} />
+        <Route path="/team-status-results" element={<Navigate to="/dashboard/team-status-results" replace />} />
+        <Route path="/certificate-results" element={<Navigate to="/dashboard/certificate-results" replace />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </>
