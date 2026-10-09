@@ -60,6 +60,14 @@ export default async function handler(req, res) {
       });
     }
 
+    // 3.5 Ensure object path after '/o/' is correctly percent-encoded (Vercel rewrites decode %2F into /)
+    const oIndex = targetPath.indexOf("/o/");
+    if (oIndex !== -1) {
+      const bucketPrefix = targetPath.slice(0, oIndex + 3);
+      const rawObjectPart = targetPath.slice(oIndex + 3);
+      targetPath = bucketPrefix + encodeURIComponent(decodeURIComponent(rawObjectPart));
+    }
+
     // Accumulate query parameters
     const searchParams = new URLSearchParams();
 

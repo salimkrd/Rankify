@@ -73,11 +73,18 @@ const server = http.createServer(async (request, response) => {
       return;
     }
 
-    const targetPath = url.pathname.slice('/api/storage-proxy'.length);
+    let targetPath = url.pathname.slice('/api/storage-proxy'.length);
     if (!targetPath.startsWith('/v0/b/rankify-4b819')) {
       response.writeHead(403);
       response.end('Forbidden: Access is strictly restricted to Rankify storage assets.');
       return;
+    }
+
+    const oIndex = targetPath.indexOf('/o/');
+    if (oIndex !== -1) {
+      const bucketPrefix = targetPath.slice(0, oIndex + 3);
+      const rawObjectPart = targetPath.slice(oIndex + 3);
+      targetPath = bucketPrefix + encodeURIComponent(decodeURIComponent(rawObjectPart));
     }
 
     try {
